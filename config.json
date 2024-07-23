@@ -1,0 +1,31 @@
+{
+  "options": {
+    "wallet": "keys.txt",
+    "reset_db": true,
+    "request_retries": 3,
+    "node": "http://rpc.allora.network",
+    "loop_seconds": 60,
+    "min_stake_to_repute": "50000"
+  },
+  "worker": [
+    {
+      "topic_id": "1",
+      "inference_entrypoint": "worker_coin_predictor_10min_eth",
+      "forecast_entrypoint": "worker_coin_predictor_10min_eth"
+    },
+    {
+      "topic_id": "2",
+      "inference_entrypoint": "worker_coin_predictor_20min"
+    }
+  ],
+  "reputer": [
+    {
+      "topic_id": "1",
+      "loss_entrypoint": "reputer_coingecko_l1_norm"
+    },
+    {
+      "topic_id": "3",
+      "loss_entrypoint": "reputer_coingecko_l1_norm"
+    }
+  ]
+}

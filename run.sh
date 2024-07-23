@@ -1,0 +1,2 @@
+go build
+go run allora_offchain_node
