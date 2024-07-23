@@ -1,45 +1,30 @@
 package main
 
+type TopicId = string
+
+type ConfigOptions struct {
+	Wallet           string
+	RequestRetries   int
+	Node             string
+	LoopSeconds      int
+	MinStakeToRepute string
+}
+
 type WorkerConfig struct {
-	TopicId             string `json:"topic_id"`
-	InferenceEntrypoint string `json:"inference_entrypoint"`
-	ForecastEntrypoint  string `json:"forecast_entrypoint"`
+	TopicId             TopicId
+	InferenceEntrypoint AlloraEntrypoint
+	ForecastEntrypoint  AlloraEntrypoint
 }
 
 type ReputerConfig struct {
-	TopicId           string `json:"topic_id"`
-	ReputerEntrypoint string `json:"loss_entrypoint"`
+	TopicId           TopicId
+	ReputerEntrypoint AlloraEntrypoint
 }
 
 type Config struct {
-	Options struct {
-		Wallet           string `json:"wallet"`
-		RequestRetries   int    `json:"request_retries"`
-		Node             string `json:"node"`
-		LoopSeconds      int    `json:"loop_seconds"`
-		MinStakeToRepute string `json:"min_stake_to_repute"`
-	} `json:"options"`
-	Worker  []WorkerConfig  `json:"worker"`
-	Reputer []ReputerConfig `json:"reputer"`
-}
-
-func (c Config) ToEntrypointSet() map[string]bool {
-	output := map[string]bool{}
-	for _, w := range c.Worker {
-		if w.InferenceEntrypoint != "" {
-			output[w.InferenceEntrypoint] = true
-		}
-		if w.ForecastEntrypoint != "" {
-			output[w.ForecastEntrypoint] = true
-		}
-	}
-	for _, w := range c.Reputer {
-		if w.ReputerEntrypoint != "" {
-			output[w.ReputerEntrypoint] = true
-		}
-
-	}
-	return output
+	Options ConfigOptions
+	Worker  []WorkerConfig
+	Reputer []ReputerConfig
 }
 
 type AlloraEntrypoint interface {

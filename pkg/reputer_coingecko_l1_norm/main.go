@@ -4,38 +4,40 @@ import (
 	"fmt"
 )
 
-type AlloraEntrypoint struct{}
-
-func (a AlloraEntrypoint) Name() string {
-	return "reputer_coingecko_l1norm"
+type AlloraEntrypoint struct {
+	name string
 }
 
-func (a AlloraEntrypoint) CalcInference() {
-	fmt.Println("I do nothing. from " + a.Name())
+func (a *AlloraEntrypoint) Name() string {
+	return a.name
 }
 
-func (a AlloraEntrypoint) CalcForecast() {
-	fmt.Println("I do nothing. from " + a.Name())
+func (a *AlloraEntrypoint) CalcInference() {
+	fmt.Println("I do nothing. from " + a.name)
 }
 
-func (a AlloraEntrypoint) CalcLoss() {
-	fmt.Println("Loss from " + a.Name())
+func (a *AlloraEntrypoint) CalcForecast() {
+	fmt.Println("I do nothing. from " + a.name)
 }
 
-func (a AlloraEntrypoint) CanInfer() bool {
+func (a *AlloraEntrypoint) CalcLoss() {
+	fmt.Println("Loss from " + a.name)
+}
+
+func (a *AlloraEntrypoint) CanInfer() bool {
 	return false
 }
 
-func (a AlloraEntrypoint) CanForecast() bool {
+func (a *AlloraEntrypoint) CanForecast() bool {
 	return false
 }
 
-func (a AlloraEntrypoint) CanCalcLoss() bool {
+func (a *AlloraEntrypoint) CanCalcLoss() bool {
 	return true
 }
 
-func NewAlloraEntrypoint() AlloraEntrypoint {
-	return AlloraEntrypoint{
-		// Initialize fields
+func NewAlloraEntrypoint() *AlloraEntrypoint {
+	return &AlloraEntrypoint{
+		name: "reputer_coingecko_l1norm",
 	}
 }

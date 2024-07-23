@@ -1,105 +1,95 @@
 package main
 
 import (
-	"encoding/json"
-	"io"
 	"log"
-	"os"
 	"sync"
 
-	reputer "allora_offchain_node/pkg/reputer_coingecko_l1_norm"
+	reputerCoinGecko "allora_offchain_node/pkg/reputer_coingecko_l1_norm"
 	worker10min "allora_offchain_node/pkg/worker_coin_predictor_10min_eth"
 	worker20min "allora_offchain_node/pkg/worker_coin_predictor_20min"
 )
 
-var AvailableEntrypoints = map[string]AlloraEntrypoint{
-	worker10min.AlloraEntrypoint{}.Name(): worker10min.NewAlloraEntrypoint(),
-	worker20min.AlloraEntrypoint{}.Name(): worker20min.NewAlloraEntrypoint(),
-	reputer.AlloraEntrypoint{}.Name():     reputer.NewAlloraEntrypoint(),
+var TheConfig = Config{
+	Options: ConfigOptions{
+		Wallet:           "0x123",
+		RequestRetries:   3,
+		Node:             "http://rpc.allora.network",
+		LoopSeconds:      60,
+		MinStakeToRepute: "100",
+	},
+	Worker: []WorkerConfig{
+		{
+			TopicId:             "1",
+			InferenceEntrypoint: worker10min.NewAlloraEntrypoint(),
+			ForecastEntrypoint:  nil,
+		},
+		{
+			TopicId:             "2",
+			InferenceEntrypoint: worker20min.NewAlloraEntrypoint(),
+			ForecastEntrypoint:  worker20min.NewAlloraEntrypoint(),
+		},
+	},
+	Reputer: []ReputerConfig{
+		{
+			TopicId:           "1",
+			ReputerEntrypoint: reputerCoinGecko.NewAlloraEntrypoint(),
+		},
+	},
 }
 
-type TopicId = string
-type TopicToEntrypoint map[TopicId]*AlloraEntrypoint
-
-// Ensure that entrypoints in this file are same as in JSON config file
-func matchTopicToEntrypoints(config Config) (
-	map[string]bool,
-	TopicToEntrypoint,
-	TopicToEntrypoint,
-	TopicToEntrypoint,
-) {
-	uniqueWorkerTopicIds := make(map[TopicId]bool)
-	inferenceEntrypoints := make(TopicToEntrypoint)
-	forecastEntrypoints := make(TopicToEntrypoint)
-	reputerEntrypoints := make(TopicToEntrypoint)
-
+// Check that each assigned entrypoint in `TheConfig` actually can be used
+// for the intended purpose, else throw error
+func validateConfigEntrypoints(config Config) {
 	for _, workerConfig := range config.Worker {
-		if _, ok := uniqueWorkerTopicIds[workerConfig.TopicId]; !ok {
-			uniqueWorkerTopicIds[workerConfig.TopicId] = true
+		if workerConfig.InferenceEntrypoint != nil && !workerConfig.InferenceEntrypoint.CanInfer() {
+			log.Fatal("Invalid inference entrypoint: ", workerConfig.InferenceEntrypoint)
 		}
-		log.Print("inferenceConfig: ", workerConfig.InferenceEntrypoint)
-		if val, ok := AvailableEntrypoints[workerConfig.InferenceEntrypoint]; ok && val.CanInfer() {
-			inferenceEntrypoints[workerConfig.TopicId] = &val
-		}
-		log.Print("forecastConfig: ", workerConfig.ForecastEntrypoint)
-		if val, ok := AvailableEntrypoints[workerConfig.ForecastEntrypoint]; ok && val.CanForecast() {
-			forecastEntrypoints[workerConfig.ForecastEntrypoint] = &val
+		if workerConfig.ForecastEntrypoint != nil && !workerConfig.ForecastEntrypoint.CanForecast() {
+			log.Fatal("Invalid forecast entrypoint: ", workerConfig.ForecastEntrypoint)
 		}
 	}
 
 	for _, reputerConfig := range config.Reputer {
-		log.Print("reputerConfig: ", reputerConfig.ReputerEntrypoint)
-		log.Print("AvailableEntrypoints", AvailableEntrypoints)
-		log.Print(AvailableEntrypoints[reputerConfig.ReputerEntrypoint].CanCalcLoss())
-		if val, ok := AvailableEntrypoints[reputerConfig.ReputerEntrypoint]; ok && val.CanCalcLoss() {
-			reputerEntrypoints[reputerConfig.ReputerEntrypoint] = &val
+		if reputerConfig.ReputerEntrypoint != nil && !reputerConfig.ReputerEntrypoint.CanCalcLoss() {
+			log.Fatal("Invalid loss entrypoint: ", reputerConfig.ReputerEntrypoint)
 		}
 	}
-
-	return uniqueWorkerTopicIds, inferenceEntrypoints, forecastEntrypoints, reputerEntrypoints
 }
 
 func main() {
-	// Read config.json file
-	configFile, err := os.Open("config.json")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer configFile.Close()
-
-	byteValue, _ := io.ReadAll(configFile)
-
-	var config Config
-	json.Unmarshal(byteValue, &config)
-
-	// Organize which entrypoints user wants to run per topic
-	uniqueWorkerTopicIds,
-		inferenceEntrypoints,
-		forecastEntrypoints,
-		reputerEntrypoints := matchTopicToEntrypoints(config)
-
-	log.Print(config)
-	log.Print("uniqueWorkerTopicIds: ", uniqueWorkerTopicIds)
-	log.Print("inferenceEntrypoints: ", inferenceEntrypoints)
-	log.Print("forecastEntrypoints: ", forecastEntrypoints)
-	log.Print("reputerEntrypoints: ", reputerEntrypoints)
-
-	// Run worker and reputer processes
+	validateConfigEntrypoints(TheConfig)
 	var wg sync.WaitGroup
-	for topicId := range uniqueWorkerTopicIds {
+
+	// Run worker processes
+	alreadyStartedWorkerForTopic := make(map[string]bool)
+	for _, worker := range TheConfig.Worker {
+		if _, ok := alreadyStartedWorkerForTopic[worker.TopicId]; ok {
+			log.Println("Worker already started for topicId: ", worker.TopicId)
+			continue
+		}
+		alreadyStartedWorkerForTopic[worker.TopicId] = true
+
 		wg.Add(1)
-		go func(topicId string, inferenceEntrypoint, forecastEntrypoint *AlloraEntrypoint) {
+		go func(worker WorkerConfig) {
 			defer wg.Done()
-			runWorkerProcess(topicId, *inferenceEntrypoint, *forecastEntrypoint)
-		}(topicId, inferenceEntrypoints[topicId], forecastEntrypoints[topicId])
+			runWorkerProcess(worker.TopicId, worker.InferenceEntrypoint, worker.ForecastEntrypoint)
+		}(worker)
 	}
 
-	for topicId, reputerEntrypoint := range reputerEntrypoints {
+	// Run reputer processes
+	alreadyStartedReputerForTopic := make(map[string]bool)
+	for _, reputer := range TheConfig.Reputer {
+		if _, ok := alreadyStartedReputerForTopic[reputer.TopicId]; ok {
+			log.Println("Reputer already started for topicId: ", reputer.TopicId)
+			continue
+		}
+		alreadyStartedReputerForTopic[reputer.TopicId] = true
+
 		wg.Add(1)
-		go func(topicId string, reputerEntrypoint *AlloraEntrypoint) {
+		go func(reputer ReputerConfig) {
 			defer wg.Done()
-			runReputerProcess(topicId, *reputerEntrypoint)
-		}(topicId, reputerEntrypoint)
+			runReputerProcess(reputer.TopicId, reputer.ReputerEntrypoint)
+		}(reputer)
 	}
 
 	// Wait for all goroutines to finish

@@ -1,7 +1,6 @@
 {
   "options": {
     "wallet": "keys.txt",
-    "reset_db": true,
     "request_retries": 3,
     "node": "http://rpc.allora.network",
     "loop_seconds": 60,
