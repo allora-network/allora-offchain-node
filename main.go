@@ -11,7 +11,7 @@ import (
 
 var TheConfig = Config{
 	Options: ConfigOptions{
-		Wallet:           "0x123",
+		Wallet:           "keys.txt",
 		RequestRetries:   3,
 		Node:             "http://rpc.allora.network",
 		LoopSeconds:      60,
