@@ -1,7 +1,10 @@
 package reputer_coingecko_l1_norm
 
 import (
+	"allora_offchain_node/types"
 	"fmt"
+
+	emissions "github.com/allora-network/allora-chain/x/emissions/types"
 )
 
 type AlloraEntrypoint struct {
@@ -12,16 +15,19 @@ func (a *AlloraEntrypoint) Name() string {
 	return a.name
 }
 
-func (a *AlloraEntrypoint) CalcInference() {
+func (a *AlloraEntrypoint) CalcInference() (emissions.Inference, error) {
 	fmt.Println("I do nothing. from " + a.name)
+	return emissions.Inference{}, nil
 }
 
-func (a *AlloraEntrypoint) CalcForecast() {
+func (a *AlloraEntrypoint) CalcForecast() (emissions.Forecast, error) {
 	fmt.Println("I do nothing. from " + a.name)
+	return emissions.Forecast{}, nil
 }
 
-func (a *AlloraEntrypoint) CalcLoss() {
-	fmt.Println("Loss from " + a.name)
+func (a *AlloraEntrypoint) SourceTruth() (types.Truth, error) {
+	fmt.Println("Truth from " + a.name)
+	return "", nil
 }
 
 func (a *AlloraEntrypoint) CanInfer() bool {
@@ -32,7 +38,7 @@ func (a *AlloraEntrypoint) CanForecast() bool {
 	return false
 }
 
-func (a *AlloraEntrypoint) CanCalcLoss() bool {
+func (a *AlloraEntrypoint) CanSourceTruth() bool {
 	return true
 }
 

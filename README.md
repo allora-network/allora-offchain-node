@@ -1,62 +1,11 @@
 # allora-offchain-node
 Allora off-chain nodes publish inferences, forecasts, and losses to the Allora chain.
 
-## Off-chain worker/reputer modifications
-
-Starting fresh of off-chain nodes.
-
-Could be written in Golang/Python/Typescript. Golang probs easier for go routines and has Cosmos client (Ignite).
-
-Ideally every component here is written in the same language.
-
-Overall Off-Chain Flow and Configuration
-
-There's 1 script to write:
+## How to run
 
 ```shell
-./run.sh config.json
+./run.sh
 ```
-
-The 1 argument here is a config.json file where the model and source of truth is specified.
-
-Use the following schema:
-
-```json
-{
-  "options": {
-    "wallet": "keys.txt",
-    "reset_db": true,
-    "request_retries": 3,
-    "node": "http://rpc.allora.network",
-    "loop_seconds": 60,
-    "min_stake_to_repute": "50000"
-  },
-  "worker": [
-    {
-      "topic_id": 1,
-      "inference_entrypoint": "topic_1_model_1.go",  // we expect this to take block height arg
-      "forecast_entrypoint": "topic_1_model_2.go"    // we expect this to take block height arg
-    },
-    ...
-  ],
-  "reputer": [
-    {
-      "topic_id": 1,
-      // We expect this to accept or gather "loss name/id", current_nonce, topic.
-      // In the file, we should get previous losses & other parameters of loss request.
-      "loss_entrypoint": "topic_1_reputer_model.go"
-    },
-    ...
-  ]
-}
-```
-
-### Possible simplifications
-
-* assume config.json exists in same directory as script and is indeed called config.json
-* always reset_db => don't make it an option
-* just use default value instead of loop_seconds => don't make it a option
-* just use default value instead of request_retries => don't make it a option
 
 ## run.sh
 
@@ -80,11 +29,11 @@ Could spin off a distinct processes per role worker, reputer
       1. If current_block_height ≥ latest_open_worker_nonce_from_chain && current_block_height ≤ latest_open_worker_nonce_from_chain + topic.window, then
          1. Invoke configured inference_entrypoint, forecast_entrypoint for topic and get results
             1. These files should gather and compute data to produce inference and forecast for appropriate timestep and return them
-         1. Else, break this inner retry loop
-      1. Attempt to commit inference and forecast bundle to the chain
+         2. Else, break this inner retry loop
+      2. Attempt to commit inference and forecast bundle to the chain
          1. Log success/failures as usual
 
-### Reputer process:
+### Reputer process
 
 1. Spawn a go routine per topic
 2. Get topic data from chain via RPC. Hold this in memory
@@ -114,10 +63,60 @@ Could spin off a distinct processes per role worker, reputer
 Please mock these for now until they're solidified in a PR (at least that) on allora-chain
 
 * GetTopic (already exists)
-* Get latest unsealed (worker) nonce
-* latest_open_worker_nonce_from_chain
-* Get latest unsealed (reputer) nonce
-* latest_open_reputer_nonce_from_chain
+* Get latest open (worker) nonce
+   * latest_open_worker_nonce_from_chain
+* Get latest open (reputer) nonce
+   * latest_open_reputer_nonce_from_chain
 * Commit worker bundle tx
 * Commit reputer bundle tx
+
+## Associated Project
+
+https://linear.app/upshot/project/removing-b7s-1a1aeb0a6477/overview
+
+## Future Work
+
+* For now, we put all topic-specific reputer/worker logic in packages.
+   * In immediate next iteration, should create modules for various modules and sources of ground truth
+   * Then in JSON, can specify which modules to use for which topics and automatically load them
+* Could make this whole thing (or modules wihtin it) a lambda function => super cheap
+* Use better logging library
+
+## Notes
+
+topic.EpochLastEnded + N*topic.EpochLength
+N=1,2,3,4...
+
+1. Get topic state
+	1. Could check for topic active first to minimize compute: IsTopicActive query
+2. Calculate start and end of next window
+	1. `soonest_start = topic.EpochLastEnded + topic.EpochLength`
+	2. `soonest_end = soonest_start + topic.WindowLength`
+3. Try to get inferences in that window
+	1. Look at how we use Ignite client in allora-inference-base
+4. Regardless if success/fail, wait for next window and try again
+
+For reputers, you don't have a window, you have the full epoch length to submit a loss bundle.
+Note: The loss bundle is a bit more complicated than the inference and forecast bundles. It requires a bit more data and computation. You can also get this from allora-inference-base and/or where we define the loss functions
+   * They take the form of ReputerValueBundle (as defined in allora-chain)
+
+Is there a way to get latest "time per block" from the chain.
+^That'd be ideal.
+
+If not, then you can assume 5sec/block
+
+### Intended workflow
+
+{
+  "topic": 1,
+  "model": "model_module_name"
+}
+
+1. clone this repo
+2. run some script (TBD) and that script will:
+--> map json to go file format
+--> `go get ...` to get the model module
+3. ./run.sh
+
+It is up to the user to ensure that they have the correct model module installed and that it is compatible with the topic they are trying to work on, and they specify this model in `config.go`
 
