@@ -5,7 +5,6 @@ import (
 )
 
 func main() {
-	FullConfig := UserConfig.MapUserConfigToFullConfig()
-	spawner := usecase.NewProcessSpawner(FullConfig)
+	spawner := usecase.NewProcessSpawner(UserConfig)
 	spawner.Spawn()
 }
