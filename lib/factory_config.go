@@ -3,9 +3,10 @@ package lib
 import (
 	"context"
 	"errors"
-	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/rs/zerolog/log"
 
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -25,14 +26,14 @@ func getAlloraClient(config *UserConfig) (*cosmosclient.Client, error) {
 
 	// Check that the given home folder exist
 	if _, err := os.Stat(alloraClientHome); errors.Is(err, os.ErrNotExist) {
-		log.Println("Home directory does not exist, creating...")
+		log.Info().Msg("Home directory does not exist, creating...")
 		err = os.MkdirAll(alloraClientHome, 0755)
 		if err != nil {
-			log.Printf("Cannot create allora client home directory: %s. Error: %s", alloraClientHome, err)
+			log.Error().Err(err).Str("home", alloraClientHome).Msg("Cannot create allora client home directory")
 			config.Wallet.SubmitTx = false
 			return nil, err
 		}
-		log.Printf("Allora client home directory created: %s", alloraClientHome)
+		log.Info().Str("home", alloraClientHome).Msg("Allora client home directory created")
 	}
 
 	client, err := cosmosclient.New(ctx,
@@ -43,7 +44,7 @@ func getAlloraClient(config *UserConfig) (*cosmosclient.Client, error) {
 		cosmosclient.WithGasAdjustment(config.Wallet.GasAdjustment),
 	)
 	if err != nil {
-		log.Printf("Unable to create an allora blockchain client: %s", err)
+		log.Error().Err(err).Msg("Unable to create an allora blockchain client")
 		config.Wallet.SubmitTx = false
 		return nil, err
 	}
@@ -64,7 +65,7 @@ func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
 		account, err = client.Account(config.Wallet.AddressKeyName)
 		if err != nil {
 			config.Wallet.SubmitTx = false
-			log.Printf("could not retrieve account from keyring: %s", err)
+			log.Error().Err(err).Msg("could not retrieve account from keyring")
 		}
 	} else if config.Wallet.AddressRestoreMnemonic != "" && config.Wallet.AddressKeyName != "" {
 		// restore from mnemonic
@@ -76,20 +77,20 @@ func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
 
 			if err != nil {
 				config.Wallet.SubmitTx = false
-				log.Printf("could not restore account from mnemonic: %s", err)
+				log.Err(err).Msg("could not restore account from mnemonic")
 			}
 		}
 	} else {
-		log.Println("no allora account was loaded")
+		log.Debug().Msg("no allora account was loaded")
 		return nil, nil
 	}
 
 	address, err := account.Address(ADDRESS_PREFIX)
 	if err != nil {
 		config.Wallet.SubmitTx = false
-		log.Println("could not retrieve allora blockchain address, transactions will not be submitted to chain")
+		log.Err(err).Msg("could not retrieve allora blockchain address, transactions will not be submitted to chain")
 	} else {
-		log.Printf("allora blockchain address loaded: %s", address)
+		log.Info().Str("address", address).Msg("allora blockchain address loaded")
 	}
 
 	// Create query client

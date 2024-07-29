@@ -2,9 +2,10 @@ package lib
 
 import (
 	"context"
-	"log"
 	"math/rand"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ignite/cli/v28/ignite/pkg/cosmosclient"
@@ -17,11 +18,11 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 		txResponse, err := node.Chain.Client.BroadcastTx(ctx, node.Chain.Account, req)
 		txResp = &txResponse
 		if err == nil {
-			log.Printf("Success: %s, Tx Hash: %s", successMsg, txResp.TxHash)
+			log.Debug().Str("msg", successMsg).Str("txHash", txResp.TxHash).Msg("Success")
 			break
 		}
 		// Log the error for each retry.
-		log.Printf("Failed: %s, retrying... (Retry %d/%d)", successMsg, retryCount, node.Wallet.MaxRetries)
+		log.Error().Str("msg", successMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, node.Wallet.MaxRetries)
 		// Generate a random number between MinDelay and MaxDelay
 		randomDelay := rand.Intn(int(node.Wallet.MaxDelay-node.Wallet.MinDelay+1)) + int(node.Wallet.MinDelay)
 		// Apply exponential backoff to the random delay

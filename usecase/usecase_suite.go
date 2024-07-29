@@ -2,7 +2,8 @@ package usecase
 
 import (
 	lib "allora_offchain_node/lib"
-	"log"
+
+	"github.com/rs/zerolog/log"
 )
 
 type UseCaseSuite struct {
@@ -14,7 +15,7 @@ func NewUseCaseSuite(userConfig lib.UserConfig) UseCaseSuite {
 	userConfig.ValidateConfigEntrypoints()
 	nodeConfig, err := userConfig.GenerateNodeConfig()
 	if err != nil {
-		log.Println("Failed to initialize allora client", err)
+		log.Error().Err(err).Msg("Failed to initialize allora client")
 	}
 	return UseCaseSuite{Node: *nodeConfig}
 }

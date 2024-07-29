@@ -1,15 +1,16 @@
 package usecase
 
 import (
-	"log"
+	"allora_offchain_node/lib"
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"allora_offchain_node/lib"
 
-	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	"github.com/rs/zerolog/log"
+
 	alloraMath "github.com/allora-network/allora-chain/math"
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 )
 
 func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, nonce *emissionstypes.Nonce) (bool, error) {
@@ -17,13 +18,13 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 
 	inference, err := worker.InferenceEntrypoint.CalcInference()
 	if err != nil {
-		log.Printf("Error computing inference for worker %s: %s", worker.InferenceEntrypoint.Name(), err)
+		log.Error().Err(err).Str("worker", worker.InferenceEntrypoint.Name()).Msg("Error computing inference for worker")
 		return false, err
 	}
 
 	forecasts, err := worker.ForecastEntrypoint.CalcForecast()
 	if err != nil {
-		log.Printf("Error computing forcast for worker %s: %s", worker.InferenceEntrypoint.Name(), err)
+		log.Error().Err(err).Str("worker", worker.InferenceEntrypoint.Name()).Msg("Error computing forecast for worker")
 		return false, err
 	}
 
@@ -35,29 +36,29 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 
 	workerPayload, err := suite.BuildWorkerPayload(workerResponse, nonce.BlockHeight)
 	if err != nil {
-		log.Printf("Error building workerPayload: %s", err)
+		log.Error().Err(err).Msg("Error building workerPayload")
 		return false, err
 	}
 
 	workerDataBundle, err := suite.SignWorkerPayload(worker, &workerPayload, nonce.BlockHeight)
 	if err != nil {
-		log.Printf("Error signing workerPayload: %s", err)
+		log.Error().Err(err).Msg("Error signing workerPayload")
 		return false, err
 	}
 
 	req := &emissionstypes.MsgInsertWorkerPayload{
-		Sender:            suite.Node.Wallet.Address,
-		WorkerDataBundle:  workerDataBundle,
+		Sender:           suite.Node.Wallet.Address,
+		WorkerDataBundle: workerDataBundle,
 	}
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		log.Printf("Error marshaling MsgInsertBulkWorkerPayload to print Msg as JSON: %s", err)
+		log.Error().Err(err).Msg("Error marshaling MsgInsertBulkWorkerPayload to print Msg as JSON")
 	} else {
-		log.Printf("Sending MsgInsertBulkWorkerPayload to chain %s", string(reqJSON))
+		log.Info().Str("req", string(reqJSON)).Msg("Sending MsgInsertBulkWorkerPayload to chain")
 	}
 	_, err = suite.Node.SendDataWithRetry(ctx, req, "Send Worker Data to chain")
 	if err != nil {
-		log.Printf("Error sending Worker Data to chain: %s", err)
+		log.Error().Err(err).Msg("Error sending Worker Data to chain")
 		return false, err
 	}
 
@@ -71,7 +72,7 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 	if workerResponse.InfererValue != "" {
 		infererValue, err := alloraMath.NewDecFromString(workerResponse.InfererValue)
 		if err != nil {
-			log.Printf("Error converting infererValue to Dec: %s", err)
+			log.Error().Err(err).Msg("Error converting infererValue to Dec")
 			return emissionstypes.InferenceForecastBundle{}, err
 		}
 		builtInference := &emissionstypes.Inference{
@@ -88,13 +89,13 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 		for _, val := range workerResponse.ForecasterValues {
 			decVal, err := alloraMath.NewDecFromString(val.Value)
 			if err != nil {
-				log.Printf("Error converting forecasterValue to Dec: %s", err)
+				log.Error().Err(err).Msg("Error converting forecasterValue to Dec")
 				return emissionstypes.InferenceForecastBundle{}, err
 			}
 			if !workerResponse.AllowsNegativeForcast {
 				decVal, err = alloraMath.Log10(decVal)
 				if err != nil {
-					log.Printf("Error Log10 forecasterElements: %s", err)
+					log.Error().Err(err).Msg("Error Log10 forecasterElements")
 					return emissionstypes.InferenceForecastBundle{}, err
 				}
 			}
@@ -122,13 +123,13 @@ func (suite *UseCaseSuite) SignWorkerPayload(worker lib.WorkerConfig, workerPayl
 	protoBytesIn := make([]byte, 0) // Create a byte slice with initial length 0 and capacity greater than 0
 	protoBytesIn, err := workerPayload.XXX_Marshal(protoBytesIn, true)
 	if err != nil {
-		log.Printf("Error Marshalling workerPayload: %s", err)
+		log.Error().Err(err).Msg("Error Marshalling workerPayload")
 		return &emissionstypes.WorkerDataBundle{}, err
 	}
 	sig, pk, err := suite.Node.Chain.Client.Context().Keyring.Sign(suite.Node.Chain.Account.Name, protoBytesIn, signing.SignMode_SIGN_MODE_DIRECT)
 	pkStr := hex.EncodeToString(pk.Bytes())
 	if err != nil {
-		log.Printf("Error signing the InferenceForecastsBundle message: %s", err)
+		log.Error().Err(err).Msg("Error signing the InferenceForecastsBundle message")
 		return &emissionstypes.WorkerDataBundle{}, err
 	}
 	// Create workerDataBundle with signature
