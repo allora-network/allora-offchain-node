@@ -79,8 +79,8 @@ https://linear.app/upshot/project/removing-b7s-1a1aeb0a6477/overview
 * For now, we put all topic-specific reputer/worker logic in packages.
    * In immediate next iteration, should create modules for various modules and sources of ground truth
    * Then in JSON, can specify which modules to use for which topics and automatically load them
-* Could make this whole thing (or modules wihtin it) a lambda function => super cheap
-* Use better logging library
+* Could make this whole thing (or modules within it) a lambda function => super cheap
+* Use better logging library and error handling
 
 ## Notes
 
@@ -103,7 +103,9 @@ Note: The loss bundle is a bit more complicated than the inference and forecast 
 Is there a way to get latest "time per block" from the chain.
 ^That'd be ideal.
 
-If not, then you can assume 5sec/block
+If not, then you can assume 5sec/block.
+
+An *anticipated window* is a period of time in which we attempt to query for open nonces. If we find one, we then attempt to commit data. This applies equally to workers and reputers. However, the worker window is tighter as it's a small bubble around a `topic.Window` period of time, whereas the reputer window is the is a small bubble around a `topic.EpochLength` period of time.
 
 ### Intended workflow
 

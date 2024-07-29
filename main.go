@@ -5,6 +5,6 @@ import (
 )
 
 func main() {
-	spawner := usecase.NewProcessSpawner(UserConfig)
+	spawner := usecase.NewUseCaseSuite(UserConfig)
 	spawner.Spawn()
 }

@@ -1,15 +1,14 @@
 package usecase
 
 import (
-	"allora_offchain_node/types"
+	"allora_offchain_node/lib"
 
 	emissions "github.com/allora-network/allora-chain/x/emissions/types"
 )
 
-func BuildLosses(
-	configOptions types.ConfigOptions,
+func (suite *UseCaseSuite) BuildLosses(
 	openNonce emissions.Nonce,
-	truth types.Truth,
+	truth lib.Truth,
 	workerBundles []emissions.WorkerDataBundle,
 ) (emissions.ReputerValueBundle, error) {
 

@@ -1,7 +1,7 @@
 package reputer_coingecko_l1_norm
 
 import (
-	"allora_offchain_node/types"
+	"allora_offchain_node/lib"
 	"fmt"
 
 	emissions "github.com/allora-network/allora-chain/x/emissions/types"
@@ -25,7 +25,7 @@ func (a *AlloraEntrypoint) CalcForecast() (emissions.Forecast, error) {
 	return emissions.Forecast{}, nil
 }
 
-func (a *AlloraEntrypoint) SourceTruth() (types.Truth, error) {
+func (a *AlloraEntrypoint) SourceTruth() (lib.Truth, error) {
 	fmt.Println("Truth from " + a.name)
 	return "", nil
 }

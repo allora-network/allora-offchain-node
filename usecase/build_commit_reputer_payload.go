@@ -1,16 +1,10 @@
 package usecase
 
 import (
-	"allora_offchain_node/types"
-
-	emissions "github.com/allora-network/allora-chain/x/emissions/types"
+	"allora_offchain_node/lib"
 )
 
-func BuildCommitReputerPayload(
-	configOptions types.ConfigOptions,
-	reputerConfig types.ReputerConfig,
-	openNonce emissions.Nonce,
-) (emissions.ReputerValueBundle, bool, error) {
+func (suite *UseCaseSuite) BuildCommitReputerPayload(nonce lib.BlockHeight) (bool, error) {
 	// TODO
 	// 1. Fetch worker payloads associated with this nonce
 	// 2. Fetch latest regrets for each participating worker at this nonce
@@ -20,5 +14,5 @@ func BuildCommitReputerPayload(
 	// 6. Sign, organize into bundle, and commit bundle to chain using retries
 
 	successfulCommit := true
-	return emissions.ReputerValueBundle{}, successfulCommit, nil
+	return successfulCommit, nil
 }

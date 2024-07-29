@@ -161,9 +161,3 @@ require (
 	pgregory.net/rapid v1.1.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
-
-// replace (
-// 	github.com/allora-network/allora-offchain-node/pkg/coin_predictor_10min_eth => ./pkg/worker_coin_predictor_10min_eth
-// 	github.com/allora-network/allora-offchain-node/pkg/coin_predictor_20min => ./pkg/worker_coin_predictor_20min
-// 	github.com/allora-network/allora-offchain-node/pkg/reputer_coingecko_l1_norm => ./pkg/reputer_coingecko_l1_norm
-// )
