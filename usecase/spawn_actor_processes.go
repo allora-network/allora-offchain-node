@@ -2,10 +2,10 @@ package usecase
 
 import (
 	"allora_offchain_node/lib"
-	"log"
 	"sync"
 
 	emissions "github.com/allora-network/allora-chain/x/emissions/types"
+	"github.com/rs/zerolog/log"
 )
 
 func (suite *UseCaseSuite) Spawn() {
@@ -15,7 +15,7 @@ func (suite *UseCaseSuite) Spawn() {
 	alreadyStartedWorkerForTopic := make(map[emissions.TopicId]bool)
 	for _, worker := range suite.Node.Worker {
 		if _, ok := alreadyStartedWorkerForTopic[worker.TopicId]; ok {
-			log.Println("Worker already started for topicId: ", worker.TopicId)
+			log.Debug().Uint64("topicId", worker.TopicId).Msg("Worker already started for topicId")
 			continue
 		}
 		alreadyStartedWorkerForTopic[worker.TopicId] = true
@@ -31,7 +31,7 @@ func (suite *UseCaseSuite) Spawn() {
 	alreadyStartedReputerForTopic := make(map[emissions.TopicId]bool)
 	for _, reputer := range suite.Node.Reputer {
 		if _, ok := alreadyStartedReputerForTopic[reputer.TopicId]; ok {
-			log.Println("Reputer already started for topicId: ", reputer.TopicId)
+			log.Debug().Uint64("topicId", reputer.TopicId).Msg("Reputer already started for topicId")
 			continue
 		}
 		alreadyStartedReputerForTopic[reputer.TopicId] = true
@@ -52,13 +52,13 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 
 	topic, err := suite.Node.GetTopicById(worker.TopicId)
 	if err != nil {
-		log.Println("Failed to get topic", worker.TopicId, "Does it exist?")
+		log.Error().Err(err).Uint64("topicId", worker.TopicId).Msg("Failed to get topic")
 		return
 	}
 
 	registered := suite.Node.RegisterWorkerIdempotently(worker)
 	if !registered {
-		log.Println("Failed to register worker for topic", worker.TopicId)
+		log.Error().Err(err).Uint64("topicId", worker.TopicId).Msg("Failed to register worker for topic")
 		return
 	}
 
@@ -67,11 +67,12 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 	for {
 		currentBlock, err := suite.Node.GetCurrentChainBlockHeight()
 		if err != nil {
-			log.Printf("Error getting chain block height for worker job on topic %d: %s", worker.TopicId, err)
+			log.Error().Err(err).Uint64("topicId", worker.TopicId).Msg("Error getting chain block height for worker job on topic")
 			return
 		}
 
 		if mustRecalcWindow {
+
 			window = suite.CalcSoonestAnticipatedWindow(topic, currentBlock)
 			mustRecalcWindow = false
 		}
@@ -81,14 +82,14 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 
 			latestOpenWorkerNonce, err := suite.Node.GetLatestOpenWorkerNonceByTopicId(worker.TopicId)
 			if err != nil {
-				log.Println("Error getting latest open worker nonce on topic", worker.TopicId, err)
+				log.Error().Err(err).Uint64("topicId", worker.TopicId).Msg("Error getting latest open worker nonce on topic")
 				attemptCommit = false // Wait some time and try again if block still within the anticipated window
 			}
 
 			if attemptCommit {
 				success, err := suite.BuildCommitWorkerPayload(worker, latestOpenWorkerNonce)
 				if err != nil {
-					log.Println("Error building and committing worker payload for topic", worker.TopicId, err)
+					log.Error().Err(err).Uint64("topicId", worker.TopicId).Msg("Error building and committing worker payload for topic")
 				}
 				if success {
 					mustRecalcWindow = true
@@ -105,17 +106,17 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 }
 
 func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
-	println("Running reputer process for topic", reputer.TopicId)
+	log.Debug().Uint64("topicId", reputer.TopicId).Msg("Running reputer process for topic")
 
 	topic, err := suite.Node.GetTopicById(reputer.TopicId)
 	if err != nil {
-		log.Println("Failed to get topic", reputer.TopicId, "Does it exist?")
+		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to get topic")
 		return
 	}
 
 	registeredAndStaked := suite.Node.RegisterAndStakeReputerIdempotently(reputer)
 	if !registeredAndStaked {
-		log.Println("Failed to register or sufficiently stake reputer for topic", reputer.TopicId)
+		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to register or sufficiently stake reputer for topic")
 		return
 	}
 
@@ -124,17 +125,18 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 	for {
 		currentBlock, err := suite.Node.GetCurrentChainBlockHeight()
 		if err != nil {
-			log.Println("Error getting chain block height for reputer job on topic", reputer.TopicId, err)
+			log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error getting chain block height for reputer job on topic")
 			return
 		}
 
 		if mustRecalcWindow {
 			topic, err := suite.Node.GetTopicById(reputer.TopicId)
 			if err != nil {
-				log.Println("Failed to get topic", reputer.TopicId)
+				log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to get topic")
 				return
 			}
 			window = suite.CalcSoonestAnticipatedWindow(topic, currentBlock)
+			log.Debug().Msgf("Anticipated window for topic %d: %v", reputer.TopicId, window)
 			mustRecalcWindow = false
 		}
 
@@ -143,14 +145,14 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 
 			latestOpenWorkerNonce, err := suite.Node.GetLatestOpenReputerNonceByTopicId(reputer.TopicId)
 			if latestOpenWorkerNonce == 0 || err != nil {
-				log.Println("Error getting latest open reputer nonce on topic", reputer.TopicId, err)
+				log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error getting latest open worker nonce on topic")
 				attemptCommit = false // Wait some time and try again if block still within the anticipated window
 			}
 
 			if attemptCommit {
 				success, err := suite.BuildCommitReputerPayload(latestOpenWorkerNonce)
 				if err != nil {
-					log.Println("Error building and committing reputer payload for topic", reputer.TopicId, err)
+					log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error building and committing worker payload for topic")
 				}
 				if success {
 					mustRecalcWindow = true
