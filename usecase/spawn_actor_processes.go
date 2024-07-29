@@ -129,6 +129,11 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 		}
 
 		if mustRecalcWindow {
+			topic, err := suite.Node.GetTopicById(reputer.TopicId)
+			if err != nil {
+				log.Println("Failed to get topic", reputer.TopicId)
+				return
+			}
 			window = suite.CalcSoonestAnticipatedWindow(topic, currentBlock)
 			mustRecalcWindow = false
 		}
@@ -137,7 +142,7 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 			attemptCommit := true
 
 			latestOpenWorkerNonce, err := suite.Node.GetLatestOpenReputerNonceByTopicId(reputer.TopicId)
-			if err != nil {
+			if latestOpenWorkerNonce == 0 || err != nil {
 				log.Println("Error getting latest open reputer nonce on topic", reputer.TopicId, err)
 				attemptCommit = false // Wait some time and try again if block still within the anticipated window
 			}
@@ -157,6 +162,7 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 			suite.WaitWithinAnticipatedWindow()
 		} else {
 			window.WaitForNextAnticipatedWindowToStart(currentBlock, topic.EpochLength)
+			mustRecalcWindow = true
 		}
 	}
 }

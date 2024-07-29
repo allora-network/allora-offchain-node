@@ -76,15 +76,6 @@ type NodeConfig struct {
 	Reputer []ReputerConfig
 }
 
-func (c *UserConfig) MapUserConfigToFullConfig() NodeConfig {
-	return NodeConfig{
-		Chain:   ChainConfig{},
-		Wallet:  c.Wallet,
-		Worker:  c.Worker,
-		Reputer: c.Reputer,
-	}
-}
-
 // Check that each assigned entrypoint in `TheConfig` actually can be used
 // for the intended purpose, else throw error
 func (c *UserConfig) ValidateConfigEntrypoints() {
