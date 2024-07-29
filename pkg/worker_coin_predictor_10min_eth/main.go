@@ -3,8 +3,6 @@ package worker_coin_predictor_10min
 import (
 	"allora_offchain_node/lib"
 	"fmt"
-
-	emissions "github.com/allora-network/allora-chain/x/emissions/types"
 )
 
 type AlloraEntrypoint struct {
@@ -15,14 +13,14 @@ func (a *AlloraEntrypoint) Name() string {
 	return a.name
 }
 
-func (a *AlloraEntrypoint) CalcInference() (emissions.Inference, error) {
+func (a *AlloraEntrypoint) CalcInference() (string, error) {
 	fmt.Println("Inference from " + a.name)
-	return emissions.Inference{}, nil
+	return "", nil
 }
 
-func (a *AlloraEntrypoint) CalcForecast() (emissions.Forecast, error) {
+func (a *AlloraEntrypoint) CalcForecast() ([]lib.ForecastResponse, error) {
 	fmt.Println("I do nothing. from " + a.name)
-	return emissions.Forecast{}, nil
+	return []lib.ForecastResponse{}, nil
 }
 
 func (a *AlloraEntrypoint) SourceTruth() (lib.Truth, error) {

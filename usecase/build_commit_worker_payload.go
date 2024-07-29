@@ -45,11 +45,9 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 		return false, err
 	}
 
-	req := &emissionstypes.MsgInsertBulkWorkerPayload{
+	req := &emissionstypes.MsgInsertWorkerPayload{
 		Sender:            suite.Node.Wallet.Address,
-		Nonce:             nonce,
-		TopicId:           worker.TopicId,
-		WorkerDataBundles: []*emissionstypes.WorkerDataBundle{workerDataBundle},
+		WorkerDataBundle:  workerDataBundle,
 	}
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
