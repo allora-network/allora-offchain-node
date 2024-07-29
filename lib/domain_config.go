@@ -1,12 +1,11 @@
 package lib
 
 import (
-	"log"
-
 	emissions "github.com/allora-network/allora-chain/x/emissions/types"
 	bank "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/ignite/cli/v28/ignite/pkg/cosmosaccount"
 	"github.com/ignite/cli/v28/ignite/pkg/cosmosclient"
+	"github.com/rs/zerolog/log"
 )
 
 // Properties manually provided by the user as part of UserConfig
@@ -79,7 +78,7 @@ type NodeConfig struct {
 
 type WorkerResponse struct {
 	WorkerConfig
-	InfererValue     string      `json:"infererValue,omitempty"`
+	InfererValue     string             `json:"infererValue,omitempty"`
 	ForecasterValues []ForecastResponse `json:"forecasterValue,omitempty"`
 }
 
@@ -94,16 +93,16 @@ type SignedWorkerResponse struct {
 func (c *UserConfig) ValidateConfigEntrypoints() {
 	for _, workerConfig := range c.Worker {
 		if workerConfig.InferenceEntrypoint != nil && !workerConfig.InferenceEntrypoint.CanInfer() {
-			log.Fatal("Invalid inference entrypoint: ", workerConfig.InferenceEntrypoint)
+			log.Fatal().Interface("entrypoint", workerConfig.InferenceEntrypoint).Msg("Invalid inference entrypoint")
 		}
 		if workerConfig.ForecastEntrypoint != nil && !workerConfig.ForecastEntrypoint.CanForecast() {
-			log.Fatal("Invalid forecast entrypoint: ", workerConfig.ForecastEntrypoint)
+			log.Fatal().Interface("entrypoint", workerConfig.ForecastEntrypoint).Msg("Invalid forecast entrypoint")
 		}
 	}
 
 	for _, reputerConfig := range c.Reputer {
 		if reputerConfig.ReputerEntrypoint != nil && !reputerConfig.ReputerEntrypoint.CanSourceTruth() {
-			log.Fatal("Invalid loss entrypoint: ", reputerConfig.ReputerEntrypoint)
+			log.Fatal().Interface("entrypoint", reputerConfig.ReputerEntrypoint).Msg("Invalid loss entrypoint")
 		}
 	}
 }
