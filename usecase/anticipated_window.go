@@ -46,12 +46,12 @@ func (suite *UseCaseSuite) WaitWithinAnticipatedWindow() {
 // If the current block height is within this window, we check for a nonce => return true.
 // Essentially the AnticipatedWindow factory.
 func (suite *UseCaseSuite) CalcSoonestAnticipatedWindow(topic emissions.Topic, currentBlockHeight lib.BlockHeight) AnticipatedWindow {
-	numEpochsInactive := (currentBlockHeight - topic.EpochLastEnded) / topic.EpochLength
+	numInactiveEpochs := (currentBlockHeight - topic.EpochLastEnded) / topic.EpochLength // how many inactive epochs do we have since the last active epoch till now?
 
 	// TODO Remove this when WindowLength added to the topic query response
 	const WindowLength int64 = 2
 
-	soonestStart := topic.EpochLastEnded + numEpochsInactive*topic.EpochLength - currentBlockHeight
+	soonestStart := topic.EpochLastEnded + numInactiveEpochs*topic.EpochLength - currentBlockHeight // start of the next anticipated window, considering how many inactive epochs we already have. if negative, we are already in the window and the result is how many blocks away from the start of next epoch
 	soonestWorkerEnd := soonestStart + WindowLength
 	soonestReputerEnd := soonestStart + topic.EpochLength
 

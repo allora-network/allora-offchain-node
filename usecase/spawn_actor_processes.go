@@ -67,7 +67,7 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 	for {
 		currentBlock, err := suite.Node.GetCurrentChainBlockHeight()
 		if err != nil {
-			log.Println("Error getting chain block height for worker job on topic", worker.TopicId, err)
+			log.Printf("Error getting chain block height for worker job on topic %d: %s", worker.TopicId, err)
 			return
 		}
 
@@ -86,7 +86,7 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 			}
 
 			if attemptCommit {
-				success, err := suite.BuildCommitWorkerPayload(latestOpenWorkerNonce)
+				success, err := suite.BuildCommitWorkerPayload(worker, latestOpenWorkerNonce)
 				if err != nil {
 					log.Println("Error building and committing worker payload for topic", worker.TopicId, err)
 				}

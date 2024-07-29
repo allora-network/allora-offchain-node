@@ -48,9 +48,10 @@ type ChainConfig struct {
 }
 
 type WorkerConfig struct {
-	TopicId             emissions.TopicId
-	InferenceEntrypoint AlloraEntrypoint
-	ForecastEntrypoint  AlloraEntrypoint
+	TopicId               emissions.TopicId
+	InferenceEntrypoint   AlloraEntrypoint
+	ForecastEntrypoint    AlloraEntrypoint
+	AllowsNegativeForcast bool
 }
 
 type ReputerConfig struct {
@@ -74,6 +75,18 @@ type NodeConfig struct {
 	Wallet  WalletConfig
 	Worker  []WorkerConfig
 	Reputer []ReputerConfig
+}
+
+type WorkerResponse struct {
+	WorkerConfig
+	InfererValue     string      `json:"infererValue,omitempty"`
+	ForecasterValues []ForecastResponse `json:"forecasterValue,omitempty"`
+}
+
+type SignedWorkerResponse struct {
+	*emissions.WorkerDataBundle
+	BlockHeight int64 `json:"blockHeight,omitempty"`
+	TopicId     int64 `json:"topicId,omitempty"`
 }
 
 // Check that each assigned entrypoint in `TheConfig` actually can be used
