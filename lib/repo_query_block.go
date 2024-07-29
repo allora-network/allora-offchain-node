@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
+
+	"github.com/rs/zerolog/log"
 )
 
 func (node *NodeConfig) GetCurrentChainBlockHeight() (int64, error) {
@@ -32,7 +35,7 @@ func (node *NodeConfig) GetCurrentChainBlockHeight() (int64, error) {
 		Result  struct {
 			Block struct {
 				Header struct {
-					Height int64 `json:"height"`
+					Height string `json:"height"`
 				} `json:"header"`
 			} `json:"block"`
 		} `json:"result"`
@@ -42,5 +45,10 @@ func (node *NodeConfig) GetCurrentChainBlockHeight() (int64, error) {
 		return 0, err
 	}
 
-	return result.Result.Block.Header.Height, nil
+	height, err := strconv.ParseInt(result.Result.Block.Header.Height, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	log.Debug().Int64("height", height).Msg("Current block height")
+	return height, nil
 }
