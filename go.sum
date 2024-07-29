@@ -50,6 +50,8 @@ github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRF
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk541a8SKzHPHnH3zbiI+7dagKZ0cgpgrD7Fyho=
 github.com/allora-network/allora-chain v0.2.14 h1:zgj4yFTm0iv2xfMNwjXEv5YJTPswLOV73WkitUF+xKM=
 github.com/allora-network/allora-chain v0.2.14/go.mod h1:nYJd641Y0iieiL+t+P5VOWnYdiAq2kiazdbL1Bi4jrw=
+github.com/allora-network/allora-chain v0.2.15-0.20240729135109-60bad8f079d6 h1:EAOQ/ynqXT+FR8x2Cl7fm0cTktwfrb0tp/WyI2Bqz5Y=
+github.com/allora-network/allora-chain v0.2.15-0.20240729135109-60bad8f079d6/go.mod h1:nYJd641Y0iieiL+t+P5VOWnYdiAq2kiazdbL1Bi4jrw=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apache/thrift v0.13.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=

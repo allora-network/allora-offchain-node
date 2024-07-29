@@ -7,7 +7,7 @@ go 1.22.5
 // github.com/allora-network/allora-offchain-node/pkg/reputer_coingecko_l1_norm v0.0.0
 
 require (
-	github.com/allora-network/allora-chain v0.2.14
+	github.com/allora-network/allora-chain v0.2.15-0.20240729135109-60bad8f079d6
 	github.com/cosmos/cosmos-sdk v0.50.8
 	github.com/ignite/cli/v28 v28.5.0
 	github.com/rs/zerolog v1.33.0
