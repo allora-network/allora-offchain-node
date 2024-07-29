@@ -1,11 +1,18 @@
 package lib
 
 import (
-	emissions "github.com/allora-network/allora-chain/x/emissions/types"
+	"context"
+
+	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
 )
 
-func (node *NodeConfig) GetTopicById(topicId emissions.TopicId) (emissions.Topic, error) {
-	// TODO
-	// Get topic by topicId
-	return emissions.Topic{}, nil
+func (node *NodeConfig) GetTopicById(topicId emissionstypes.TopicId) (emissionstypes.Topic, error) {
+	ctx := context.Background()
+	res, err := node.Chain.EmissionsQueryClient.GetTopic(ctx, &emissionstypes.QueryTopicRequest{
+		TopicId: topicId,
+	})
+	if err != nil {
+		return emissionstypes.Topic{}, err
+	}
+	return *res.Topic, nil
 }

@@ -27,7 +27,7 @@ func (node *NodeConfig) RegisterWorkerIdempotently(config WorkerConfig) bool {
 		log.Printf("could not get chain params: %s", err)
 	}
 
-	balance, err := node.GetBalance(ctx)
+	balance, err := node.GetBalance()
 	if err != nil {
 		log.Printf("could not check if the node has enough balance to register, skipping: %s", err)
 		return false
@@ -72,7 +72,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 		log.Printf("could not get chain params: %s", err)
 	}
 
-	balance, err := node.GetBalance(ctx)
+	balance, err := node.GetBalance()
 	if err != nil {
 		log.Printf("could not check if the node has enough balance to register, skipping: %s", err)
 		return false
@@ -94,7 +94,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 		return false
 	}
 
-	stake, err := node.GetReputerStakeInTopic(ctx, config.TopicId, node.Chain.Address)
+	stake, err := node.GetReputerStakeInTopic(config.TopicId, node.Chain.Address)
 	if err != nil {
 		log.Printf("could not check if the node has enough balance to stake, skipping: %s", err)
 		return false
