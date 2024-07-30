@@ -23,16 +23,8 @@ type WalletConfig struct {
 	MaxRetries               int64   // retry to get data from chain up to this many times per query or tx
 	MinDelay                 int64   // minimum of uniform distribution that is sampled then used to calcluate exponential backoff for txs (in seconds)
 	MaxDelay                 int64   // maximum of uniform distribution that is sampled then used to calcluate exponential backoff for txs (in seconds)
-	// If a topic's next open nonce is predicted to be in 10 blocks by
-	// `topic.EpochLastEnded + topic.EpochLength - now() == 10`, and this value is X,
-	// then we'll actually start to query for the nonce in (1-X)*10 blocks.
-	// This is useful because block time is variable => this ensures we don't miss the next open nonce.
-	// The higher this is, the earlier we start querying for the nonce.
-	EarlyArrivalPercent float64
-	// If this value is Y, and the next open nonce is predicted to be 10 as in the example above,
-	// then we'll end querying for the nonce in (1+Y)*10 blocks.
-	// This is useful because block time is variable => this ensures we don't prematurely stop querying for an open nonce.
-	LateArrivalPercent float64
+	EarlyArrivalPercent float64 // percentage of blocks before open nonce to start querying for the nonce
+	LateArrivalPercent float64 // percentage of blocks after end of worker window to stop querying for the nonce
 }
 
 // Properties auto-generated based on what the user has provided in WalletConfig fields of UserConfig

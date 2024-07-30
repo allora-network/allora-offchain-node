@@ -3,6 +3,7 @@ package usecase
 import (
 	"allora_offchain_node/lib"
 	"time"
+	"math"
 
 	emissions "github.com/allora-network/allora-chain/x/emissions/types"
 )
@@ -12,8 +13,6 @@ type AnticipatedWindow struct {
 	SoonestTimeForEndOfWorkerNonceSubmission  float64
 	SoonestTimeForEndOfReputerNonceSubmission float64
 }
-
-/// Interface Methods
 
 func (window *AnticipatedWindow) BlockIsWithinWindow(block lib.BlockHeight) bool {
 	fBlock := float64(block)
@@ -39,22 +38,34 @@ func (suite *UseCaseSuite) WaitWithinAnticipatedWindow() {
 }
 
 // Return the approximate start and end block (as floats) of the next anticipated window.
-// First, find the smallest integer N such that `EpochLastEnded + N * EpochLength >= now()` analytically.
-// Then this begins the next anticipated window.
-// We do this because the topic could be inactive for some epochs.
-// We then apply the early arrival and late arrival percentages to this window.
-// If the current block height is within this window, we check for a nonce => return true.
-// Essentially the AnticipatedWindow factory.
 func (suite *UseCaseSuite) CalcSoonestAnticipatedWindow(topic emissions.Topic, currentBlockHeight lib.BlockHeight) AnticipatedWindow {
-	numInactiveEpochs := (currentBlockHeight - topic.EpochLastEnded) / topic.EpochLength // how many inactive epochs do we have since the last active epoch till now?
+	// how many inactive epochs do we have since the last active epoch till now? 
+	numInactiveEpochs := (currentBlockHeight - topic.EpochLastEnded) / topic.EpochLength // NOTE: integer devision ignores the remainder
+	// how many inactive blocks are there in the inactive epochs? 
+	numInactiveBlocks := numInactiveEpochs * topic.EpochLength
+	// how many blocks already existed on chain? 
+	pastBlocks := topic.EpochLastEnded + numInactiveBlocks
 
-	soonestStart := topic.EpochLastEnded + numInactiveEpochs*topic.EpochLength - currentBlockHeight // start of the next anticipated window, considering how many inactive epochs we already have. if negative, we are already in the window and the result is how many blocks away from the start of next epoch
-	soonestWorkerEnd := soonestStart + topic.GetWorkerSubmissionWindow()
-	soonestReputerEnd := soonestStart + topic.EpochLength
+	var (
+		soonestWorkerStart int64
+		earlyArrival float64
+	)
+	if pastBlocks + topic.WorkerSubmissionWindow < currentBlockHeight {
+		soonestWorkerStart = pastBlocks + topic.EpochLength // look ahead and start in the next anticipated window
+		earlyArrival = float64(soonestWorkerStart) - (math.Round((suite.Node.Wallet.EarlyArrivalPercent / 100) * float64(soonestWorkerStart)))
+	} else {
+		soonestWorkerStart = currentBlockHeight // we are already in the window
+		earlyArrival = float64(soonestWorkerStart)
+	}
+	soonestWorkerEnd := soonestWorkerStart + topic.WorkerSubmissionWindow
+	lateArrival := float64(soonestWorkerEnd) + (math.Round((suite.Node.Wallet.LateArrivalPercent / 100) * float64(soonestWorkerEnd)))
+
+	//TODO remove this and create it's own methid for reputer
+	soonestReputerEnd := soonestWorkerStart + topic.GroundTruthLag 
 
 	return AnticipatedWindow{
-		SoonestTimeForOpenNonceCheck:              float64(soonestStart) * (1.0 - suite.Node.Wallet.EarlyArrivalPercent),
-		SoonestTimeForEndOfWorkerNonceSubmission:  float64(soonestWorkerEnd) * (1.0 + suite.Node.Wallet.LateArrivalPercent),
+		SoonestTimeForOpenNonceCheck:              earlyArrival,
+		SoonestTimeForEndOfWorkerNonceSubmission:  lateArrival,
 		SoonestTimeForEndOfReputerNonceSubmission: float64(soonestReputerEnd) * (1.0 + suite.Node.Wallet.LateArrivalPercent),
 	}
 }
