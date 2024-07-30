@@ -1,12 +1,11 @@
 package lib
 
 import (
-	"log"
-
 	emissions "github.com/allora-network/allora-chain/x/emissions/types"
 	bank "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/ignite/cli/v28/ignite/pkg/cosmosaccount"
 	"github.com/ignite/cli/v28/ignite/pkg/cosmosclient"
+	"github.com/rs/zerolog/log"
 )
 
 // Properties manually provided by the user as part of UserConfig
@@ -51,6 +50,7 @@ type WorkerConfig struct {
 	TopicId             emissions.TopicId
 	InferenceEntrypoint AlloraEntrypoint
 	ForecastEntrypoint  AlloraEntrypoint
+	AllowsNegativeValue bool
 }
 
 type ReputerConfig struct {
@@ -60,7 +60,8 @@ type ReputerConfig struct {
 	// Will not repute if current stake is less than this, after trying to add any necessary stake.
 	// This is idempotent in that it will not add more stake than specified here.
 	// Set to 0 to effectively disable this feature and use whatever stake has already been added.
-	MinStake int64
+	MinStake            int64
+	AllowsNegativeValue bool
 }
 
 type UserConfig struct {
@@ -76,21 +77,43 @@ type NodeConfig struct {
 	Reputer []ReputerConfig
 }
 
+type WorkerResponse struct {
+	WorkerConfig
+	InfererValue     string      `json:"infererValue,omitempty"`
+	ForecasterValues []NodeValue `json:"forecasterValue,omitempty"`
+}
+
+type SignedWorkerResponse struct {
+	*emissions.WorkerDataBundle
+	BlockHeight int64 `json:"blockHeight,omitempty"`
+	TopicId     int64 `json:"topicId,omitempty"`
+}
+
+type ValueBundle struct {
+	CombinedValue          string      `json:"combinedValue,omitempty"`
+	NaiveValue             string      `json:"naiveValue,omitempty"`
+	InfererValues          []NodeValue `json:"infererValues,omitempty"`
+	ForecasterValues       []NodeValue `json:"forecasterValues,omitempty"`
+	OneOutInfererValues    []NodeValue `json:"oneOutInfererValues,omitempty"`
+	OneOutForecasterValues []NodeValue `json:"oneOutForecasterValues,omitempty"`
+	OneInForecasterValues  []NodeValue `json:"oneInForecasterValues,omitempty"`
+}
+
 // Check that each assigned entrypoint in `TheConfig` actually can be used
 // for the intended purpose, else throw error
 func (c *UserConfig) ValidateConfigEntrypoints() {
 	for _, workerConfig := range c.Worker {
 		if workerConfig.InferenceEntrypoint != nil && !workerConfig.InferenceEntrypoint.CanInfer() {
-			log.Fatal("Invalid inference entrypoint: ", workerConfig.InferenceEntrypoint)
+			log.Fatal().Interface("entrypoint", workerConfig.InferenceEntrypoint).Msg("Invalid inference entrypoint")
 		}
 		if workerConfig.ForecastEntrypoint != nil && !workerConfig.ForecastEntrypoint.CanForecast() {
-			log.Fatal("Invalid forecast entrypoint: ", workerConfig.ForecastEntrypoint)
+			log.Fatal().Interface("entrypoint", workerConfig.ForecastEntrypoint).Msg("Invalid forecast entrypoint")
 		}
 	}
 
 	for _, reputerConfig := range c.Reputer {
 		if reputerConfig.ReputerEntrypoint != nil && !reputerConfig.ReputerEntrypoint.CanSourceTruth() {
-			log.Fatal("Invalid loss entrypoint: ", reputerConfig.ReputerEntrypoint)
+			log.Fatal().Interface("entrypoint", reputerConfig.ReputerEntrypoint).Msg("Invalid loss entrypoint")
 		}
 	}
 }
