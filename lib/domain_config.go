@@ -47,10 +47,10 @@ type ChainConfig struct {
 }
 
 type WorkerConfig struct {
-	TopicId               emissions.TopicId
-	InferenceEntrypoint   AlloraEntrypoint
-	ForecastEntrypoint    AlloraEntrypoint
-	AllowsNegativeValue   bool
+	TopicId             emissions.TopicId
+	InferenceEntrypoint AlloraEntrypoint
+	ForecastEntrypoint  AlloraEntrypoint
+	AllowsNegativeValue bool
 }
 
 type ReputerConfig struct {
@@ -60,7 +60,7 @@ type ReputerConfig struct {
 	// Will not repute if current stake is less than this, after trying to add any necessary stake.
 	// This is idempotent in that it will not add more stake than specified here.
 	// Set to 0 to effectively disable this feature and use whatever stake has already been added.
-	MinStake int64
+	MinStake            int64
 	AllowsNegativeValue bool
 }
 

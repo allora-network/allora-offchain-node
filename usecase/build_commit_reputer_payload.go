@@ -1,15 +1,15 @@
 package usecase
 
 import (
+	"allora_offchain_node/lib"
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"allora_offchain_node/lib"
 
-	"github.com/rs/zerolog/log"
-	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	alloraMath "github.com/allora-network/allora-chain/math"
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	"github.com/rs/zerolog/log"
 )
 
 // Get the reputer's values at the block from the chain
@@ -43,7 +43,7 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 	}
 
 	req := &emissionstypes.MsgInsertReputerPayload{
-		Sender: suite.Node.Wallet.Address,
+		Sender:             suite.Node.Wallet.Address,
 		ReputerValueBundle: signedValueBundle,
 	}
 	reqJSON, err := json.Marshal(req)
@@ -57,43 +57,43 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msgf("Error sending Worker Data to chain: %s", err)
 		return false, err
 	}
-	
+
 	return true, nil
 }
 
 func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionstypes.ValueBundle, reputer lib.ReputerConfig) (emissionstypes.ValueBundle, error) {
-    losses := emissionstypes.ValueBundle{
-		TopicId: vb.TopicId,
+	losses := emissionstypes.ValueBundle{
+		TopicId:             vb.TopicId,
 		ReputerRequestNonce: vb.ReputerRequestNonce,
-		Reputer: vb.Reputer,
-		ExtraData: vb.ExtraData,
+		Reputer:             vb.Reputer,
+		ExtraData:           vb.ExtraData,
 	}
 
 	if combineValueLoss, err := alloraMath.NewDecFromString(reputer.ReputerEntrypoint.LossFunction(sourceTruth, vb.CombinedValue.Abs().String())); err != nil {
 		log.Error().Err(err).Msg("Error computing loss for combined value")
-        return emissionstypes.ValueBundle{}, err
-    } else {
+		return emissionstypes.ValueBundle{}, err
+	} else {
 		if !reputer.AllowsNegativeValue {
 			combineValueLoss, err = alloraMath.Log10(combineValueLoss)
-				if err != nil {
-					log.Error().Err(err).Msg("Error Log10 for Combined Value:")
-				}
+			if err != nil {
+				log.Error().Err(err).Msg("Error Log10 for Combined Value:")
+			}
 		}
-        losses.CombinedValue = combineValueLoss
-    }
+		losses.CombinedValue = combineValueLoss
+	}
 
 	if naiveValue, err := alloraMath.NewDecFromString(reputer.ReputerEntrypoint.LossFunction(sourceTruth, vb.NaiveValue.Abs().String())); err != nil {
 		log.Error().Err(err).Msg("Error computing loss for naive value")
-        return emissionstypes.ValueBundle{}, err
-    } else {
+		return emissionstypes.ValueBundle{}, err
+	} else {
 		if !reputer.AllowsNegativeValue {
 			naiveValue, err = alloraMath.Log10(naiveValue)
-				if err != nil {
-					log.Error().Err(err).Msg("Error Log10 for Naive Value:")
-				}
+			if err != nil {
+				log.Error().Err(err).Msg("Error Log10 for Naive Value:")
+			}
 		}
-        losses.NaiveValue = naiveValue
-    }
+		losses.NaiveValue = naiveValue
+	}
 
 	infererLosses := make([]*emissionstypes.WorkerAttributedValue, len(vb.InfererValues))
 	for i, val := range vb.InfererValues {
@@ -104,9 +104,9 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 		}
 		if !reputer.AllowsNegativeValue {
 			value, err = alloraMath.Log10(value)
-				if err != nil {
-					log.Error().Err(err).Msg("Error Log10 for inferer Values")
-				}
+			if err != nil {
+				log.Error().Err(err).Msg("Error Log10 for inferer Values")
+			}
 		}
 		infererLosses[i] = &emissionstypes.WorkerAttributedValue{Worker: val.Worker, Value: value}
 	}
@@ -121,9 +121,9 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 		}
 		if !reputer.AllowsNegativeValue {
 			value, err = alloraMath.Log10(value)
-				if err != nil {
-					log.Error().Err(err).Msg("Error Log10 for forecaster Values")
-				}
+			if err != nil {
+				log.Error().Err(err).Msg("Error Log10 for forecaster Values")
+			}
 		}
 		forecasterLosses[i] = &emissionstypes.WorkerAttributedValue{Worker: val.Worker, Value: value}
 	}
@@ -138,9 +138,9 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 		}
 		if !reputer.AllowsNegativeValue {
 			value, err = alloraMath.Log10(value)
-				if err != nil {
-					log.Error().Err(err).Msg("Error Log10 for out inferer values")
-				}
+			if err != nil {
+				log.Error().Err(err).Msg("Error Log10 for out inferer values")
+			}
 		}
 		oneOutInfererLosses[i] = &emissionstypes.WithheldWorkerAttributedValue{Worker: val.Worker, Value: value}
 	}
@@ -155,9 +155,9 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 		}
 		if !reputer.AllowsNegativeValue {
 			value, err = alloraMath.Log10(value)
-				if err != nil {
-					log.Error().Err(err).Msg("Error Log10 for out forecaster values")
-				}
+			if err != nil {
+				log.Error().Err(err).Msg("Error Log10 for out forecaster values")
+			}
 		}
 		oneOutForecasterLosses[i] = &emissionstypes.WithheldWorkerAttributedValue{Worker: val.Worker, Value: value}
 	}
@@ -172,15 +172,15 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 		}
 		if !reputer.AllowsNegativeValue {
 			value, err = alloraMath.Log10(value)
-				if err != nil {
-					log.Error().Err(err).Msg("Error Log10 for in forecaster values")
-				}
+			if err != nil {
+				log.Error().Err(err).Msg("Error Log10 for in forecaster values")
+			}
 		}
 		oneInForecasterLosses[i] = &emissionstypes.WorkerAttributedValue{Worker: val.Worker, Value: value}
 	}
 	losses.OneInForecasterValues = oneInForecasterLosses
 
-    return losses, nil
+	return losses, nil
 }
 
 func (suite *UseCaseSuite) SignReputerValueBundle(valueBundle *emissionstypes.ValueBundle) (*emissionstypes.ReputerValueBundle, error) {

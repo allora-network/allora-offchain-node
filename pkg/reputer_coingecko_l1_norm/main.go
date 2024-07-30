@@ -1,11 +1,11 @@
 package reputer_coingecko_l1_norm
 
 import (
+	"allora_offchain_node/lib"
 	"fmt"
 	"math"
 	"strconv"
-	"allora_offchain_node/lib"
-	
+
 	"github.com/rs/zerolog/log"
 )
 
@@ -34,11 +34,11 @@ func (a *AlloraEntrypoint) SourceTruth() (lib.Truth, error) {
 
 func (a *AlloraEntrypoint) LossFunction(sourceTruth string, inferenceValue string) string {
 	fmt.Println("Loss function processing" + a.name)
-    sourceTruthFloat, _ := strconv.ParseFloat(sourceTruth, 64)
-    inferenceValueFloat, _ := strconv.ParseFloat(inferenceValue, 64)
-    loss := math.Abs(sourceTruthFloat - inferenceValueFloat)
+	sourceTruthFloat, _ := strconv.ParseFloat(sourceTruth, 64)
+	inferenceValueFloat, _ := strconv.ParseFloat(inferenceValue, 64)
+	loss := math.Abs(sourceTruthFloat - inferenceValueFloat)
 
-    return fmt.Sprintf("%f", loss)
+	return fmt.Sprintf("%f", loss)
 }
 
 func (a *AlloraEntrypoint) CanInfer() bool {

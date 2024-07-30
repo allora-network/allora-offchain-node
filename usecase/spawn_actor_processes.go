@@ -1,11 +1,11 @@
 package usecase
 
 import (
-	"sync"
 	"allora_offchain_node/lib"
+	"sync"
 
-	"github.com/rs/zerolog/log"
 	emissions "github.com/allora-network/allora-chain/x/emissions/types"
+	"github.com/rs/zerolog/log"
 )
 
 func (suite *UseCaseSuite) Spawn() {
