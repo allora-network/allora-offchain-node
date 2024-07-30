@@ -50,7 +50,7 @@ type WorkerConfig struct {
 	TopicId               emissions.TopicId
 	InferenceEntrypoint   AlloraEntrypoint
 	ForecastEntrypoint    AlloraEntrypoint
-	AllowsNegativeForcast bool
+	AllowsNegativeValue   bool
 }
 
 type ReputerConfig struct {
@@ -61,6 +61,7 @@ type ReputerConfig struct {
 	// This is idempotent in that it will not add more stake than specified here.
 	// Set to 0 to effectively disable this feature and use whatever stake has already been added.
 	MinStake int64
+	AllowsNegativeValue bool
 }
 
 type UserConfig struct {
@@ -78,14 +79,24 @@ type NodeConfig struct {
 
 type WorkerResponse struct {
 	WorkerConfig
-	InfererValue     string             `json:"infererValue,omitempty"`
-	ForecasterValues []ForecastResponse `json:"forecasterValue,omitempty"`
+	InfererValue     string      `json:"infererValue,omitempty"`
+	ForecasterValues []NodeValue `json:"forecasterValue,omitempty"`
 }
 
 type SignedWorkerResponse struct {
 	*emissions.WorkerDataBundle
 	BlockHeight int64 `json:"blockHeight,omitempty"`
 	TopicId     int64 `json:"topicId,omitempty"`
+}
+
+type ValueBundle struct {
+	CombinedValue          string      `json:"combinedValue,omitempty"`
+	NaiveValue             string      `json:"naiveValue,omitempty"`
+	InfererValues          []NodeValue `json:"infererValues,omitempty"`
+	ForecasterValues       []NodeValue `json:"forecasterValues,omitempty"`
+	OneOutInfererValues    []NodeValue `json:"oneOutInfererValues,omitempty"`
+	OneOutForecasterValues []NodeValue `json:"oneOutForecasterValues,omitempty"`
+	OneInForecasterValues  []NodeValue `json:"oneInForecasterValues,omitempty"`
 }
 
 // Check that each assigned entrypoint in `TheConfig` actually can be used

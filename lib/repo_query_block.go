@@ -5,8 +5,10 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"context"
 
 	"github.com/rs/zerolog/log"
+	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
 )
 
 func (node *NodeConfig) GetCurrentChainBlockHeight() (int64, error) {
@@ -51,4 +53,25 @@ func (node *NodeConfig) GetCurrentChainBlockHeight() (int64, error) {
 	}
 	log.Debug().Int64("height", height).Msg("Current block height")
 	return height, nil
+}
+
+func (node *NodeConfig) GetReputerValuesAtBlock(topicId emissionstypes.TopicId, nonce BlockHeight) (*emissionstypes.ValueBundle, error) {
+	ctx := context.Background()
+
+	lastReputerCommit, err :=node.Chain.EmissionsQueryClient.GetTopicLastReputerCommitInfo(ctx, &emissionstypes.QueryTopicLastCommitRequest{TopicId: topicId})
+	if err != nil {
+		return &emissionstypes.ValueBundle{}, err
+	}
+
+	req := &emissionstypes.QueryNetworkInferencesAtBlockRequest{
+		TopicId: topicId,
+		BlockHeightLastInference: nonce,
+		BlockHeightLastReward: lastReputerCommit.LastCommit.Nonce.BlockHeight,
+	}
+	res, err := node.Chain.EmissionsQueryClient.GetNetworkInferencesAtBlock(ctx, req)
+	if err != nil {
+		return &emissionstypes.ValueBundle{}, err
+	}
+
+	return res.NetworkInferences, nil
 }

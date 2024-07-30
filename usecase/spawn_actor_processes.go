@@ -1,11 +1,11 @@
 package usecase
 
 import (
-	"allora_offchain_node/lib"
 	"sync"
+	"allora_offchain_node/lib"
 
-	emissions "github.com/allora-network/allora-chain/x/emissions/types"
 	"github.com/rs/zerolog/log"
+	emissions "github.com/allora-network/allora-chain/x/emissions/types"
 )
 
 func (suite *UseCaseSuite) Spawn() {
@@ -130,11 +130,6 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 		}
 
 		if mustRecalcWindow {
-			topic, err := suite.Node.GetTopicById(reputer.TopicId)
-			if err != nil {
-				log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to get topic")
-				return
-			}
 			window = suite.CalcSoonestAnticipatedWindow(topic, currentBlock)
 			log.Debug().Msgf("Anticipated window for topic %d: %v", reputer.TopicId, window)
 			mustRecalcWindow = false
@@ -150,7 +145,7 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 			}
 
 			if attemptCommit {
-				success, err := suite.BuildCommitReputerPayload(latestOpenWorkerNonce)
+				success, err := suite.BuildCommitReputerPayload(reputer, latestOpenWorkerNonce)
 				if err != nil {
 					log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error building and committing worker payload for topic")
 				}

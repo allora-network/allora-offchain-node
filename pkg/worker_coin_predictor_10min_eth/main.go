@@ -1,6 +1,9 @@
 package worker_coin_predictor_10min
 
 import (
+	"fmt"
+	"math"
+	"strconv"
 	"allora_offchain_node/lib"
 
 	"github.com/rs/zerolog/log"
@@ -19,14 +22,23 @@ func (a *AlloraEntrypoint) CalcInference() (string, error) {
 	return "", nil
 }
 
-func (a *AlloraEntrypoint) CalcForecast() ([]lib.ForecastResponse, error) {
+func (a *AlloraEntrypoint) CalcForecast() ([]lib.NodeValue, error) {
 	log.Debug().Str("name", a.name).Msg("Forecast")
-	return []lib.ForecastResponse{}, nil
+	return []lib.NodeValue{}, nil
 }
 
 func (a *AlloraEntrypoint) SourceTruth() (lib.Truth, error) {
 	log.Debug().Str("name", a.name).Msg("truth")
 	return "", nil
+}
+
+func (a *AlloraEntrypoint) LossFunction(sourceTruth string, inferenceValue string) string {
+	fmt.Println("Loss function processing" + a.name)
+    sourceTruthFloat, _ := strconv.ParseFloat(sourceTruth, 64)
+    inferenceValueFloat, _ := strconv.ParseFloat(inferenceValue, 64)
+    loss := math.Abs(sourceTruthFloat - inferenceValueFloat)
+
+    return fmt.Sprintf("%f", loss)
 }
 
 func (a *AlloraEntrypoint) CanInfer() bool {

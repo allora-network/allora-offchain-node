@@ -40,7 +40,7 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 		return false, err
 	}
 
-	workerDataBundle, err := suite.SignWorkerPayload(worker, &workerPayload, nonce.BlockHeight)
+	workerDataBundle, err := suite.SignWorkerPayload(&workerPayload)
 	if err != nil {
 		log.Error().Err(err).Msg("Error signing workerPayload")
 		return false, err
@@ -92,7 +92,7 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 				log.Error().Err(err).Msg("Error converting forecasterValue to Dec")
 				return emissionstypes.InferenceForecastBundle{}, err
 			}
-			if !workerResponse.AllowsNegativeForcast {
+			if !workerResponse.AllowsNegativeValue {
 				decVal, err = alloraMath.Log10(decVal)
 				if err != nil {
 					log.Error().Err(err).Msg("Error Log10 forecasterElements")
@@ -118,7 +118,7 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 	return inferenceForecastsBundle, nil
 }
 
-func (suite *UseCaseSuite) SignWorkerPayload(worker lib.WorkerConfig, workerPayload *emissionstypes.InferenceForecastBundle, currentBlockHeight int64) (*emissionstypes.WorkerDataBundle, error) {
+func (suite *UseCaseSuite) SignWorkerPayload(workerPayload *emissionstypes.InferenceForecastBundle) (*emissionstypes.WorkerDataBundle, error) {
 	// Marshall and sign the bundle
 	protoBytesIn := make([]byte, 0) // Create a byte slice with initial length 0 and capacity greater than 0
 	protoBytesIn, err := workerPayload.XXX_Marshal(protoBytesIn, true)
