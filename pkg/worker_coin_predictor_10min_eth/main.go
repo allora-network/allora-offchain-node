@@ -2,7 +2,8 @@ package worker_coin_predictor_10min
 
 import (
 	"allora_offchain_node/lib"
-	"fmt"
+
+	"github.com/rs/zerolog/log"
 )
 
 type AlloraEntrypoint struct {
@@ -14,17 +15,17 @@ func (a *AlloraEntrypoint) Name() string {
 }
 
 func (a *AlloraEntrypoint) CalcInference() (string, error) {
-	fmt.Println("Inference from " + a.name)
+	log.Debug().Str("name", a.name).Msg("Inference")
 	return "", nil
 }
 
 func (a *AlloraEntrypoint) CalcForecast() ([]lib.ForecastResponse, error) {
-	fmt.Println("I do nothing. from " + a.name)
+	log.Debug().Str("name", a.name).Msg("Forecast")
 	return []lib.ForecastResponse{}, nil
 }
 
 func (a *AlloraEntrypoint) SourceTruth() (lib.Truth, error) {
-	fmt.Println("I do nothing. from " + a.name)
+	log.Debug().Str("name", a.name).Msg("truth")
 	return "", nil
 }
 
