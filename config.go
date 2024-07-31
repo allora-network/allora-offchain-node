@@ -9,13 +9,13 @@ var UserConfig = lib.UserConfig{
 	Wallet: lib.WalletConfig{
 		AddressKeyName: "offchain1", // load a address by key from the keystore
 		// mnemonic for the allora account
-		AddressRestoreMnemonic: "bottom wrong raise true school treat urge plug predict endless pipe around require repair knee bubble prison urban earth language midnight gun yard citizen",
+		AddressRestoreMnemonic: "your mnemonic here",
 
-		AddressAccountPassphrase: "",                    // passphrase for the allora account
-		AlloraHomeDir:            "/home/diego/.allora", // home directory for the allora keystore
-		Gas:                      "1000000",             // gas to use for the allora client in uallo
-		GasAdjustment:            1.0,                   // gas adjustment to use for the allora client
-		SubmitTx:                 true,                  // set to false to run in dry-run processes without committing to the chain. useful for development and testing
+		AddressAccountPassphrase: "",                   // passphrase for the allora account
+		AlloraHomeDir:            "/home/user/.allora", // home directory for the allora keystore
+		Gas:                      "1000000",            // gas to use for the allora client in uallo
+		GasAdjustment:            1.0,                  // gas adjustment to use for the allora client
+		SubmitTx:                 true,                 // set to false to run in dry-run processes without committing to the chain. useful for development and testing
 		LoopWithinWindowSeconds:  5,
 		NodeRpc:                  "http://localhost:26657",
 		MaxRetries:               3,
