@@ -16,25 +16,25 @@ func (node *NodeConfig) RegisterWorkerIdempotently(config WorkerConfig) bool {
 
 	isRegistered, err := node.IsWorkerRegistered(config.TopicId)
 	if err != nil {
-		log.Error().Err(err).Msg("could not check if the node is already registered for topic as worker, skipping")
+		log.Error().Err(err).Msg("Could not check if the node is already registered for topic as worker, skipping")
 	}
 	if isRegistered {
-		log.Info().Uint64("topicId", config.TopicId).Msg("node already registered for topic")
+		log.Info().Uint64("topicId", config.TopicId).Msg("Worker node already registered for topic")
 		return true
 	}
 
 	moduleParams, err := node.Chain.EmissionsQueryClient.Params(ctx, &emissionstypes.QueryParamsRequest{})
 	if err != nil {
-		log.Error().Err(err).Msg("could not get chain params")
+		log.Error().Err(err).Msg("Could not get chain params for worker ")
 	}
 
 	balance, err := node.GetBalance()
 	if err != nil {
-		log.Error().Err(err).Msg("could not check if the node has enough balance to register, skipping")
+		log.Error().Err(err).Msg("Could not check if the worker node has enough balance to register, skipping")
 		return false
 	}
 	if !balance.GTE(moduleParams.Params.RegistrationFee) {
-		log.Error().Msg("node does not have enough balance to register, skipping.")
+		log.Error().Str("balance", balance.String()).Msg("Worker node does not have enough balance to register, skipping.")
 		return false
 	}
 
@@ -44,9 +44,9 @@ func (node *NodeConfig) RegisterWorkerIdempotently(config WorkerConfig) bool {
 		Owner:     node.Chain.Address,
 		IsReputer: false,
 	}
-	res, err := node.SendDataWithRetry(ctx, msg, "register node")
+	res, err := node.SendDataWithRetry(ctx, msg, "Register worker node")
 	if err != nil {
-		log.Error().Err(err).Uint64("topic", config.TopicId).Str("txHash", res.TxHash).Msg("could not register the node with the Allora blockchain")
+		log.Error().Err(err).Uint64("topic", config.TopicId).Str("txHash", res.TxHash).Msg("Could not register the worker node with the Allora blockchain")
 		return false
 	}
 
@@ -61,25 +61,25 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 
 	isRegistered, err := node.IsReputerRegistered(config.TopicId)
 	if err != nil {
-		log.Error().Err(err).Msg("could not check if the node is already registered for topic as reputer, skipping")
+		log.Error().Err(err).Msg("Could not check if the node is already registered for topic as reputer, skipping")
 	}
 	if isRegistered {
-		log.Info().Uint64("topicId", config.TopicId).Msg("node already registered")
+		log.Info().Uint64("topicId", config.TopicId).Msg("Reputer node already registered")
 		return true
 	}
 
 	moduleParams, err := node.Chain.EmissionsQueryClient.Params(ctx, &emissionstypes.QueryParamsRequest{})
 	if err != nil {
-		log.Error().Err(err).Msg("could not get chain params")
+		log.Error().Err(err).Msg("Could not get chain params for reputer")
 	}
 
 	balance, err := node.GetBalance()
 	if err != nil {
-		log.Error().Err(err).Msg("could not check if the node has enough balance to register, skipping")
+		log.Error().Err(err).Msg("Could not check if the Reputer node has enough balance to register, skipping")
 		return false
 	}
 	if !balance.GTE(moduleParams.Params.RegistrationFee) {
-		log.Error().Msg("node does not have enough balance to register, skipping.")
+		log.Error().Msg("Reputer node does not have enough balance to register, skipping.")
 		return false
 	}
 
@@ -89,20 +89,20 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 		Owner:     node.Chain.Address,
 		IsReputer: true,
 	}
-	res, err := node.SendDataWithRetry(ctx, msgRegister, "register node")
+	res, err := node.SendDataWithRetry(ctx, msgRegister, "Register reputer node")
 	if err != nil {
-		log.Error().Err(err).Uint64("topic", config.TopicId).Str("txHash", res.TxHash).Msg("could not register the node with the Allora blockchain")
+		log.Error().Err(err).Uint64("topic", config.TopicId).Str("txHash", res.TxHash).Msg("Could not register the reputer node with the Allora blockchain")
 		return false
 	}
 
 	stake, err := node.GetReputerStakeInTopic(config.TopicId, node.Chain.Address)
 	if err != nil {
-		log.Error().Err(err).Msg("could not check if the node has enough balance to stake, skipping")
+		log.Error().Err(err).Msg("Could not check if the reputer node has enough balance to stake, skipping")
 		return false
 	}
 	minStake := cosmossdk_io_math.NewInt(config.MinStake)
 	if minStake.LTE(stake) {
-		log.Error().Msg("Stake below minimum stake, skipping.")
+		log.Error().Msg("Reputer stake below minimum stake, skipping.")
 		return true
 	}
 
@@ -111,9 +111,9 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 		Amount:  minStake,
 		TopicId: config.TopicId,
 	}
-	res, err = node.SendDataWithRetry(ctx, msgAddStake, "add stake")
+	res, err = node.SendDataWithRetry(ctx, msgAddStake, "Add reputer stake")
 	if err != nil {
-		log.Error().Err(err).Uint64("topic", config.TopicId).Str("txHash", res.TxHash).Msg("could not stake the node with the Allora blockchain in specified topic")
+		log.Error().Err(err).Uint64("topic", config.TopicId).Str("txHash", res.TxHash).Msg("Could not stake the reputer node with the Allora blockchain in specified topic")
 		return false
 	}
 	return true

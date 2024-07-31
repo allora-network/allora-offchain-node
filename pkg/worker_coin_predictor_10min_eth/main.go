@@ -44,6 +44,7 @@ func (a *AlloraEntrypoint) CalcInference(node lib.WorkerConfig, blockHeight int6
 	log.Debug().Bytes("body", body).Msg("Inference")
 	// convert bytes to string
 	return string(body), nil
+	// return "100", nil
 }
 
 func (a *AlloraEntrypoint) CalcForecast(node lib.WorkerConfig, blockHeight int64) ([]lib.NodeValue, error) {
@@ -53,7 +54,7 @@ func (a *AlloraEntrypoint) CalcForecast(node lib.WorkerConfig, blockHeight int64
 
 func (a *AlloraEntrypoint) SourceTruth(node lib.ReputerConfig, blockHeight int64) (lib.Truth, error) {
 	log.Debug().Str("name", a.name).Msg("truth")
-	return "", nil
+	return "100", nil
 }
 
 func (a *AlloraEntrypoint) LossFunction(sourceTruth string, inferenceValue string) string {
