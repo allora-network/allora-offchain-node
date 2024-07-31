@@ -48,9 +48,9 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 	}
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msgf("Error marshaling MsgInsertBulkWorkerPayload to print Msg as JSON")
+		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msgf("Error marshaling MsgInsertWorkerPayload to print Msg as JSON")
 	} else {
-		log.Debug().Uint64("topicId", reputer.TopicId).Msgf("Sending MsgInsertBulkWorkerPayload to chain %s", string(reqJSON))
+		log.Debug().Uint64("topicId", reputer.TopicId).Msgf("Sending MsgInsertWorkerPayload to chain %s", string(reqJSON))
 	}
 	_, err = suite.Node.SendDataWithRetry(ctx, req, "Send Worker Data to chain")
 	if err != nil {

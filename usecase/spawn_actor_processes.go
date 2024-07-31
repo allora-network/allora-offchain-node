@@ -110,24 +110,29 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 	log.Debug().Uint64("topicId", reputer.TopicId).Msg("Running reputer process for topic")
 
-	topic, err := suite.Node.GetTopicById(reputer.TopicId)
-	if err != nil {
-		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to get topic")
-		return
-	}
-
 	registeredAndStaked := suite.Node.RegisterAndStakeReputerIdempotently(reputer)
 	if !registeredAndStaked {
-		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to register or sufficiently stake reputer for topic")
+		log.Error().Uint64("topicId", reputer.TopicId).Msg("Failed to register or sufficiently stake reputer for topic")
 		return
 	}
 
 	var latestOpenReputerNonce lib.BlockHeight
-	mustRecalcOpenNonceWindow := true
-	mustGetOpenNonce := true
-	mustRecalcReputerWindow := true
 	window := AnticipatedWindow{}
+
 	for {
+		// if we reach the epochLength, we check for open reputer nonces
+		// - if they are eligible for reputation (gt_lag has passed) then we submit the reputer nonce
+		// - if they are not eligible for reputation, we wait until next epochLength
+		//
+		// if we haven't reached the epochLength, we wait until we reach it
+
+		// get the topic data fresh
+		topic, err := suite.Node.GetTopicById(reputer.TopicId)
+		if err != nil {
+			log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to get topic")
+			return
+		}
+
 		currentBlock, err := suite.Node.GetCurrentChainBlockHeight()
 		if err != nil {
 			log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error getting chain block height for reputer job on topic")
@@ -135,45 +140,37 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 		}
 
 		// Try to get the open nonce for the reputer
-		if mustRecalcOpenNonceWindow {
-			window = window.CalcWorkerSoonestAnticipatedWindow(suite, topic, currentBlock)
-			log.Debug().Msgf("Reputer anticipated window for open nonce for topic %d: %v", reputer.TopicId, window)
-			mustRecalcOpenNonceWindow = false
+		newOpenReputerNonce, err := suite.Node.GetLatestOpenReputerNonceByTopicId(reputer.TopicId)
+		if newOpenReputerNonce == 0 || err != nil {
+			log.Debug().Int64("currentBlock", currentBlock).Int64("lastOpenReputerNonce", latestOpenReputerNonce).Msg("Stopped waiting for open reputer nonce")
+			window.WaitForNextReputerAnticipatedWindowToStart(topic, topic.EpochLastEnded+topic.EpochLength, currentBlock)
+			continue
+		}
+		// Cover against repeated open nonce submission
+		if newOpenReputerNonce == latestOpenReputerNonce {
+			log.Debug().Int64("currentBlock", currentBlock).Int64("lastOpenReputerNonce", latestOpenReputerNonce).Msg("Reputer submission for nonce already done")
+			window.WaitForNextReputerAnticipatedWindowToStart(topic, topic.EpochLastEnded+topic.EpochLength, currentBlock)
+			continue
 		}
 
-		if mustGetOpenNonce && window.BlockIsWithinWindow(currentBlock) {
-			latestOpenReputerNonce, err = suite.Node.GetLatestOpenReputerNonceByTopicId(reputer.TopicId)
-			if latestOpenReputerNonce == 0 || err != nil {
-				log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error getting latest open reputer nonce on topic")
-				mustGetOpenNonce = true
-				continue
-			}
-			mustGetOpenNonce = false
-		}
-
-		if mustRecalcReputerWindow {
-			window = *window.CalcReputerSoonestAnticipatedWindow(topic, latestOpenReputerNonce)
-			log.Debug().Msgf("Reputer anticipated window for submission for topic %d: %v", reputer.TopicId, window)
-			mustRecalcReputerWindow = false
-		}
-
-		if window.BlockIsWithinReputerWindow(currentBlock) {
-			success, err := suite.BuildCommitReputerPayload(reputer, latestOpenReputerNonce)
+		// If nonce ready for reputation, do it
+		if newOpenReputerNonce > topic.EpochLastEnded+topic.GroundTruthLag && newOpenReputerNonce <= topic.EpochLastEnded+topic.GroundTruthLag+topic.EpochLength {
+			success, err := suite.BuildCommitReputerPayload(reputer, newOpenReputerNonce)
 			if err != nil {
 				log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error building and committing worker payload for topic")
 			}
 			if success {
-				mustRecalcOpenNonceWindow = true
-				mustGetOpenNonce = true
-				mustRecalcReputerWindow = true
-				window.WaitForNextAnticipatedWindowToStart(currentBlock, topic.EpochLength)
-				continue
+				log.Info().Int64("currentBlock", currentBlock).Int64("reputerNonce", newOpenReputerNonce).Msg("Reputer nonce successfully committed for reputation")
 			} else {
-				suite.WaitWithinAnticipatedWindow()
+				log.Error().Err(err).Uint64("topicId", reputer.TopicId).
+					Int64("currentBlock", currentBlock).
+					Int64("reputerNonce", newOpenReputerNonce).
+					Msg("Error building and committing worker payload")
 			}
-
+			latestOpenReputerNonce = newOpenReputerNonce
 		} else {
-			window.WaitForNextReputerAnticipatedWindowToStart(topic, latestOpenReputerNonce, currentBlock)
+			log.Info().Int64("currentBlock", currentBlock).Int64("reputerNonce", newOpenReputerNonce).Msg("Reputer nonce not ready for reputation")
 		}
+		window.WaitForNextReputerAnticipatedWindowToStart(topic, topic.EpochLastEnded+topic.EpochLength, currentBlock)
 	}
 }

@@ -70,11 +70,11 @@ func (a *AlloraEntrypoint) CanInfer() bool {
 }
 
 func (a *AlloraEntrypoint) CanForecast() bool {
-	return false
+	return true
 }
 
 func (a *AlloraEntrypoint) CanSourceTruth() bool {
-	return false
+	return true
 }
 
 func NewAlloraEntrypoint() *AlloraEntrypoint {

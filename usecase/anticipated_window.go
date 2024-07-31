@@ -6,7 +6,10 @@ import (
 	"time"
 
 	emissions "github.com/allora-network/allora-chain/x/emissions/types"
+	"github.com/rs/zerolog/log"
 )
+
+const DELAY_CORRECTION_FACTOR = 0.6
 
 type AnticipatedWindow struct {
 	SoonestTimeForOpenNonceCheck                float64
@@ -25,7 +28,18 @@ func (window *AnticipatedWindow) BlockIsWithinReputerWindow(block lib.BlockHeigh
 	return window.SoonestTimeForStartOfReputerNonceSubmission <= fBlock && window.SoonestTimeForEndOfReputerNonceSubmission >= fBlock
 }
 
+func (window *AnticipatedWindow) WaitForNextWindowToStart(currentBlock lib.BlockHeight, nextWindowStart lib.BlockHeight) {
+	waitingTimeInBlocks := nextWindowStart - currentBlock
+	correctedNumberOfWaitingBlocks := int64(float64(waitingTimeInBlocks) * DELAY_CORRECTION_FACTOR)
+	secondsToNextWindowStart := correctedNumberOfWaitingBlocks * lib.SECONDS_PER_BLOCK
+	sleepingTime := time.Duration(secondsToNextWindowStart) * time.Second
+	log.Debug().Int64("sleepingTime", int64(sleepingTime)).Msg("Waiting for next window to start")
+	time.Sleep(sleepingTime)
+	return
+}
+
 func (window *AnticipatedWindow) WaitForNextAnticipatedWindowToStart(currentBlock lib.BlockHeight, epochLength lib.BlockHeight) {
+	// TODO Apply a correction factor to the next window start time
 	nextWindowStart := int64(window.SoonestTimeForOpenNonceCheck) + epochLength
 	secondsToNextWindowStart := (nextWindowStart - currentBlock) * lib.SECONDS_PER_BLOCK
 	time.Sleep(time.Duration(secondsToNextWindowStart) * time.Second)
@@ -33,6 +47,7 @@ func (window *AnticipatedWindow) WaitForNextAnticipatedWindowToStart(currentBloc
 }
 
 func (window *AnticipatedWindow) WaitForNextReputerAnticipatedWindowToStart(topic emissions.Topic, nonce lib.BlockHeight, currentBlock lib.BlockHeight) {
+	// TODO Apply a correction factor to the next window start time
 	nextWindowStart := nonce + topic.GroundTruthLag
 	secondsToNextWindowStart := (nextWindowStart - currentBlock) * lib.SECONDS_PER_BLOCK
 	time.Sleep(time.Duration(secondsToNextWindowStart) * time.Second)
@@ -60,6 +75,7 @@ func (window AnticipatedWindow) CalcWorkerSoonestAnticipatedWindow(suite *UseCas
 	)
 	if pastBlocks+topic.WorkerSubmissionWindow < currentBlockHeight {
 		soonestWorkerStart = pastBlocks + topic.EpochLength // look ahead and start in the next anticipated window
+
 		earlyArrival = float64(soonestWorkerStart) - (math.Round((suite.Node.Wallet.EarlyArrivalPercent / 100) * float64(soonestWorkerStart)))
 	} else {
 		soonestWorkerStart = currentBlockHeight // we are already in the window
