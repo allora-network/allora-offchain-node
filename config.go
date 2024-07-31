@@ -29,6 +29,11 @@ var UserConfig = lib.UserConfig{
 			TopicId:             1,
 			InferenceEntrypoint: worker10min.NewAlloraEntrypoint(),
 			ForecastEntrypoint:  nil,
+			ExtraData: map[string]string{
+				"inferenceEndpoint": "http://localhost:8000/inference",
+				"token":             "ETH",
+				"forecastEndpoint":  "http://localhost:8000/forecast",
+			},
 		},
 		{
 			TopicId:             2,

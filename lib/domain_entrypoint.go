@@ -4,9 +4,9 @@ type Truth = string
 
 type AlloraEntrypoint interface {
 	Name() string
-	CalcInference() (string, error)
-	CalcForecast() ([]NodeValue, error)
-	SourceTruth() (Truth, error) // to be interpreted on a per-topic basis
+	CalcInference(WorkerConfig, int64) (string, error)
+	CalcForecast(WorkerConfig, int64) ([]NodeValue, error)
+	SourceTruth(ReputerConfig, int64) (Truth, error) // to be interpreted on a per-topic basis
 	LossFunction(sourceTruth string, inferenceValue string) string
 	CanInfer() bool
 	CanForecast() bool

@@ -16,16 +16,19 @@ import (
 func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, nonce *emissionstypes.Nonce) (bool, error) {
 	ctx := context.Background()
 
-	inference, err := worker.InferenceEntrypoint.CalcInference()
+	inference, err := worker.InferenceEntrypoint.CalcInference(worker, nonce.BlockHeight)
 	if err != nil {
 		log.Error().Err(err).Str("worker", worker.InferenceEntrypoint.Name()).Msg("Error computing inference for worker")
 		return false, err
 	}
 
-	forecasts, err := worker.ForecastEntrypoint.CalcForecast()
-	if err != nil {
-		log.Error().Err(err).Str("worker", worker.InferenceEntrypoint.Name()).Msg("Error computing forecast for worker")
-		return false, err
+	forecasts := []lib.NodeValue{}
+	if worker.ForecastEntrypoint != nil {
+		forecasts, err = worker.ForecastEntrypoint.CalcForecast(worker, nonce.BlockHeight)
+		if err != nil {
+			log.Error().Err(err).Str("worker", worker.InferenceEntrypoint.Name()).Msg("Error computing forecast for worker")
+			return false, err
+		}
 	}
 
 	var workerResponse = lib.WorkerResponse{

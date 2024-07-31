@@ -43,6 +43,7 @@ type WorkerConfig struct {
 	InferenceEntrypoint AlloraEntrypoint
 	ForecastEntrypoint  AlloraEntrypoint
 	AllowsNegativeValue bool
+	ExtraData           map[string]string // Map for variable configuration values
 }
 
 type ReputerConfig struct {
@@ -54,6 +55,7 @@ type ReputerConfig struct {
 	// Set to 0 to effectively disable this feature and use whatever stake has already been added.
 	MinStake            int64
 	AllowsNegativeValue bool
+	ExtraData           map[string]string // Map for variable configuration values
 }
 
 type UserConfig struct {
