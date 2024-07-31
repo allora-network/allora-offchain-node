@@ -44,6 +44,7 @@ func (a *AlloraEntrypoint) CalcInference(node lib.WorkerConfig, blockHeight int6
 	log.Debug().Bytes("body", body).Msg("Inference")
 	// convert bytes to string
 	return string(body), nil
+	// return "100", nil
 }
 
 func (a *AlloraEntrypoint) CalcForecast(node lib.WorkerConfig, blockHeight int64) ([]lib.NodeValue, error) {

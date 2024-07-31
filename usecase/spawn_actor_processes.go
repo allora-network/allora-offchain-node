@@ -49,7 +49,6 @@ func (suite *UseCaseSuite) Spawn() {
 
 func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 	log.Info().Uint64("topicId", worker.TopicId).Msg("Running worker process for topic")
-	println("Running worker process for topic", worker.TopicId)
 
 	topic, err := suite.Node.GetTopicById(worker.TopicId)
 	if err != nil {
@@ -75,7 +74,7 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 		if mustRecalcWindow {
 
 			window = window.CalcWorkerSoonestAnticipatedWindow(suite, topic, currentBlock)
-			log.Debug().Msgf("Worker anticipated window for topic open nonce %d: %v", worker.TopicId, window)
+			log.Debug().Msgf("Worker anticipated window for topic %d open nonce. Open: %f Close $f %v", worker.TopicId, window.SoonestTimeForOpenNonceCheck, window.SoonestTimeForEndOfWorkerNonceSubmission)
 			mustRecalcWindow = false
 		}
 
@@ -85,8 +84,9 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 			latestOpenWorkerNonce, err := suite.Node.GetLatestOpenWorkerNonceByTopicId(worker.TopicId)
 			if latestOpenWorkerNonce.BlockHeight == 0 || err != nil {
 				log.Error().Err(err).Uint64("topicId", worker.TopicId).Msg("Error getting latest open worker nonce on topic")
-				attemptCommit = false // Wait some time and try again if block still within the anticipated window
+				attemptCommit = false
 			}
+			log.Info().Int64("latestOpenWorkerNonce", latestOpenWorkerNonce.BlockHeight).Uint64("topicId", worker.TopicId).Msg("Got latest open worker nonce")
 
 			if attemptCommit {
 				success, err := suite.BuildCommitWorkerPayload(worker, latestOpenWorkerNonce)
@@ -102,6 +102,7 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 
 			suite.WaitWithinAnticipatedWindow()
 		} else {
+			log.Debug().Msgf("Block %d is not within window. Open: %f Close: %f", currentBlock, window.SoonestTimeForOpenNonceCheck, window.SoonestTimeForEndOfWorkerNonceSubmission)
 			window.WaitForNextAnticipatedWindowToStart(currentBlock, topic.EpochLength)
 		}
 	}
