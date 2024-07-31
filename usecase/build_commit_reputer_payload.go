@@ -24,7 +24,7 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 		return false, err
 	}
 
-	sourceTruth, err := reputer.ReputerEntrypoint.SourceTruth()
+	sourceTruth, err := reputer.ReputerEntrypoint.SourceTruth(reputer, nonce)
 	if err != nil {
 		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to get source truth from reputer")
 		return false, err
