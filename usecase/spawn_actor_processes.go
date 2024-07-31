@@ -49,6 +49,7 @@ func (suite *UseCaseSuite) Spawn() {
 
 func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 	log.Info().Uint64("topicId", worker.TopicId).Msg("Running worker process for topic")
+	println("Running worker process for topic", worker.TopicId)
 
 	topic, err := suite.Node.GetTopicById(worker.TopicId)
 	if err != nil {
@@ -73,8 +74,7 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 
 		if mustRecalcWindow {
 
-			window = window.CalcWorkerSoonestAnticipatedWindow(suite, topic, currentBlock)
-			log.Debug().Msgf("Worker anticipated window for topic %d open nonce. Open: %f Close $f %v", worker.TopicId, window.SoonestTimeForOpenNonceCheck, window.SoonestTimeForEndOfWorkerNonceSubmission)
+			window = suite.CalcSoonestAnticipatedWindow(topic, currentBlock)
 			mustRecalcWindow = false
 		}
 
@@ -82,11 +82,10 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 			attemptCommit := true
 
 			latestOpenWorkerNonce, err := suite.Node.GetLatestOpenWorkerNonceByTopicId(worker.TopicId)
-			if latestOpenWorkerNonce.BlockHeight == 0 || err != nil {
+			if err != nil {
 				log.Error().Err(err).Uint64("topicId", worker.TopicId).Msg("Error getting latest open worker nonce on topic")
-				attemptCommit = false
+				attemptCommit = false // Wait some time and try again if block still within the anticipated window
 			}
-			log.Info().Int64("latestOpenWorkerNonce", latestOpenWorkerNonce.BlockHeight).Uint64("topicId", worker.TopicId).Msg("Got latest open worker nonce")
 
 			if attemptCommit {
 				success, err := suite.BuildCommitWorkerPayload(worker, latestOpenWorkerNonce)
@@ -102,7 +101,6 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 
 			suite.WaitWithinAnticipatedWindow()
 		} else {
-			log.Debug().Msgf("Block %d is not within window. Open: %f Close: %f", currentBlock, window.SoonestTimeForOpenNonceCheck, window.SoonestTimeForEndOfWorkerNonceSubmission)
 			window.WaitForNextAnticipatedWindowToStart(currentBlock, topic.EpochLength)
 		}
 	}
@@ -123,10 +121,7 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 		return
 	}
 
-	var latestOpenReputerNonce lib.BlockHeight
-	mustRecalcOpenNonceWindow := true
-	mustGetOpenNonce := true
-	mustRecalcReputerWindow := true
+	mustRecalcWindow := true
 	window := AnticipatedWindow{}
 	for {
 		currentBlock, err := suite.Node.GetCurrentChainBlockHeight()
@@ -135,46 +130,37 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 			return
 		}
 
-		// Try to get the open nonce for the reputer
-		if mustRecalcOpenNonceWindow {
-			window = window.CalcWorkerSoonestAnticipatedWindow(suite, topic, currentBlock)
-			log.Debug().Msgf("Reputer anticipated window for open nonce for topic %d: %v", reputer.TopicId, window)
-			mustRecalcOpenNonceWindow = false
+		if mustRecalcWindow {
+			window = suite.CalcSoonestAnticipatedWindow(topic, currentBlock)
+			log.Debug().Msgf("Anticipated window for topic %d: %v", reputer.TopicId, window)
+			mustRecalcWindow = false
 		}
 
-		if mustGetOpenNonce && window.BlockIsWithinWindow(currentBlock) {
-			latestOpenReputerNonce, err = suite.Node.GetLatestOpenReputerNonceByTopicId(reputer.TopicId)
-			if latestOpenReputerNonce == 0 || err != nil {
-				log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error getting latest open reputer nonce on topic")
-				mustGetOpenNonce = true
-				continue
-			}
-			mustGetOpenNonce = false
-		}
+		if window.BlockIsWithinWindow(currentBlock) {
+			attemptCommit := true
 
-		if mustRecalcReputerWindow {
-			window = *window.CalcReputerSoonestAnticipatedWindow(topic, latestOpenReputerNonce)
-			log.Debug().Msgf("Reputer anticipated window for submission for topic %d: %v", reputer.TopicId, window)
-			mustRecalcReputerWindow = false
-		}
-
-		if window.BlockIsWithinReputerWindow(currentBlock) {
-			success, err := suite.BuildCommitReputerPayload(reputer, latestOpenReputerNonce)
-			if err != nil {
-				log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error building and committing worker payload for topic")
-			}
-			if success {
-				mustRecalcOpenNonceWindow = true
-				mustGetOpenNonce = true
-				mustRecalcReputerWindow = true
-				window.WaitForNextAnticipatedWindowToStart(currentBlock, topic.EpochLength)
-				continue
-			} else {
-				suite.WaitWithinAnticipatedWindow()
+			latestOpenWorkerNonce, err := suite.Node.GetLatestOpenReputerNonceByTopicId(reputer.TopicId)
+			if latestOpenWorkerNonce == 0 || err != nil {
+				log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error getting latest open worker nonce on topic")
+				attemptCommit = false // Wait some time and try again if block still within the anticipated window
 			}
 
+			if attemptCommit {
+				success, err := suite.BuildCommitReputerPayload(reputer, latestOpenWorkerNonce)
+				if err != nil {
+					log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error building and committing worker payload for topic")
+				}
+				if success {
+					mustRecalcWindow = true
+					window.WaitForNextAnticipatedWindowToStart(currentBlock, topic.EpochLength)
+					continue
+				}
+			}
+
+			suite.WaitWithinAnticipatedWindow()
 		} else {
-			window.WaitForNextReputerAnticipatedWindowToStart(topic, latestOpenReputerNonce, currentBlock)
+			window.WaitForNextAnticipatedWindowToStart(currentBlock, topic.EpochLength)
+			mustRecalcWindow = true
 		}
 	}
 }
