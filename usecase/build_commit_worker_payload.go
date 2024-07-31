@@ -48,6 +48,8 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 		log.Error().Err(err).Msg("Error signing workerPayload")
 		return false, err
 	}
+	workerDataBundle.Nonce = nonce
+	workerDataBundle.TopicId = worker.TopicId
 
 	req := &emissionstypes.MsgInsertWorkerPayload{
 		Sender:           suite.Node.Wallet.Address,
@@ -64,7 +66,6 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 		log.Error().Err(err).Msg("Error sending Worker Data to chain")
 		return false, err
 	}
-
 	return true, nil
 }
 
