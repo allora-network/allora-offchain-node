@@ -35,7 +35,8 @@ func (window *AnticipatedWindow) WaitForNextAnticipatedWindowToStart(currentBloc
 // This window, in blocks, starts at `topic.EpochLastEnded + topic.EpochLength*(1 - config.EarlyArrivalPercent)`
 // and ends at `topic.EpochLastEnded + topic.EpochLength*(1 + config.LateArrivalPercent)`
 func (suite *UseCaseSuite) WaitWithinAnticipatedWindow() {
-	time.Sleep(time.Duration(suite.Node.Wallet.LoopWithinWindowSeconds) * time.Second)
+	// time.Sleep(time.Duration(suite.Node.Wallet.LoopWithinWindowSeconds) * time.Second)
+	return
 }
 
 // Return the approximate start and end block (as floats) of the next anticipated window.
@@ -57,4 +58,8 @@ func (suite *UseCaseSuite) CalcSoonestAnticipatedWindow(topic emissions.Topic, c
 		SoonestTimeForEndOfWorkerNonceSubmission:  float64(soonestWorkerEnd) * (1.0 + suite.Node.Wallet.LateArrivalPercent),
 		SoonestTimeForEndOfReputerNonceSubmission: float64(soonestReputerEnd) * (1.0 + suite.Node.Wallet.LateArrivalPercent),
 	}
+}
+
+func (suite *UseCaseSuite) Wait(seconds int64) {
+	time.Sleep(time.Duration(seconds) * time.Second)
 }
