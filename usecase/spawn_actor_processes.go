@@ -123,7 +123,7 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 		return
 	}
 
-	var latestOpenReputerNonce lib.BlockHeight
+	var latestOpenReputerNonce *emissions.Nonce
 	mustRecalcOpenNonceWindow := true
 	mustGetOpenNonce := true
 	mustRecalcReputerWindow := true
@@ -143,8 +143,9 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 		}
 
 		if mustGetOpenNonce && window.BlockIsWithinWindow(currentBlock) {
-			latestOpenReputerNonce, err = suite.Node.GetLatestOpenReputerNonceByTopicId(reputer.TopicId)
-			if latestOpenReputerNonce == 0 || err != nil {
+			latestOpenReputerNonce, err = suite.Node.GetLatestOpenWorkerNonceByTopicId(reputer.TopicId)
+			println(latestOpenReputerNonce.BlockHeight)
+			if latestOpenReputerNonce.BlockHeight == 0 || err != nil {
 				log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error getting latest open reputer nonce on topic")
 				mustGetOpenNonce = true
 				continue
@@ -153,13 +154,13 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 		}
 
 		if mustRecalcReputerWindow {
-			window = *window.CalcReputerSoonestAnticipatedWindow(topic, latestOpenReputerNonce)
+			window = *window.CalcReputerSoonestAnticipatedWindow(topic, latestOpenReputerNonce.BlockHeight)
 			log.Debug().Msgf("Reputer anticipated window for submission for topic %d: %v", reputer.TopicId, window)
 			mustRecalcReputerWindow = false
 		}
 
 		if window.BlockIsWithinReputerWindow(currentBlock) {
-			success, err := suite.BuildCommitReputerPayload(reputer, latestOpenReputerNonce)
+			success, err := suite.BuildCommitReputerPayload(reputer, latestOpenReputerNonce.BlockHeight)
 			if err != nil {
 				log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error building and committing worker payload for topic")
 			}
@@ -174,7 +175,7 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 			}
 
 		} else {
-			window.WaitForNextReputerAnticipatedWindowToStart(topic, latestOpenReputerNonce, currentBlock)
+			window.WaitForNextReputerAnticipatedWindowToStart(topic, latestOpenReputerNonce.BlockHeight, currentBlock)
 		}
 	}
 }

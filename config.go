@@ -3,7 +3,7 @@ package main
 import (
 	"allora_offchain_node/lib"
 	reputerCoinGecko "allora_offchain_node/pkg/reputer_coingecko_l1_norm"
-	worker10min "allora_offchain_node/pkg/worker_coin_predictor_10min_eth"
+	// worker10min "allora_offchain_node/pkg/worker_coin_predictor_10min_eth"
 )
 
 var UserConfig = lib.UserConfig{
@@ -24,16 +24,16 @@ var UserConfig = lib.UserConfig{
 		LateArrivalPercent:       10,
 	},
 	Worker: []lib.WorkerConfig{
-		{
-			TopicId:             1,
-			InferenceEntrypoint: worker10min.NewAlloraEntrypoint(),
-			ForecastEntrypoint:  nil,
-			ExtraData: map[string]string{
-				"inferenceEndpoint": "http://localhost:8000/inference",
-				"token":             "ETH",
-				"forecastEndpoint":  "http://localhost:8000/forecast",
-			},
-		},
+		// {
+		// 	TopicId:             1,
+		// 	InferenceEntrypoint: worker10min.NewAlloraEntrypoint(),
+		// 	ForecastEntrypoint:  nil,
+		// 	ExtraData: map[string]string{
+		// 		"inferenceEndpoint": "http://localhost:8000/inference",
+		// 		"token":             "ETH",
+		// 		"forecastEndpoint":  "http://localhost:8000/forecast",
+		// 	},
+		// },
 	},
 	Reputer: []lib.ReputerConfig{
 		{
