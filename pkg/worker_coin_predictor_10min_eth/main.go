@@ -40,10 +40,10 @@ func (a *AlloraEntrypoint) CalcInference(node lib.WorkerConfig, blockHeight int6
 	if err != nil {
 		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
-
-	log.Debug().Bytes("body", body).Msg("Inference")
+	response := string(body)
+	log.Debug().Str("response", response).Msg("Inference")
 	// convert bytes to string
-	return string(body), nil
+	return response, nil
 	// return "100", nil
 }
 
@@ -54,16 +54,17 @@ func (a *AlloraEntrypoint) CalcForecast(node lib.WorkerConfig, blockHeight int64
 
 func (a *AlloraEntrypoint) SourceTruth(node lib.ReputerConfig, blockHeight int64) (lib.Truth, error) {
 	log.Debug().Str("name", a.name).Msg("truth")
-	return "100", nil
+	return "3344.25", nil
 }
 
 func (a *AlloraEntrypoint) LossFunction(sourceTruth string, inferenceValue string) string {
-	fmt.Println("Loss function processing" + a.name)
+	log.Debug().Str("name", a.name).Msg("Loss function processing")
 	sourceTruthFloat, _ := strconv.ParseFloat(sourceTruth, 64)
 	inferenceValueFloat, _ := strconv.ParseFloat(inferenceValue, 64)
 	loss := math.Abs(sourceTruthFloat - inferenceValueFloat)
-
-	return fmt.Sprintf("%f", loss)
+	str := fmt.Sprintf("%f", loss)
+	log.Debug().Str("str", str).Msg("Returned loss value")
+	return str
 }
 
 func (a *AlloraEntrypoint) CanInfer() bool {

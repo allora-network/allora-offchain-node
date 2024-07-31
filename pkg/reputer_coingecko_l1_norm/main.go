@@ -37,8 +37,9 @@ func (a *AlloraEntrypoint) LossFunction(sourceTruth string, inferenceValue strin
 	sourceTruthFloat, _ := strconv.ParseFloat(sourceTruth, 64)
 	inferenceValueFloat, _ := strconv.ParseFloat(inferenceValue, 64)
 	loss := math.Abs(sourceTruthFloat - inferenceValueFloat)
-
-	return fmt.Sprintf("%f", loss)
+	str := fmt.Sprintf("%f", loss)
+	log.Debug().Str("str", str).Msg("Returned loss value")
+	return str
 }
 
 func (a *AlloraEntrypoint) CanInfer() bool {

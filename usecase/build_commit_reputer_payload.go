@@ -23,6 +23,10 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to get reputer values at block")
 		return false, err
 	}
+	valueBundle.ReputerRequestNonce = &emissionstypes.ReputerRequestNonce{
+		ReputerNonce: &emissionstypes.Nonce{BlockHeight: nonce},
+	}
+	valueBundle.Reputer = suite.Node.Wallet.Address
 
 	sourceTruth, err := reputer.ReputerEntrypoint.SourceTruth(reputer, nonce)
 	if err != nil {
@@ -48,13 +52,13 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 	}
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msgf("Error marshaling MsgInsertWorkerPayload to print Msg as JSON")
+		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msgf("Error marshaling MsgInserReputerPayload to print Msg as JSON")
 	} else {
-		log.Debug().Uint64("topicId", reputer.TopicId).Msgf("Sending MsgInsertWorkerPayload to chain %s", string(reqJSON))
+		log.Debug().Uint64("topicId", reputer.TopicId).Msgf("Sending MsgInsertReputerPayload to chain %s", string(reqJSON))
 	}
-	_, err = suite.Node.SendDataWithRetry(ctx, req, "Send Worker Data to chain")
+	_, err = suite.Node.SendDataWithRetry(ctx, req, "Send Reputer Data to chain")
 	if err != nil {
-		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msgf("Error sending Worker Data to chain: %s", err)
+		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msgf("Error sending Reputer Data to chain: %s", err)
 		return false, err
 	}
 
@@ -179,7 +183,6 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 		oneInForecasterLosses[i] = &emissionstypes.WorkerAttributedValue{Worker: val.Worker, Value: value}
 	}
 	losses.OneInForecasterValues = oneInForecasterLosses
-
 	return losses, nil
 }
 

@@ -10,6 +10,7 @@ import (
 )
 
 const DELAY_CORRECTION_FACTOR = 0.6
+const MIN_LIMIT_BLOCKS = 3
 
 type AnticipatedWindow struct {
 	SoonestTimeForOpenNonceCheck                float64
@@ -28,14 +29,30 @@ func (window *AnticipatedWindow) BlockIsWithinReputerWindow(block lib.BlockHeigh
 	return window.SoonestTimeForStartOfReputerNonceSubmission <= fBlock && window.SoonestTimeForEndOfReputerNonceSubmission >= fBlock
 }
 
+// Waits until the next window starts, given the current block height and the next window start block height,
+// with a correction factor applied to the waiting time.
 func (window *AnticipatedWindow) WaitForNextWindowToStart(currentBlock lib.BlockHeight, nextWindowStart lib.BlockHeight) {
 	waitingTimeInBlocks := nextWindowStart - currentBlock
-	correctedNumberOfWaitingBlocks := int64(float64(waitingTimeInBlocks) * DELAY_CORRECTION_FACTOR)
-	secondsToNextWindowStart := correctedNumberOfWaitingBlocks * lib.SECONDS_PER_BLOCK
-	sleepingTime := time.Duration(secondsToNextWindowStart) * time.Second
-	log.Debug().Int64("sleepingTime", int64(sleepingTime)).Msg("Waiting for next window to start")
-	time.Sleep(sleepingTime)
-	return
+	if waitingTimeInBlocks == 0 {
+		log.Debug().Msg("No difference in time, waiting in 1s")
+		time.Sleep(time.Duration(1) * time.Second)
+	} else if waitingTimeInBlocks < MIN_LIMIT_BLOCKS {
+		waitingTimeSeconds := waitingTimeInBlocks * lib.SECONDS_PER_BLOCK
+		log.Debug().
+			Int64("waitingTimeInSeconds", waitingTimeSeconds).
+			Msg("Waiting time is less than the minimum limit, sleeping...")
+		time.Sleep(time.Duration(waitingTimeSeconds) * time.Second)
+	} else {
+		correctedNumberOfWaitingBlocks := int64(float64(waitingTimeInBlocks) * DELAY_CORRECTION_FACTOR)
+		secondsToNextWindowStart := correctedNumberOfWaitingBlocks * lib.SECONDS_PER_BLOCK
+		log.Debug().
+			Int64("currentBlock", int64(currentBlock)).
+			Int64("nextWindowStart", int64(nextWindowStart)).
+			Int64("waitingTimeInBlocks", int64(waitingTimeInBlocks)).
+			Int64("secondsToNextWindowStart", int64(secondsToNextWindowStart)).
+			Msg("Waiting for next window to start")
+		time.Sleep(time.Duration(secondsToNextWindowStart) * time.Second)
+	}
 }
 
 func (window *AnticipatedWindow) WaitForNextAnticipatedWindowToStart(currentBlock lib.BlockHeight, epochLength lib.BlockHeight) {
