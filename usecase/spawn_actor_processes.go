@@ -74,7 +74,8 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 
 		if mustRecalcWindow {
 
-			window = suite.CalcSoonestAnticipatedWindow(topic, currentBlock)
+			window = window.CalcWorkerSoonestAnticipatedWindow(suite, topic, currentBlock)
+			log.Debug().Msgf("Worker anticipated window for topic open nonce %d: %v", worker.TopicId, window)
 			mustRecalcWindow = false
 		}
 
@@ -82,7 +83,7 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 			attemptCommit := true
 
 			latestOpenWorkerNonce, err := suite.Node.GetLatestOpenWorkerNonceByTopicId(worker.TopicId)
-			if err != nil {
+			if latestOpenWorkerNonce.BlockHeight == 0 || err != nil {
 				log.Error().Err(err).Uint64("topicId", worker.TopicId).Msg("Error getting latest open worker nonce on topic")
 				attemptCommit = false // Wait some time and try again if block still within the anticipated window
 			}
@@ -121,7 +122,10 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 		return
 	}
 
-	mustRecalcWindow := true
+	var latestOpenReputerNonce lib.BlockHeight
+	mustRecalcOpenNonceWindow := true
+	mustGetOpenNonce := true
+	mustRecalcReputerWindow := true
 	window := AnticipatedWindow{}
 	for {
 		currentBlock, err := suite.Node.GetCurrentChainBlockHeight()
@@ -130,37 +134,46 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 			return
 		}
 
-		if mustRecalcWindow {
-			window = suite.CalcSoonestAnticipatedWindow(topic, currentBlock)
-			log.Debug().Msgf("Anticipated window for topic %d: %v", reputer.TopicId, window)
-			mustRecalcWindow = false
+		// Try to get the open nonce for the reputer
+		if mustRecalcOpenNonceWindow {
+			window = window.CalcWorkerSoonestAnticipatedWindow(suite, topic, currentBlock)
+			log.Debug().Msgf("Reputer anticipated window for open nonce for topic %d: %v", reputer.TopicId, window)
+			mustRecalcOpenNonceWindow = false
 		}
 
-		if window.BlockIsWithinWindow(currentBlock) {
-			attemptCommit := true
+		if mustGetOpenNonce && window.BlockIsWithinWindow(currentBlock) {
+			latestOpenReputerNonce, err = suite.Node.GetLatestOpenReputerNonceByTopicId(reputer.TopicId)
+			if latestOpenReputerNonce == 0 || err != nil {
+				log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error getting latest open reputer nonce on topic")
+				mustGetOpenNonce = true
+				continue
+			}
+			mustGetOpenNonce = false
+		}
 
-			latestOpenWorkerNonce, err := suite.Node.GetLatestOpenReputerNonceByTopicId(reputer.TopicId)
-			if latestOpenWorkerNonce == 0 || err != nil {
-				log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error getting latest open worker nonce on topic")
-				attemptCommit = false // Wait some time and try again if block still within the anticipated window
+		if mustRecalcReputerWindow {
+			window = *window.CalcReputerSoonestAnticipatedWindow(topic, latestOpenReputerNonce)
+			log.Debug().Msgf("Reputer anticipated window for submission for topic %d: %v", reputer.TopicId, window)
+			mustRecalcReputerWindow = false
+		}
+
+		if window.BlockIsWithinReputerWindow(currentBlock) {
+			success, err := suite.BuildCommitReputerPayload(reputer, latestOpenReputerNonce)
+			if err != nil {
+				log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error building and committing worker payload for topic")
+			}
+			if success {
+				mustRecalcOpenNonceWindow = true
+				mustGetOpenNonce = true
+				mustRecalcReputerWindow = true
+				window.WaitForNextAnticipatedWindowToStart(currentBlock, topic.EpochLength)
+				continue
+			} else {
+				suite.WaitWithinAnticipatedWindow()
 			}
 
-			if attemptCommit {
-				success, err := suite.BuildCommitReputerPayload(reputer, latestOpenWorkerNonce)
-				if err != nil {
-					log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error building and committing worker payload for topic")
-				}
-				if success {
-					mustRecalcWindow = true
-					window.WaitForNextAnticipatedWindowToStart(currentBlock, topic.EpochLength)
-					continue
-				}
-			}
-
-			suite.WaitWithinAnticipatedWindow()
 		} else {
-			window.WaitForNextAnticipatedWindowToStart(currentBlock, topic.EpochLength)
-			mustRecalcWindow = true
+			window.WaitForNextReputerAnticipatedWindowToStart(topic, latestOpenReputerNonce,  currentBlock)
 		}
 	}
 }

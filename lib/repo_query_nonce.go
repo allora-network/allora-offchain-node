@@ -7,8 +7,6 @@ import (
 )
 
 func (node *NodeConfig) GetLatestOpenWorkerNonceByTopicId(topicId emissionstypes.TopicId) (*emissionstypes.Nonce, error) {
-	// TODO: GetUnfulfilledWorkerNonces / GetOpenWorkerNonce
-	// Must be deployed on a chain first!
 	ctx := context.Background()
 
 	res, err := node.Chain.EmissionsQueryClient.GetUnfulfilledWorkerNonces(
@@ -27,8 +25,6 @@ func (node *NodeConfig) GetLatestOpenWorkerNonceByTopicId(topicId emissionstypes
 }
 
 func (node *NodeConfig) GetLatestOpenReputerNonceByTopicId(topicId emissionstypes.TopicId) (BlockHeight, error) {
-	// TODO: GetUnfulfilledReputerNonces -> GetOpenReputerNonce
-	// Must be deployed on a chain first!
 	ctx := context.Background()
 
 	res, err := node.Chain.EmissionsQueryClient.GetUnfulfilledReputerNonces(

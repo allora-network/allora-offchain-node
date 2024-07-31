@@ -11,7 +11,8 @@ import (
 type AnticipatedWindow struct {
 	SoonestTimeForOpenNonceCheck              float64
 	SoonestTimeForEndOfWorkerNonceSubmission  float64
-	SoonestTimeForEndOfReputerNonceSubmission float64
+	SoonestTimeForStartOfReputerNonceSubmission float64 `json:"SoonestTimeForStartOfReputerNonceSubmission,omitempty"`
+	SoonestTimeForEndOfReputerNonceSubmission float64 `json:"SoonestTimeForEndOfReputerNonceSubmission,omitempty"`
 }
 
 func (window *AnticipatedWindow) BlockIsWithinWindow(block lib.BlockHeight) bool {
@@ -19,7 +20,11 @@ func (window *AnticipatedWindow) BlockIsWithinWindow(block lib.BlockHeight) bool
 	return window.SoonestTimeForOpenNonceCheck <= fBlock && window.SoonestTimeForEndOfWorkerNonceSubmission >= fBlock
 }
 
-// `forWorker == true` => Wait until end of worker window, else wait until end of reputer window
+func (window *AnticipatedWindow) BlockIsWithinReputerWindow(block lib.BlockHeight) bool {
+	fBlock := float64(block)
+	return window.SoonestTimeForStartOfReputerNonceSubmission <= fBlock && window.SoonestTimeForEndOfReputerNonceSubmission >= fBlock
+}
+
 func (window *AnticipatedWindow) WaitForNextAnticipatedWindowToStart(currentBlock lib.BlockHeight, epochLength lib.BlockHeight) {
 	nextWindowStart := int64(window.SoonestTimeForOpenNonceCheck) + epochLength
 	secondsToNextWindowStart := (nextWindowStart - currentBlock) * lib.SECONDS_PER_BLOCK
@@ -27,18 +32,21 @@ func (window *AnticipatedWindow) WaitForNextAnticipatedWindowToStart(currentBloc
 	return
 }
 
-/// Methods Related to AnticipatedWindows but on UseCaseSuite
+func (window *AnticipatedWindow) WaitForNextReputerAnticipatedWindowToStart(topic emissions.Topic, nonce lib.BlockHeight, currentBlock lib.BlockHeight) {
+	nextWindowStart := nonce + topic.GroundTruthLag
+	secondsToNextWindowStart := (nextWindowStart - currentBlock) * lib.SECONDS_PER_BLOCK
+	time.Sleep(time.Duration(secondsToNextWindowStart) * time.Second)
+	return
+}
 
 // Anticipated window is when the current block height is within the soonest start and end times
 // at which we begin to check if a nonce is available.
-// This window, in blocks, starts at `topic.EpochLastEnded + topic.EpochLength*(1 - config.EarlyArrivalPercent)`
-// and ends at `topic.EpochLastEnded + topic.EpochLength*(1 + config.LateArrivalPercent)`
 func (suite *UseCaseSuite) WaitWithinAnticipatedWindow() {
 	time.Sleep(time.Duration(suite.Node.Wallet.LoopWithinWindowSeconds) * time.Second)
 }
 
 // Return the approximate start and end block (as floats) of the next anticipated window.
-func (suite *UseCaseSuite) CalcSoonestAnticipatedWindow(topic emissions.Topic, currentBlockHeight lib.BlockHeight) AnticipatedWindow {
+func (window AnticipatedWindow) CalcWorkerSoonestAnticipatedWindow(suite *UseCaseSuite, topic emissions.Topic, currentBlockHeight lib.BlockHeight) AnticipatedWindow {
 	// how many inactive epochs do we have since the last active epoch till now? 
 	numInactiveEpochs := (currentBlockHeight - topic.EpochLastEnded) / topic.EpochLength // NOTE: integer devision ignores the remainder
 	// how many inactive blocks are there in the inactive epochs? 
@@ -60,12 +68,19 @@ func (suite *UseCaseSuite) CalcSoonestAnticipatedWindow(topic emissions.Topic, c
 	soonestWorkerEnd := soonestWorkerStart + topic.WorkerSubmissionWindow
 	lateArrival := float64(soonestWorkerEnd) + (math.Round((suite.Node.Wallet.LateArrivalPercent / 100) * float64(soonestWorkerEnd)))
 
-	//TODO remove this and create it's own methid for reputer
-	soonestReputerEnd := soonestWorkerStart + topic.GroundTruthLag 
-
 	return AnticipatedWindow{
 		SoonestTimeForOpenNonceCheck:              earlyArrival,
 		SoonestTimeForEndOfWorkerNonceSubmission:  lateArrival,
-		SoonestTimeForEndOfReputerNonceSubmission: float64(soonestReputerEnd) * (1.0 + suite.Node.Wallet.LateArrivalPercent),
 	}
+}
+
+func (window *AnticipatedWindow) CalcReputerSoonestAnticipatedWindow(topic emissions.Topic, openNonce lib.BlockHeight) *AnticipatedWindow {
+	// asumming there is no need for early or late arrival since the window (epoch length) is big enough to submit reputation
+	soonestReputerStart := openNonce + topic.GroundTruthLag
+	soonestReputerEnd := soonestReputerStart +  topic.EpochLength
+
+	window.SoonestTimeForStartOfReputerNonceSubmission = float64(soonestReputerStart)
+	window.SoonestTimeForEndOfReputerNonceSubmission = float64(soonestReputerEnd)
+
+	return window
 }
