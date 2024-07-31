@@ -173,7 +173,7 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 			}
 
 		} else {
-			window.WaitForNextReputerAnticipatedWindowToStart(topic, latestOpenReputerNonce,  currentBlock)
+			window.WaitForNextReputerAnticipatedWindowToStart(topic, latestOpenReputerNonce, currentBlock)
 		}
 	}
 }
