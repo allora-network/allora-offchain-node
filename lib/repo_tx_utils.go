@@ -22,7 +22,7 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 			break
 		}
 		// Log the error for each retry.
-		log.Error().Str("msg", successMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, node.Wallet.MaxRetries)
+		log.Error().Err(err).Str("msg", successMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, node.Wallet.MaxRetries)
 		// Generate a random number between MinDelay and MaxDelay
 		randomDelay := rand.Intn(int(node.Wallet.MaxDelay-node.Wallet.MinDelay+1)) + int(node.Wallet.MinDelay)
 		// Apply exponential backoff to the random delay
