@@ -73,9 +73,7 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 			if !success || err != nil {
 				log.Error().Err(err).Uint64("topicId", worker.TopicId).Msg("Error building and committing worker payload for topic")
 			}
-			if success {
-				latestNonceHeightActedUpon = latestOpenWorkerNonce.BlockHeight
-			}
+			latestNonceHeightActedUpon = latestOpenWorkerNonce.BlockHeight
 		}
 
 		suite.Wait(worker.LoopSeconds)
@@ -107,9 +105,7 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 			if !success || err != nil {
 				log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error building and committing reputer payload for topic")
 			}
-			if success {
-				latestNonceHeightActedUpon = latestOpenReputerNonce
-			}
+			latestNonceHeightActedUpon = latestOpenReputerNonce
 		}
 
 		suite.Wait(reputer.LoopSeconds)
