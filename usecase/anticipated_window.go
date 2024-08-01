@@ -2,59 +2,28 @@ package usecase
 
 import (
 	"allora_offchain_node/lib"
-	"math"
 	"time"
 
 	emissions "github.com/allora-network/allora-chain/x/emissions/types"
-	"github.com/rs/zerolog/log"
 )
 
 const DELAY_CORRECTION_FACTOR = 0.6
 const MIN_LIMIT_BLOCKS = 3
 
 type AnticipatedWindow struct {
-	SoonestTimeForOpenNonceCheck                float64
-	SoonestTimeForEndOfWorkerNonceSubmission    float64
-	SoonestTimeForStartOfReputerNonceSubmission float64 `json:"SoonestTimeForStartOfReputerNonceSubmission,omitempty"`
-	SoonestTimeForEndOfReputerNonceSubmission   float64 `json:"SoonestTimeForEndOfReputerNonceSubmission,omitempty"`
+	SoonestTimeForOpenNonceCheck              float64
+	SoonestTimeForEndOfWorkerNonceSubmission  float64
+	SoonestTimeForEndOfReputerNonceSubmission float64
 }
+
+/// Interface Methods
 
 func (window *AnticipatedWindow) BlockIsWithinWindow(block lib.BlockHeight) bool {
 	fBlock := float64(block)
 	return window.SoonestTimeForOpenNonceCheck <= fBlock && window.SoonestTimeForEndOfWorkerNonceSubmission >= fBlock
 }
 
-func (window *AnticipatedWindow) BlockIsWithinReputerWindow(block lib.BlockHeight) bool {
-	fBlock := float64(block)
-	return window.SoonestTimeForStartOfReputerNonceSubmission <= fBlock && window.SoonestTimeForEndOfReputerNonceSubmission >= fBlock
-}
-
-// Waits until the next window starts, given the current block height and the next window start block height,
-// with a correction factor applied to the waiting time.
-func (window *AnticipatedWindow) WaitForNextWindowToStart(currentBlock lib.BlockHeight, nextWindowStart lib.BlockHeight) {
-	waitingTimeInBlocks := nextWindowStart - currentBlock
-	if waitingTimeInBlocks == 0 {
-		log.Debug().Msg("No difference in time, waiting in 1s")
-		time.Sleep(time.Duration(1) * time.Second)
-	} else if waitingTimeInBlocks < MIN_LIMIT_BLOCKS {
-		waitingTimeSeconds := waitingTimeInBlocks * lib.SECONDS_PER_BLOCK
-		log.Debug().
-			Int64("waitingTimeInSeconds", waitingTimeSeconds).
-			Msg("Waiting time is less than the minimum limit, sleeping...")
-		time.Sleep(time.Duration(waitingTimeSeconds) * time.Second)
-	} else {
-		correctedNumberOfWaitingBlocks := int64(float64(waitingTimeInBlocks) * DELAY_CORRECTION_FACTOR)
-		secondsToNextWindowStart := correctedNumberOfWaitingBlocks * lib.SECONDS_PER_BLOCK
-		log.Debug().
-			Int64("currentBlock", int64(currentBlock)).
-			Int64("nextWindowStart", int64(nextWindowStart)).
-			Int64("waitingTimeInBlocks", int64(waitingTimeInBlocks)).
-			Int64("secondsToNextWindowStart", int64(secondsToNextWindowStart)).
-			Msg("Waiting for next window to start")
-		time.Sleep(time.Duration(secondsToNextWindowStart) * time.Second)
-	}
-}
-
+// `forWorker == true` => Wait until end of worker window, else wait until end of reputer window
 func (window *AnticipatedWindow) WaitForNextAnticipatedWindowToStart(currentBlock lib.BlockHeight, epochLength lib.BlockHeight) {
 	// TODO Apply a correction factor to the next window start time
 	nextWindowStart := int64(window.SoonestTimeForOpenNonceCheck) + epochLength
@@ -63,57 +32,38 @@ func (window *AnticipatedWindow) WaitForNextAnticipatedWindowToStart(currentBloc
 	return
 }
 
-func (window *AnticipatedWindow) WaitForNextReputerAnticipatedWindowToStart(topic emissions.Topic, nonce lib.BlockHeight, currentBlock lib.BlockHeight) {
-	// TODO Apply a correction factor to the next window start time
-	nextWindowStart := nonce + topic.GroundTruthLag
-	secondsToNextWindowStart := (nextWindowStart - currentBlock) * lib.SECONDS_PER_BLOCK
-	time.Sleep(time.Duration(secondsToNextWindowStart) * time.Second)
-	return
-}
+/// Methods Related to AnticipatedWindows but on UseCaseSuite
 
 // Anticipated window is when the current block height is within the soonest start and end times
 // at which we begin to check if a nonce is available.
+// This window, in blocks, starts at `topic.EpochLastEnded + topic.EpochLength*(1 - config.EarlyArrivalPercent)`
+// and ends at `topic.EpochLastEnded + topic.EpochLength*(1 + config.LateArrivalPercent)`
 func (suite *UseCaseSuite) WaitWithinAnticipatedWindow() {
-	time.Sleep(time.Duration(suite.Node.Wallet.LoopWithinWindowSeconds) * time.Second)
+	// time.Sleep(time.Duration(suite.Node.Wallet.LoopWithinWindowSeconds) * time.Second)
+	return
 }
 
 // Return the approximate start and end block (as floats) of the next anticipated window.
-func (window AnticipatedWindow) CalcWorkerSoonestAnticipatedWindow(suite *UseCaseSuite, topic emissions.Topic, currentBlockHeight lib.BlockHeight) AnticipatedWindow {
-	// how many inactive epochs do we have since the last active epoch till now?
-	numInactiveEpochs := (currentBlockHeight - topic.EpochLastEnded) / topic.EpochLength // NOTE: integer devision ignores the remainder
-	// how many inactive blocks are there in the inactive epochs?
-	numInactiveBlocks := numInactiveEpochs * topic.EpochLength
-	// how many blocks already existed on chain?
-	pastBlocks := topic.EpochLastEnded + numInactiveBlocks
+// First, find the smallest integer N such that `EpochLastEnded + N * EpochLength >= now()` analytically.
+// Then this begins the next anticipated window.
+// We do this because the topic could be inactive for some epochs.
+// We then apply the early arrival and late arrival percentages to this window.
+// If the current block height is within this window, we check for a nonce => return true.
+// Essentially the AnticipatedWindow factory.
+func (suite *UseCaseSuite) CalcSoonestAnticipatedWindow(topic emissions.Topic, currentBlockHeight lib.BlockHeight) AnticipatedWindow {
+	numInactiveEpochs := (currentBlockHeight - topic.EpochLastEnded) / topic.EpochLength // how many inactive epochs do we have since the last active epoch till now?
 
-	var (
-		soonestWorkerStart int64
-		earlyArrival       float64
-	)
-	if pastBlocks+topic.WorkerSubmissionWindow < currentBlockHeight {
-		soonestWorkerStart = pastBlocks + topic.EpochLength // look ahead and start in the next anticipated window
-
-		earlyArrival = float64(soonestWorkerStart) - (math.Round((suite.Node.Wallet.EarlyArrivalPercent / 100) * float64(soonestWorkerStart)))
-	} else {
-		soonestWorkerStart = currentBlockHeight // we are already in the window
-		earlyArrival = float64(soonestWorkerStart)
-	}
-	soonestWorkerEnd := soonestWorkerStart + topic.WorkerSubmissionWindow
-	lateArrival := float64(soonestWorkerEnd) + (math.Round((suite.Node.Wallet.LateArrivalPercent / 100) * float64(soonestWorkerEnd)))
+	soonestStart := topic.EpochLastEnded + numInactiveEpochs*topic.EpochLength - currentBlockHeight // start of the next anticipated window, considering how many inactive epochs we already have. if negative, we are already in the window and the result is how many blocks away from the start of next epoch
+	soonestWorkerEnd := soonestStart + topic.GetWorkerSubmissionWindow()
+	soonestReputerEnd := soonestStart + topic.EpochLength
 
 	return AnticipatedWindow{
-		SoonestTimeForOpenNonceCheck:             earlyArrival,
-		SoonestTimeForEndOfWorkerNonceSubmission: lateArrival,
+		SoonestTimeForOpenNonceCheck:              float64(soonestStart) * (1.0 - suite.Node.Wallet.EarlyArrivalPercent),
+		SoonestTimeForEndOfWorkerNonceSubmission:  float64(soonestWorkerEnd) * (1.0 + suite.Node.Wallet.LateArrivalPercent),
+		SoonestTimeForEndOfReputerNonceSubmission: float64(soonestReputerEnd) * (1.0 + suite.Node.Wallet.LateArrivalPercent),
 	}
 }
 
-func (window *AnticipatedWindow) CalcReputerSoonestAnticipatedWindow(topic emissions.Topic, openNonce lib.BlockHeight) *AnticipatedWindow {
-	// asumming there is no need for early or late arrival since the window (epoch length) is big enough to submit reputation
-	soonestReputerStart := openNonce + topic.GroundTruthLag
-	soonestReputerEnd := soonestReputerStart + topic.EpochLength
-
-	window.SoonestTimeForStartOfReputerNonceSubmission = float64(soonestReputerStart)
-	window.SoonestTimeForEndOfReputerNonceSubmission = float64(soonestReputerEnd)
-
-	return window
+func (suite *UseCaseSuite) Wait(seconds int64) {
+	time.Sleep(time.Duration(seconds) * time.Second)
 }

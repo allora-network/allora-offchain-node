@@ -106,6 +106,9 @@ func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
 
 	config.Wallet.Address = address // Overwrite the address with the one from the keystore
 
+	log.Info().Msg("Allora client created successfully")
+	log.Info().Msg("Wallet address: " + address)
+
 	alloraChain := ChainConfig{
 		Address:              address,
 		AddressPrefix:        ADDRESS_PREFIX,

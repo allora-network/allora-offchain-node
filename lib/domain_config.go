@@ -18,7 +18,6 @@ type WalletConfig struct {
 	Gas                      string  // gas to use for the allora client
 	GasAdjustment            float64 // gas adjustment to use for the allora client
 	SubmitTx                 bool    // do we need to commit these to the chain, might be a reason not to
-	LoopWithinWindowSeconds  int64   // how often to run the main loops per worker and per reputer
 	NodeRpc                  string  // rpc node for allora chain
 	MaxRetries               int64   // retry to get data from chain up to this many times per query or tx
 	MinDelay                 int64   // minimum of uniform distribution that is sampled then used to calcluate exponential backoff for txs (in seconds)
@@ -42,6 +41,7 @@ type WorkerConfig struct {
 	TopicId             emissions.TopicId
 	InferenceEntrypoint AlloraEntrypoint
 	ForecastEntrypoint  AlloraEntrypoint
+	LoopSeconds         int64 // seconds to wait between attempts to get next worker nonce
 	AllowsNegativeValue bool
 	ExtraData           map[string]string // Map for variable configuration values
 }
@@ -54,6 +54,7 @@ type ReputerConfig struct {
 	// This is idempotent in that it will not add more stake than specified here.
 	// Set to 0 to effectively disable this feature and use whatever stake has already been added.
 	MinStake            int64
+	LoopSeconds         int64 // seconds to wait between attempts to get next reptuer nonces
 	AllowsNegativeValue bool
 	ExtraData           map[string]string // Map for variable configuration values
 }
