@@ -2,15 +2,26 @@ package worker_coin_predictor_10min
 
 import (
 	"allora_offchain_node/lib"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/rs/zerolog/log"
 )
 
+type Config struct {
+	InferenceEndpoint string `json:"inferenceEndpoint"`
+	Token             string `json:"token"`
+	ForecastEndpoint  string `json:"forecastEndpoint"`
+}
+
 type AlloraEntrypoint struct {
-	name string
+	name   string
+	config Config
 }
 
 func (a *AlloraEntrypoint) Name() string {
@@ -19,10 +30,7 @@ func (a *AlloraEntrypoint) Name() string {
 
 func (a *AlloraEntrypoint) CalcInference(node lib.WorkerConfig, blockHeight int64) (string, error) {
 	return "3000", nil
-
-	// urlBase := node.ExtraData["inferenceEndpoint"]
-	// token := node.ExtraData["token"]
-	// url := fmt.Sprintf("%s/%s", urlBase, token)
+	// url := fmt.Sprintf("%s/%s", a.config.InferenceEndpoint, a.config.Token)
 	// // make request to url
 	// resp, err := http.Get(url)
 	// if err != nil {
@@ -44,7 +52,6 @@ func (a *AlloraEntrypoint) CalcInference(node lib.WorkerConfig, blockHeight int6
 	// log.Debug().Bytes("body", body).Msg("Inference")
 	// // convert bytes to string
 	// return string(body), nil
-	// // return "100", nil
 }
 
 func (a *AlloraEntrypoint) CalcForecast(node lib.WorkerConfig, blockHeight int64) ([]lib.NodeValue, error) {
@@ -80,7 +87,37 @@ func (a *AlloraEntrypoint) CanSourceTruth() bool {
 }
 
 func NewAlloraEntrypoint() *AlloraEntrypoint {
+	name := "worker_coin_predictor_10min_eth"
+
+	// Get the current working directory
+	workingDir, err := os.Getwd()
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to get current working directory")
+	}
+
+	// Construct the path to the config file
+	fileSubPath := filepath.Join("pkg", name, "config.json")
+	configFilePath := filepath.Join(workingDir, fileSubPath)
+
+	configFile, err := os.Open(configFilePath)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to open config file")
+	}
+	defer configFile.Close()
+
+	byteValue, err := io.ReadAll(configFile)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to read config file")
+	}
+
+	var config Config
+	err = json.Unmarshal(byteValue, &config)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to parse config file")
+	}
+
 	return &AlloraEntrypoint{
-		name: "worker_coin_predictor_10min_eth",
+		name:   name,
+		config: config,
 	}
 }

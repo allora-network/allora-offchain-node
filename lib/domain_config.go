@@ -43,7 +43,6 @@ type WorkerConfig struct {
 	ForecastEntrypoint  AlloraEntrypoint
 	LoopSeconds         int64 // seconds to wait between attempts to get next worker nonce
 	AllowsNegativeValue bool
-	ExtraData           map[string]string // Map for variable configuration values
 }
 
 type ReputerConfig struct {
@@ -56,7 +55,6 @@ type ReputerConfig struct {
 	MinStake            int64
 	LoopSeconds         int64 // seconds to wait between attempts to get next reptuer nonces
 	AllowsNegativeValue bool
-	ExtraData           map[string]string // Map for variable configuration values
 }
 
 type UserConfig struct {

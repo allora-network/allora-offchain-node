@@ -1,0 +1,5 @@
+{
+    "inferenceEndpoint": "http://localhost:8000/inference",
+    "token": "ETH",
+    "forecastEndpoint": "http://localhost:8000/forecast"
+}

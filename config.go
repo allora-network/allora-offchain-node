@@ -29,11 +29,6 @@ var UserConfig = lib.UserConfig{
 			InferenceEntrypoint: worker10min.NewAlloraEntrypoint(),
 			ForecastEntrypoint:  nil,
 			LoopSeconds:         5,
-			ExtraData: map[string]string{
-				"inferenceEndpoint": "http://localhost:8000/inference",
-				"token":             "ETH",
-				"forecastEndpoint":  "http://localhost:8000/forecast",
-			},
 		},
 	},
 	Reputer: []lib.ReputerConfig{
