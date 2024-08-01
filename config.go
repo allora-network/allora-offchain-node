@@ -16,11 +16,12 @@ var UserConfig = lib.UserConfig{
 		GasAdjustment:            1.0,                                                                                                                                                   // gas adjustment to use for the allora client
 		SubmitTx:                 true,                                                                                                                                                  // set to false to run in dry-run processes without committing to the chain. useful for development and testing
 		NodeRpc:                  "http://localhost:26657",
-		MaxRetries:               3,
-		MinDelay:                 1,
-		MaxDelay:                 6,
-		EarlyArrivalPercent:      60,
-		LateArrivalPercent:       10,
+		// NodeRpc: "https://allora-rpc.testnet-1.testnet.allora.network/",
+		MaxRetries:          3,
+		MinDelay:            1,
+		MaxDelay:            6,
+		EarlyArrivalPercent: 60,
+		LateArrivalPercent:  10,
 	},
 	Worker: []lib.WorkerConfig{
 		{
@@ -39,7 +40,7 @@ var UserConfig = lib.UserConfig{
 			TopicId:           1,
 			ReputerEntrypoint: reputerCoinGecko.NewAlloraEntrypoint(),
 			LoopSeconds:       30,
-			MinStake:          1000000,
+			MinStake:          10,
 		},
 	},
 }

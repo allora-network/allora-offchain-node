@@ -3,9 +3,7 @@ package worker_coin_predictor_10min
 import (
 	"allora_offchain_node/lib"
 	"fmt"
-	"io"
 	"math"
-	"net/http"
 	"strconv"
 
 	"github.com/rs/zerolog/log"
@@ -20,31 +18,33 @@ func (a *AlloraEntrypoint) Name() string {
 }
 
 func (a *AlloraEntrypoint) CalcInference(node lib.WorkerConfig, blockHeight int64) (string, error) {
-	urlBase := node.ExtraData["inferenceEndpoint"]
-	token := node.ExtraData["token"]
-	url := fmt.Sprintf("%s/%s", urlBase, token)
-	// make request to url
-	resp, err := http.Get(url)
-	if err != nil {
-		return "", fmt.Errorf("failed to make request to %s: %w", url, err)
-	}
-	defer resp.Body.Close()
+	return "666", nil
 
-	// Check if the response status is OK
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("received non-OK HTTP status %d", resp.StatusCode)
-	}
+	// urlBase := node.ExtraData["inferenceEndpoint"]
+	// token := node.ExtraData["token"]
+	// url := fmt.Sprintf("%s/%s", urlBase, token)
+	// // make request to url
+	// resp, err := http.Get(url)
+	// if err != nil {
+	// 	return "", fmt.Errorf("failed to make request to %s: %w", url, err)
+	// }
+	// defer resp.Body.Close()
 
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
-	}
+	// // Check if the response status is OK
+	// if resp.StatusCode != http.StatusOK {
+	// 	return "", fmt.Errorf("received non-OK HTTP status %d", resp.StatusCode)
+	// }
 
-	log.Debug().Bytes("body", body).Msg("Inference")
-	// convert bytes to string
-	return string(body), nil
-	// return "100", nil
+	// // Read the response body
+	// body, err := io.ReadAll(resp.Body)
+	// if err != nil {
+	// 	return "", fmt.Errorf("failed to read response body: %w", err)
+	// }
+
+	// log.Debug().Bytes("body", body).Msg("Inference")
+	// // convert bytes to string
+	// return string(body), nil
+	// // return "100", nil
 }
 
 func (a *AlloraEntrypoint) CalcForecast(node lib.WorkerConfig, blockHeight int64) ([]lib.NodeValue, error) {
@@ -54,7 +54,7 @@ func (a *AlloraEntrypoint) CalcForecast(node lib.WorkerConfig, blockHeight int64
 
 func (a *AlloraEntrypoint) SourceTruth(node lib.ReputerConfig, blockHeight int64) (lib.Truth, error) {
 	log.Debug().Str("name", a.name).Msg("truth")
-	return "100", nil
+	return "777", nil
 }
 
 func (a *AlloraEntrypoint) LossFunction(sourceTruth string, inferenceValue string) string {
