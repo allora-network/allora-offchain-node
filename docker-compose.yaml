@@ -1,0 +1,30 @@
+services:
+  initializer:
+    container_name: initializer
+    image: alloranetwork/allora-chain:latest
+    volumes:
+      - ./data:/data
+    entrypoint: /data/scripts/init.sh
+    environment:
+      - NAME=sample_offchain_node
+
+  node:
+    container_name: sample_offchain_node
+    build: .
+    environment:
+      - ALLORA_NODE_RPC=https://allora-rpc.testnet-1.testnet.allora.network
+      - INFERENCE_URL=http://localhost:8000/inference
+      - FORECAST_URL=http://localhost:8000/forecast
+      - TRUTH_URL=http://localhost:8000/truth
+    volumes:
+      - ./data:/data
+    depends_on:
+      - initializer
+    env_file:
+      - ./data/env_file 
+
+  inference:
+    container_name: sample_inference
+    build: ./inference
+    ports:
+      - "8000:8000"

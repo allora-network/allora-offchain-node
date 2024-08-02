@@ -1,9 +1,13 @@
 FROM golang:alpine
 
-WORKDIR /app
+WORKDIR /node
 
-COPY . /app
+COPY go.mod go.sum ./
+
+RUN go mod download
+
+COPY . .
 
 RUN go build -o allora_offchain_node
 
-CMD ["go", "run", "allora_offchain_node"]
+CMD ["./allora_offchain_node"]

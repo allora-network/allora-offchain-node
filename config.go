@@ -32,9 +32,9 @@ var UserConfig = lib.UserConfig{
 			LoopSeconds:         5,
 			Parameters: map[string]string{
 				//// These communicate with local Python Flask server
-				"inferenceEndpoint": "http://localhost:8000/inference",
+				"inferenceEndpoint": os.Getenv("INFERENCE_URL"),
 				"token":             "ETH",
-				"forecastEndpoint":  "http://localhost:8000/forecast",
+				"forecastEndpoint":  os.Getenv("FORECAST_URL"),
 			},
 		},
 	},
@@ -45,7 +45,7 @@ var UserConfig = lib.UserConfig{
 			LoopSeconds:       30,
 			MinStake:          100000,
 			Parameters: map[string]string{
-				"truthEndpoint": "http://localhost:8000/truth",
+				"truthEndpoint": os.Getenv("TRUTH_URL"),
 				"token":         "ethereum",
 				//// Could put this in Python Flask server as well
 				// "cgSimpleEndpoint": "https://api.coingecko.com/api/v3/simple/price?vs_currencies=usd&ids=",
