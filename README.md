@@ -41,6 +41,17 @@ chmod +x run
 ./run
 ```
 
+
+## How to configure
+
+There are several ways to configure the node. In order of preference: 
+* Set the `ALLORA_OFFCHAIN_NODE_CONFIG_JSON` env var with a configuration as a JSON string.
+* Set the `ALLORA_OFFCHAIN_NODE_CONFIG_FILE_PATH` env var pointing to a file, which contains configuration as JSON. An example if provided in `config.example.json`.
+* Read the `config.go` file.
+
+Each option completely overwrites the other options.
+
+
 This is the entrypoint for the application that simply builds and runs the Go program.
 
 It spins off a distinct processes per role worker, reputer per topic configered in `config.json`.

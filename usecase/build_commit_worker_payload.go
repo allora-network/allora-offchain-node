@@ -16,25 +16,32 @@ import (
 func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, nonce *emissionstypes.Nonce) (bool, error) {
 	ctx := context.Background()
 
-	inference, err := worker.InferenceEntrypoint.CalcInference(worker, nonce.BlockHeight)
-	if err != nil {
-		log.Error().Err(err).Str("worker", worker.InferenceEntrypoint.Name()).Msg("Error computing inference for worker")
-		return false, err
+	if worker.InferenceEntrypoint == nil && worker.ForecastEntrypoint == nil {
+		log.Error().Msg("Worker has no valid Inference or Forecast entrypoints")
+		return false, nil
 	}
 
-	forecasts := []lib.NodeValue{}
+	var workerResponse = lib.WorkerResponse{
+		WorkerConfig: worker,
+	}
+
+	if worker.InferenceEntrypoint != nil {
+		inference, err := worker.InferenceEntrypoint.CalcInference(worker, nonce.BlockHeight)
+		if err != nil {
+			log.Error().Err(err).Str("worker", worker.InferenceEntrypoint.Name()).Msg("Error computing inference for worker")
+			return false, err
+		}
+		workerResponse.InfererValue = inference
+	}
+
 	if worker.ForecastEntrypoint != nil {
-		forecasts, err = worker.ForecastEntrypoint.CalcForecast(worker, nonce.BlockHeight)
+		forecasts := []lib.NodeValue{}
+		forecasts, err := worker.ForecastEntrypoint.CalcForecast(worker, nonce.BlockHeight)
 		if err != nil {
 			log.Error().Err(err).Str("worker", worker.InferenceEntrypoint.Name()).Msg("Error computing forecast for worker")
 			return false, err
 		}
-	}
-
-	var workerResponse = lib.WorkerResponse{
-		InfererValue:     inference,
-		ForecasterValues: forecasts,
-		WorkerConfig:     worker,
+		workerResponse.ForecasterValues = forecasts
 	}
 
 	workerPayload, err := suite.BuildWorkerPayload(workerResponse, nonce.BlockHeight)

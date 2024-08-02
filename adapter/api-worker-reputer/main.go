@@ -1,4 +1,4 @@
-package worker_reputer_rest_api_l1_loss
+package api_worker_reputer
 
 import (
 	"allora_offchain_node/lib"
@@ -43,7 +43,7 @@ func replaceExtendedPlaceholders(urlTemplate string, params map[string]string, b
 	return urlTemplate
 }
 
-func requestLocalEndpoint(url string) (string, error) {
+func requestEndpoint(url string) (string, error) {
 	// make request to url
 	resp, err := http.Get(url)
 	if err != nil {
@@ -72,7 +72,7 @@ func (a *AlloraAdapter) CalcInference(node lib.WorkerConfig, blockHeight int64) 
 	urlTemplate := node.Parameters["InferenceEndpoint"]
 	url := replaceExtendedPlaceholders(urlTemplate, node.Parameters, blockHeight, node.TopicId)
 	log.Debug().Str("url", url).Msg("Inference")
-	return requestLocalEndpoint(url)
+	return requestEndpoint(url)
 }
 
 // Expects forecast as a json array of NodeValue
@@ -80,7 +80,7 @@ func (a *AlloraAdapter) CalcForecast(node lib.WorkerConfig, blockHeight int64) (
 	urlTemplate := node.Parameters["InferenceEndpoint"]
 	url := replaceExtendedPlaceholders(urlTemplate, node.Parameters, blockHeight, node.TopicId)
 	log.Debug().Str("url", url).Msg("Inference")
-	forecastsAsString, err := requestLocalEndpoint(url)
+	forecastsAsString, err := requestEndpoint(url)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get forecasts")
 		return []lib.NodeValue{}, err
@@ -97,7 +97,8 @@ func (a *AlloraAdapter) CalcForecast(node lib.WorkerConfig, blockHeight int64) (
 func (a *AlloraAdapter) SourceTruth(node lib.ReputerConfig, blockHeight int64) (lib.Truth, error) {
 	urlTemplate := node.Parameters["SourceOfTruthEndpoint"]
 	url := replaceExtendedPlaceholders(urlTemplate, node.Parameters, blockHeight, node.TopicId)
-	return requestLocalEndpoint(url)
+	log.Debug().Str("url", url).Msg("Source of truth")
+	return requestEndpoint(url)
 }
 
 func (a *AlloraAdapter) LossFunction(sourceTruth string, inferenceValue string) string {

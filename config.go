@@ -1,7 +1,6 @@
 package main
 
 import (
-	apiAdapter "allora_offchain_node/adapter/worker_reputer_rest_api_l1_loss"
 	"allora_offchain_node/lib"
 	"os"
 )
@@ -26,10 +25,9 @@ var UserConfig = lib.UserConfig{
 	},
 	Worker: []lib.WorkerConfig{
 		{
-			TopicId:             1,
-			InferenceEntrypoint: apiAdapter.NewAlloraAdapter(),
-			ForecastEntrypoint:  nil,
-			LoopSeconds:         5,
+			TopicId:                 1,
+			InferenceEntrypointName: "api-worker-reputer",
+			LoopSeconds:             5,
 			Parameters: map[string]string{
 				//// These communicate with local Python Flask server
 				"InferenceEndpoint": os.Getenv("INFERENCE_URL"),
@@ -40,10 +38,10 @@ var UserConfig = lib.UserConfig{
 	},
 	Reputer: []lib.ReputerConfig{
 		{
-			TopicId:           1,
-			ReputerEntrypoint: apiAdapter.NewAlloraAdapter(),
-			LoopSeconds:       30,
-			MinStake:          100000,
+			TopicId:               1,
+			ReputerEntrypointName: "api-worker-reputer",
+			LoopSeconds:           30,
+			MinStake:              100000,
 			Parameters: map[string]string{
 				"SourceOfTruthEndpoint": os.Getenv("TRUTH_URL"),
 				"Token":                 "ethereum",
