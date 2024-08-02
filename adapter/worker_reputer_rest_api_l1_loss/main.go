@@ -3,10 +3,12 @@ package worker_reputer_rest_api_l1_loss
 import (
 	"allora_offchain_node/lib"
 	"fmt"
-	"io"
+	// "io"
 	"math"
-	"net/http"
+	// "net/http"
 	"strconv"
+	"math/rand"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
@@ -21,26 +23,30 @@ func (a *AlloraAdapter) Name() string {
 
 func requestLocalEndpoint(url string) (string, error) {
 	// make request to url
-	resp, err := http.Get(url)
-	if err != nil {
-		return "", fmt.Errorf("failed to make request to %s: %w", url, err)
-	}
-	defer resp.Body.Close()
+	// resp, err := http.Get(url)
+	// if err != nil {
+	// 	return "", fmt.Errorf("failed to make request to %s: %w", url, err)
+	// }
+	// defer resp.Body.Close()
 
-	// Check if the response status is OK
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("received non-OK HTTP status %d", resp.StatusCode)
-	}
+	// // Check if the response status is OK
+	// if resp.StatusCode != http.StatusOK {
+	// 	return "", fmt.Errorf("received non-OK HTTP status %d", resp.StatusCode)
+	// }
 
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
-	}
+	// // Read the response body
+	// body, err := io.ReadAll(resp.Body)
+	// if err != nil {
+	// 	return "", fmt.Errorf("failed to read response body: %w", err)
+	// }
 
-	log.Debug().Bytes("body", body).Msg("Inference")
+	// log.Debug().Bytes("body", body).Msg("Inference")
 	// convert bytes to string
-	return string(body), nil
+	// return string(body), nil
+	rand.Seed(time.Now().UnixNano())
+	f := rand.Float64()
+	s := fmt.Sprintf("%f", f)
+	return string(s), nil
 }
 
 func (a *AlloraAdapter) CalcInference(node lib.WorkerConfig, blockHeight int64) (string, error) {
