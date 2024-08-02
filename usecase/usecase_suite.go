@@ -12,7 +12,7 @@ type UseCaseSuite struct {
 
 // Static method to create a new UseCaseSuite
 func NewUseCaseSuite(userConfig lib.UserConfig) UseCaseSuite {
-	userConfig.ValidateConfigEntrypoints()
+	userConfig.ValidateConfigAdapters()
 	nodeConfig, err := userConfig.GenerateNodeConfig()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to initialize allora client")

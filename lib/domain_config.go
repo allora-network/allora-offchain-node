@@ -17,13 +17,11 @@ type WalletConfig struct {
 	AlloraHomeDir            string  // home directory for the allora keystore
 	Gas                      string  // gas to use for the allora client
 	GasAdjustment            float64 // gas adjustment to use for the allora client
-	SubmitTx                 bool    // do we need to commit these to the chain, might be a reason not to
 	NodeRpc                  string  // rpc node for allora chain
 	MaxRetries               int64   // retry to get data from chain up to this many times per query or tx
 	MinDelay                 int64   // minimum of uniform distribution that is sampled then used to calcluate exponential backoff for txs (in seconds)
 	MaxDelay                 int64   // maximum of uniform distribution that is sampled then used to calcluate exponential backoff for txs (in seconds)
-	EarlyArrivalPercent      float64 // percentage of blocks before open nonce to start querying for the nonce
-	LateArrivalPercent       float64 // percentage of blocks after end of worker window to stop querying for the nonce
+	SubmitTx                 bool    // useful for dev/testing. set to false to run in dry-run processes without committing to the chain
 }
 
 // Properties auto-generated based on what the user has provided in WalletConfig fields of UserConfig
@@ -39,16 +37,16 @@ type ChainConfig struct {
 
 type WorkerConfig struct {
 	TopicId             emissions.TopicId
-	InferenceEntrypoint AlloraEntrypoint
-	ForecastEntrypoint  AlloraEntrypoint
+	InferenceEntrypoint AlloraAdapter
+	ForecastEntrypoint  AlloraAdapter
 	LoopSeconds         int64 // seconds to wait between attempts to get next worker nonce
 	AllowsNegativeValue bool
-	ExtraData           map[string]string // Map for variable configuration values
+	Parameters          map[string]string // Map for variable configuration values
 }
 
 type ReputerConfig struct {
 	TopicId           emissions.TopicId
-	ReputerEntrypoint AlloraEntrypoint
+	ReputerEntrypoint AlloraAdapter
 	// Minimum stake to repute. will try to add stake from wallet if current stake is less than this.
 	// Will not repute if current stake is less than this, after trying to add any necessary stake.
 	// This is idempotent in that it will not add more stake than specified here.
@@ -56,7 +54,7 @@ type ReputerConfig struct {
 	MinStake            int64
 	LoopSeconds         int64 // seconds to wait between attempts to get next reptuer nonces
 	AllowsNegativeValue bool
-	ExtraData           map[string]string // Map for variable configuration values
+	Parameters          map[string]string // Map for variable configuration values
 }
 
 type UserConfig struct {
@@ -94,9 +92,9 @@ type ValueBundle struct {
 	OneInForecasterValues  []NodeValue `json:"oneInForecasterValues,omitempty"`
 }
 
-// Check that each assigned entrypoint in `TheConfig` actually can be used
+// Check that each assigned entrypoint in the user config actually can be used
 // for the intended purpose, else throw error
-func (c *UserConfig) ValidateConfigEntrypoints() {
+func (c *UserConfig) ValidateConfigAdapters() {
 	for _, workerConfig := range c.Worker {
 		if workerConfig.InferenceEntrypoint != nil && !workerConfig.InferenceEntrypoint.CanInfer() {
 			log.Fatal().Interface("entrypoint", workerConfig.InferenceEntrypoint).Msg("Invalid inference entrypoint")
@@ -107,7 +105,7 @@ func (c *UserConfig) ValidateConfigEntrypoints() {
 	}
 
 	for _, reputerConfig := range c.Reputer {
-		if reputerConfig.ReputerEntrypoint != nil && !reputerConfig.ReputerEntrypoint.CanSourceTruth() {
+		if reputerConfig.ReputerEntrypoint != nil && !reputerConfig.ReputerEntrypoint.CanSourceTruthAndComputeLoss() {
 			log.Fatal().Interface("entrypoint", reputerConfig.ReputerEntrypoint).Msg("Invalid loss entrypoint")
 		}
 	}

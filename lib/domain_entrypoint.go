@@ -2,7 +2,7 @@ package lib
 
 type Truth = string
 
-type AlloraEntrypoint interface {
+type AlloraAdapter interface {
 	Name() string
 	CalcInference(WorkerConfig, int64) (string, error)
 	CalcForecast(WorkerConfig, int64) ([]NodeValue, error)
@@ -10,7 +10,7 @@ type AlloraEntrypoint interface {
 	LossFunction(sourceTruth string, inferenceValue string) string
 	CanInfer() bool
 	CanForecast() bool
-	CanSourceTruth() bool
+	CanSourceTruthAndComputeLoss() bool
 }
 
 type NodeValue struct {

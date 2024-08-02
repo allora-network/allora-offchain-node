@@ -56,10 +56,14 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 	} else {
 		log.Debug().Uint64("topicId", reputer.TopicId).Msgf("Sending MsgInsertReputerPayload to chain %s", string(reqJSON))
 	}
-	_, err = suite.Node.SendDataWithRetry(ctx, req, "Send Reputer Data to chain")
-	if err != nil {
-		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msgf("Error sending Reputer Data to chain: %s", err)
-		return false, err
+	if suite.Node.Wallet.SubmitTx {
+		_, err = suite.Node.SendDataWithRetry(ctx, req, "Send Reputer Data to chain")
+		if err != nil {
+			log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msgf("Error sending Reputer Data to chain: %s", err)
+			return false, err
+		}
+	} else {
+		log.Info().Uint64("topicId", reputer.TopicId).Msg("SubmitTx=false; Skipping sending Reputer Data to chain")
 	}
 
 	return true, nil
