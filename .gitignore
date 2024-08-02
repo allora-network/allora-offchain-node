@@ -8,6 +8,8 @@
 *.so
 *.dylib
 
+allora_offchain_node
+
 # Test binary, built with `go test -c`
 *.test
 
@@ -20,3 +22,6 @@
 # Go workspace file
 go.work
 go.work.sum
+
+# Personal data
+.env
