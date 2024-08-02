@@ -1,45 +1,66 @@
 package main
 
 import (
+	apiAdapter "allora_offchain_node/adapter/worker_reputer_rest_api_l1_loss"
 	"allora_offchain_node/lib"
-	reputerCoinGecko "allora_offchain_node/pkg/reputer_coingecko_l1_norm"
-	// worker10min "allora_offchain_node/pkg/worker_coin_predictor_10min_eth"
+	"os"
 )
+
+//// If in the event inferences, forecasts, truth, or loss functions are
+//// not derived from the Python Flask server, new adapters can be made
+//// and added to the UserConfig struct below for the same or different topics.
 
 var UserConfig = lib.UserConfig{
 	Wallet: lib.WalletConfig{
-		AddressKeyName:           "test-offchain",                                                                                                                                       // load a address by key from the keystore testing = allo1wmfp4xuurjsvh3qzjhkdxqgepmshpy7ny88pc7
-		AddressRestoreMnemonic:   "surge verify input parade okay wolf throw broken account news glad blood other work skull peasant mesh deposit chair mutual frozen axis horse trial", // mnemonic for the allora account
-		AddressAccountPassphrase: "secret",                                                                                                                                              // passphrase for the allora account
-		AlloraHomeDir:            "",                                                                                                                                                    // home directory for the allora keystore, if "", it will automatically create in "$HOME/.allorad"
-		Gas:                      "1000000",                                                                                                                                             // gas to use for the allora client in uallo
-		GasAdjustment:            1.0,                                                                                                                                                   // gas adjustment to use for the allora client
-		SubmitTx:                 true,                                                                                                                                                  // set to false to run in dry-run processes without committing to the chain. useful for development and testing
-		LoopWithinWindowSeconds:  5,
-		NodeRpc:                  "http://localhost:26657",
+		AddressKeyName:           os.Getenv("ALLORA_ACCOUNT_NAME"),       // load a address by key from the keystore testing = allo1wmfp4xuurjsvh3qzjhkdxqgepmshpy7ny88pc7
+		AddressRestoreMnemonic:   os.Getenv("ALLORA_ACCOUNT_MNEMONIC"),   // mnemonic for the allora account
+		AddressAccountPassphrase: os.Getenv("ALLORA_ACCOUNT_PASSPHRASE"), // passphrase for the allora account
+		AlloraHomeDir:            "",                                     // home directory for the allora keystore, if "", it will automatically create in "$HOME/.allorad"
+		Gas:                      "1000000",                              // gas to use for the allora client in uallo
+		GasAdjustment:            1.0,                                    // gas adjustment to use for the allora client
+		SubmitTx:                 false,                                  // set to false to run in dry-run processes without committing to the chain. useful for dev/testing
+		NodeRpc:                  os.Getenv("ALLORA_NODE_RPC"),
 		MaxRetries:               3,
 		MinDelay:                 1,
 		MaxDelay:                 6,
-		EarlyArrivalPercent:      60,
-		LateArrivalPercent:       10,
 	},
 	Worker: []lib.WorkerConfig{
-		// {
-		// 	TopicId:             1,
-		// 	InferenceEntrypoint: worker10min.NewAlloraEntrypoint(),
-		// 	ForecastEntrypoint:  nil,
-		// 	ExtraData: map[string]string{
-		// 		"inferenceEndpoint": "http://localhost:8000/inference",
-		// 		"token":             "ETH",
-		// 		"forecastEndpoint":  "http://localhost:8000/forecast",
-		// 	},
-		// },
+		{
+			TopicId:             1,
+			InferenceEntrypoint: apiAdapter.NewAlloraAdapter(),
+			ForecastEntrypoint:  nil,
+			LoopSeconds:         5,
+			Parameters: map[string]string{
+				//// These communicate with local Python Flask server
+				"inferenceEndpoint": "http://localhost:8000/inference",
+				"token":             "ETH",
+				"forecastEndpoint":  "http://localhost:8000/forecast",
+			},
+		},
 	},
 	Reputer: []lib.ReputerConfig{
 		{
 			TopicId:           1,
-			ReputerEntrypoint: reputerCoinGecko.NewAlloraEntrypoint(),
-			MinStake:          1000000,
+			ReputerEntrypoint: apiAdapter.NewAlloraAdapter(),
+			LoopSeconds:       30,
+			MinStake:          100000,
+			Parameters: map[string]string{
+				"truthEndpoint": "http://localhost:8000/truth",
+				"token":         "ethereum",
+				//// Could put this in Python Flask server as well
+				// "cgSimpleEndpoint": "https://api.coingecko.com/api/v3/simple/price?vs_currencies=usd&ids=",
+				// "apiKey":           os.Getenv("CG_API_KEY"),
+			},
 		},
 	},
 }
+
+//// The config above implies that I have a local server running on port 8000
+//// that can handle the following endpoints: /inference, /forecast, /truth
+//// The server should be able to handle GET requests to these endpoints
+//// and return the appropriate data for the worker and reputer processes.
+//// The server's endpoints are all assigned for topic 1
+
+//// It is up to the user to add more topics and endpoints as necessary,
+//// and to ensure that models and sources of truth relayed or generated by
+//// adapters are compatible with their assigned topic(s).

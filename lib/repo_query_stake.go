@@ -4,12 +4,11 @@ import (
 	"context"
 
 	cosmossdk_io_math "cosmossdk.io/math"
-	emissions "github.com/allora-network/allora-chain/x/emissions/types"
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
 )
 
 func (node *NodeConfig) GetReputerStakeInTopic(
-	topicId emissions.TopicId,
+	topicId emissionstypes.TopicId,
 	reputer Address,
 ) (cosmossdk_io_math.Int, error) {
 	ctx := context.Background()

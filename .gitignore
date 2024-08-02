@@ -22,3 +22,6 @@ allora_offchain_node
 # Go workspace file
 go.work
 go.work.sum
+
+# Personal data
+.env

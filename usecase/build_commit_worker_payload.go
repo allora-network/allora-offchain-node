@@ -57,14 +57,19 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 	}
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		log.Error().Err(err).Msg("Error marshaling MsgInsertBulkWorkerPayload to print Msg as JSON")
+		log.Error().Err(err).Msg("Error marshaling MsgInsertWorkerPayload to print Msg as JSON")
 	} else {
-		log.Info().Str("req", string(reqJSON)).Msg("Sending MsgInsertBulkWorkerPayload to chain")
+		log.Info().Str("req", string(reqJSON)).Msg("Sending MsgInsertWorkerPayload to chain")
 	}
-	_, err = suite.Node.SendDataWithRetry(ctx, req, "Send Worker Data to chain")
-	if err != nil {
-		log.Error().Err(err).Msg("Error sending Worker Data to chain")
-		return false, err
+
+	if suite.Node.Wallet.SubmitTx {
+		_, err = suite.Node.SendDataWithRetry(ctx, req, "Send Worker Data to chain")
+		if err != nil {
+			log.Error().Err(err).Msg("Error sending Worker Data to chain")
+			return false, err
+		}
+	} else {
+		log.Info().Uint64("topicId", worker.TopicId).Msg("SubmitTx=false; Skipping sending Worker Data to chain")
 	}
 	return true, nil
 }
