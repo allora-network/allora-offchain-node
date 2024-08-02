@@ -2,11 +2,13 @@ package worker_reputer_rest_api_l1_loss
 
 import (
 	"allora_offchain_node/lib"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 )
@@ -17,6 +19,28 @@ type AlloraAdapter struct {
 
 func (a *AlloraAdapter) Name() string {
 	return a.name
+}
+
+func replacePlaceholders(urlTemplate string, params map[string]string) string {
+	for key, value := range params {
+		placeholder := fmt.Sprintf("{%s}", key)
+		urlTemplate = strings.ReplaceAll(urlTemplate, placeholder, value)
+	}
+	return urlTemplate
+}
+
+// Replace placeholders and also the blockheheight
+func replaceExtendedPlaceholders(urlTemplate string, params map[string]string, blockHeight int64, topicId uint64) string {
+	// Create a map of default parameters
+	blockHeightAsString := strconv.FormatInt(blockHeight, 10)
+	topicIdAsString := strconv.FormatUint(topicId, 10)
+	defaultParams := map[string]string{
+		"BlockHeight": blockHeightAsString,
+		"TopicId":     topicIdAsString,
+	}
+	urlTemplate = replacePlaceholders(urlTemplate, defaultParams)
+	urlTemplate = replacePlaceholders(urlTemplate, params)
+	return urlTemplate
 }
 
 func requestLocalEndpoint(url string) (string, error) {
@@ -43,28 +67,40 @@ func requestLocalEndpoint(url string) (string, error) {
 	return string(body), nil
 }
 
+// Expects an inference as a string scalar value
 func (a *AlloraAdapter) CalcInference(node lib.WorkerConfig, blockHeight int64) (string, error) {
-	urlBase := node.Parameters["inferenceEndpoint"]
-	token := node.Parameters["token"]
-	url := fmt.Sprintf("%s/%s", urlBase, token)
+	urlTemplate := node.Parameters["InferenceEndpoint"]
+	url := replaceExtendedPlaceholders(urlTemplate, node.Parameters, blockHeight, node.TopicId)
+	log.Debug().Str("url", url).Msg("Inference")
 	return requestLocalEndpoint(url)
 }
 
+// Expects forecast as a json array of NodeValue
 func (a *AlloraAdapter) CalcForecast(node lib.WorkerConfig, blockHeight int64) ([]lib.NodeValue, error) {
-	log.Debug().Str("name", a.name).Msg("Forecast")
+	urlTemplate := node.Parameters["InferenceEndpoint"]
+	url := replaceExtendedPlaceholders(urlTemplate, node.Parameters, blockHeight, node.TopicId)
+	log.Debug().Str("url", url).Msg("Inference")
+	forecastsAsString, err := requestLocalEndpoint(url)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get forecasts")
+		return []lib.NodeValue{}, err
+	}
+	// parse json forecasts into a slice of NodeValue
+	var nodeValues []lib.NodeValue
+	err = json.Unmarshal([]byte(forecastsAsString), &nodeValues)
+	if err != nil {
+		log.Error().Err(err).Msg("Error unmarshalling JSON forecasts")
+	}
 	return []lib.NodeValue{}, nil
 }
 
 func (a *AlloraAdapter) SourceTruth(node lib.ReputerConfig, blockHeight int64) (lib.Truth, error) {
-	log.Debug().Str("name", a.name).Msg("truth")
-	urlBase := node.Parameters["truthEndpoint"]
-	token := node.Parameters["token"]
-	url := fmt.Sprintf("%s/%s", urlBase, token)
+	urlTemplate := node.Parameters["SourceOfTruthEndpoint"]
+	url := replaceExtendedPlaceholders(urlTemplate, node.Parameters, blockHeight, node.TopicId)
 	return requestLocalEndpoint(url)
 }
 
 func (a *AlloraAdapter) LossFunction(sourceTruth string, inferenceValue string) string {
-	log.Debug().Str("name", a.name).Msg("Loss function processing")
 	sourceTruthFloat, _ := strconv.ParseFloat(sourceTruth, 64)
 	inferenceValueFloat, _ := strconv.ParseFloat(inferenceValue, 64)
 	loss := math.Abs(sourceTruthFloat - inferenceValueFloat)
@@ -78,7 +114,7 @@ func (a *AlloraAdapter) CanInfer() bool {
 }
 
 func (a *AlloraAdapter) CanForecast() bool {
-	return false
+	return true
 }
 
 func (a *AlloraAdapter) CanSourceTruthAndComputeLoss() bool {
@@ -87,6 +123,6 @@ func (a *AlloraAdapter) CanSourceTruthAndComputeLoss() bool {
 
 func NewAlloraAdapter() *AlloraAdapter {
 	return &AlloraAdapter{
-		name: "worker_reputer_rest_api_l1_loss",
+		name: "api-worker-reputer",
 	}
 }
