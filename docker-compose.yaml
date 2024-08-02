@@ -21,7 +21,7 @@ services:
       - ALLORA_NODE_RPC=https://allora-rpc.testnet-1.testnet.allora.network
       - INFERENCE_URL=http://inference:8000/inference
       - FORECAST_URL=http://inference:8000/forecast
-      - TRUTH_URL=http://localhost:8000/truth  # this is external independent service where you pull the source truth from
+      - TRUTH_URL=http://inference:8000/truth  # this is external independent service where you pull the source truth from
     volumes:
       - ./data:/data
     depends_on:
