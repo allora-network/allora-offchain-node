@@ -22,5 +22,10 @@ def get_forecast():
     ]
     return jsonify([nv.__dict__ for nv in node_values])
 
+@app.route('/truth', methods=['GET'])
+def get_truth():
+    random_float = str(random.uniform(0.0, 100.0))
+    return random_float
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8000)
