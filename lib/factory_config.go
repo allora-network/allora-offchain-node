@@ -82,7 +82,7 @@ func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
 		}
 	} else {
 		log.Debug().Msg("no allora account was loaded")
-		return nil, nil
+		return nil, errors.New("no allora account was loaded")
 	}
 
 	address, err := account.Address(ADDRESS_PREFIX)

@@ -85,9 +85,18 @@ func main() {
 		finalUserConfig = UserConfig
 	}
 
+	// Print config
+	log.Info().Interface("config", finalUserConfig).Msg("User Config before Entrypoint conversion.")
 	// Convert entrypoints to instances of adapters
-	ConvertEntrypointsToInstances(finalUserConfig)
-	log.Info().Msg("Converted Entrypoints to instances of adapters")
-	spawner := usecase.NewUseCaseSuite(UserConfig)
+	err := ConvertEntrypointsToInstances(finalUserConfig)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to convert Entrypoints to instances of adapters")
+		return
+	}
+	spawner, err := usecase.NewUseCaseSuite(finalUserConfig)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to initialize use case, exiting")
+		return
+	}
 	spawner.Spawn()
 }

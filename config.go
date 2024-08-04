@@ -35,6 +35,17 @@ var UserConfig = lib.UserConfig{
 				"ForecastEndpoint":  os.Getenv("FORECAST_URL"),
 			},
 		},
+		{
+			TopicId:                 1,
+			InferenceEntrypointName: "api-worker-reputer",
+			LoopSeconds:             5,
+			Parameters: map[string]string{
+				//// These communicate with local Python Flask server
+				"inferenceEndpoint": os.Getenv("INFERENCE_URL"),
+				"token":             "ETH",
+				"forecastEndpoint":  os.Getenv("FORECAST_URL"),
+			},
+		},
 	},
 	Reputer: []lib.ReputerConfig{
 		{
@@ -45,6 +56,19 @@ var UserConfig = lib.UserConfig{
 			Parameters: map[string]string{
 				"SourceOfTruthEndpoint": os.Getenv("TRUTH_URL"),
 				"Token":                 "ethereum",
+				//// Could put this in Python Flask server as well
+				// "cgSimpleEndpoint": "https://api.coingecko.com/api/v3/simple/price?vs_currencies=usd&ids=",
+				// "apiKey":           os.Getenv("CG_API_KEY"),
+			},
+		},
+		{
+			TopicId:               1,
+			ReputerEntrypointName: "api-worker-reputer",
+			LoopSeconds:           30,
+			MinStake:              100000,
+			Parameters: map[string]string{
+				"truthEndpoint": os.Getenv("TRUTH_URL"),
+				"token":         "ethereum",
 				//// Could put this in Python Flask server as well
 				// "cgSimpleEndpoint": "https://api.coingecko.com/api/v3/simple/price?vs_currencies=usd&ids=",
 				// "apiKey":           os.Getenv("CG_API_KEY"),

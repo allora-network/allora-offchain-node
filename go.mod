@@ -8,7 +8,7 @@ go 1.22.5
 
 require (
 	cosmossdk.io/math v1.3.0
-	github.com/allora-network/allora-chain v0.2.15-0.20240802023036-4c7ef6caf892
+	github.com/allora-network/allora-chain v0.2.15-0.20240803224711-cc85ac89877a
 	github.com/cosmos/cosmos-sdk v0.50.8
 	github.com/ignite/cli/v28 v28.5.0
 	github.com/rs/zerolog v1.33.0
