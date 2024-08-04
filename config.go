@@ -1,7 +1,6 @@
 package main
 
 import (
-	apiAdapter "allora_offchain_node/adapter/worker_reputer_rest_api_l1_loss"
 	"allora_offchain_node/lib"
 	"os"
 )
@@ -26,22 +25,20 @@ var UserConfig = lib.UserConfig{
 	},
 	Worker: []lib.WorkerConfig{
 		{
-			TopicId:             1,
-			InferenceEntrypoint: apiAdapter.NewAlloraAdapter(),
-			ForecastEntrypoint:  nil,
-			LoopSeconds:         5,
+			TopicId:                 1,
+			InferenceEntrypointName: "api-worker-reputer",
+			LoopSeconds:             5,
 			Parameters: map[string]string{
 				//// These communicate with local Python Flask server
-				"inferenceEndpoint": os.Getenv("INFERENCE_URL"),
-				"token":             "ETH",
-				"forecastEndpoint":  os.Getenv("FORECAST_URL"),
+				"InferenceEndpoint": os.Getenv("INFERENCE_URL"),
+				"Token":             "ETH",
+				"ForecastEndpoint":  os.Getenv("FORECAST_URL"),
 			},
 		},
 		{
-			TopicId:             1,
-			InferenceEntrypoint: apiAdapter.NewAlloraAdapter(),
-			ForecastEntrypoint:  nil,
-			LoopSeconds:         5,
+			TopicId:                 1,
+			InferenceEntrypointName: "api-worker-reputer",
+			LoopSeconds:             5,
 			Parameters: map[string]string{
 				//// These communicate with local Python Flask server
 				"inferenceEndpoint": os.Getenv("INFERENCE_URL"),
@@ -52,23 +49,23 @@ var UserConfig = lib.UserConfig{
 	},
 	Reputer: []lib.ReputerConfig{
 		{
-			TopicId:           1,
-			ReputerEntrypoint: apiAdapter.NewAlloraAdapter(),
-			LoopSeconds:       30,
-			MinStake:          100000,
+			TopicId:               1,
+			ReputerEntrypointName: "api-worker-reputer",
+			LoopSeconds:           30,
+			MinStake:              100000,
 			Parameters: map[string]string{
-				"truthEndpoint": os.Getenv("TRUTH_URL"),
-				"token":         "ethereum",
+				"SourceOfTruthEndpoint": os.Getenv("TRUTH_URL"),
+				"Token":                 "ethereum",
 				//// Could put this in Python Flask server as well
 				// "cgSimpleEndpoint": "https://api.coingecko.com/api/v3/simple/price?vs_currencies=usd&ids=",
 				// "apiKey":           os.Getenv("CG_API_KEY"),
 			},
 		},
 		{
-			TopicId:           1,
-			ReputerEntrypoint: apiAdapter.NewAlloraAdapter(),
-			LoopSeconds:       30,
-			MinStake:          100000,
+			TopicId:               1,
+			ReputerEntrypointName: "api-worker-reputer",
+			LoopSeconds:           30,
+			MinStake:              100000,
 			Parameters: map[string]string{
 				"truthEndpoint": os.Getenv("TRUTH_URL"),
 				"token":         "ethereum",

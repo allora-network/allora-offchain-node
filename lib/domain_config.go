@@ -36,17 +36,20 @@ type ChainConfig struct {
 }
 
 type WorkerConfig struct {
-	TopicId             emissions.TopicId
-	InferenceEntrypoint AlloraAdapter
-	ForecastEntrypoint  AlloraAdapter
-	LoopSeconds         int64 // seconds to wait between attempts to get next worker nonce
-	AllowsNegativeValue bool
-	Parameters          map[string]string // Map for variable configuration values
+	TopicId                 emissions.TopicId
+	InferenceEntrypointName string
+	InferenceEntrypoint     AlloraAdapter
+	ForecastEntrypointName  string
+	ForecastEntrypoint      AlloraAdapter
+	LoopSeconds             int64 // seconds to wait between attempts to get next worker nonce
+	AllowsNegativeValue     bool
+	Parameters              map[string]string // Map for variable configuration values
 }
 
 type ReputerConfig struct {
-	TopicId           emissions.TopicId
-	ReputerEntrypoint AlloraAdapter
+	TopicId               emissions.TopicId
+	ReputerEntrypointName string
+	ReputerEntrypoint     AlloraAdapter
 	// Minimum stake to repute. will try to add stake from wallet if current stake is less than this.
 	// Will not repute if current stake is less than this, after trying to add any necessary stake.
 	// This is idempotent in that it will not add more stake than specified here.

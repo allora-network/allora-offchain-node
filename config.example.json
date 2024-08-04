@@ -1,0 +1,38 @@
+{
+    "wallet": {
+      "addressKeyName": "test",
+      "addressRestoreMnemonic": "",
+      "addressAccountPassphrase": "",
+      "alloraHomeDir": "",
+      "gas": "1000000",
+      "gasAdjustment": 1.0,
+      "nodeRpc": "http://localhost:26657",
+      "maxRetries": 3,
+      "minDelay": 1,
+      "maxDelay": 6,
+      "submitTx": false
+    },
+    "worker": [
+      {
+        "topicId": 1,
+        "inferenceEntrypointName": "api-worker-reputer",
+        "loopSeconds": 5,
+        "parameters": {
+          "InferenceEndpoint": "http://localhost:8000/inference/{Token}",
+          "Token": "ETH"
+        }
+      }
+    ],
+    "reputer": [
+      {
+        "topicId": 1,
+        "reputerEntrypointName": "api-worker-reputer",
+        "loopSeconds": 30,
+        "minStake": 100000,
+        "parameters": {
+          "SourceOfTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockHeight}",
+          "Token": "ethereum"
+        }
+      }
+    ]
+  }
