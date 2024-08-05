@@ -4,7 +4,14 @@ Allora off-chain nodes publish inferences, forecasts, and losses informed by a c
 
 ## How to run with docker
 1. Clone the repository
-2. Run docker compose from the root diectory. This will:
+2. Copy environment variables:
+
+```shell
+cp .env.example .env
+```
+
+3. Fill in the environment variables in `.env` with your own values
+4. Run docker compose from the root diectory. This will:
    1. Automatically create allora keys for you. You will have to request for some tokens from faucet to be able to register your worker and stake your reputer
    2. Automatically export the needed variables from the account created to be used by the offchain node. You should pass other needed  variable like RPC into the service yourself
    3. Run the both the offchain node and the inference services, communicating through endpoints attached to the internal dns
