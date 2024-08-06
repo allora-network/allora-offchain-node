@@ -38,6 +38,7 @@ var UserConfig = lib.UserConfig{
 		{
 			TopicId:                 1,
 			InferenceEntrypointName: "api-worker-reputer",
+			ForecastEntrypointName:  "api-worker-reputer",
 			LoopSeconds:             5,
 			Parameters: map[string]string{
 				//// These communicate with local Python Flask server

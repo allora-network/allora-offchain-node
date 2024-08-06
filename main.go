@@ -9,6 +9,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/joho/godotenv"
 )
 
 const ALLORA_OFFCHAIN_NODE_CONFIG_JSON = "ALLORA_OFFCHAIN_NODE_CONFIG_JSON"
@@ -50,6 +51,10 @@ func ConvertEntrypointsToInstances(userConfig lib.UserConfig) error {
 }
 
 func main() {
+	if dotErr := godotenv.Load(); dotErr != nil {
+		log.Error().Err(dotErr).Msg("Error loading .env file")
+	}
+
 	// UNIX Time is faster and smaller than most timestamps
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Info().Msg("Starting allora offchain node...")

@@ -30,7 +30,7 @@
         "loopSeconds": 30,
         "minStake": 100000,
         "parameters": {
-          "SourceOfTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockHeight}",
+          "SourceOfTruthEndpoint": "http://localhost:8888/truth/{Token}/{BlockHeight}",
           "Token": "ethereum"
         }
       }

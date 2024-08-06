@@ -1,7 +1,7 @@
 package main
 
 import (
-	api_worker_reputer "allora_offchain_node/adapter/api-worker-reputer"
+	api_worker_reputer "allora_offchain_node/adapter/api/worker-reputer"
 	lib "allora_offchain_node/lib"
 	"fmt"
 )
