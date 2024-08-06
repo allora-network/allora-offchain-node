@@ -91,7 +91,7 @@ func (a *AlloraAdapter) CalcForecast(node lib.WorkerConfig, blockHeight int64) (
 	if err != nil {
 		log.Error().Err(err).Msg("Error unmarshalling JSON forecasts")
 	}
-	return []lib.NodeValue{}, nil
+	return nodeValues, nil
 }
 
 func (a *AlloraAdapter) SourceTruth(node lib.ReputerConfig, blockHeight int64) (lib.Truth, error) {
