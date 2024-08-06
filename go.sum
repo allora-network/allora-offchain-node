@@ -50,6 +50,12 @@ github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRF
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk541a8SKzHPHnH3zbiI+7dagKZ0cgpgrD7Fyho=
 github.com/allora-network/allora-chain v0.2.15-0.20240803224711-cc85ac89877a h1:KSIfJZemC1xNC6EYezAKrWcE8WEDs6WBFQ738SA6Jo0=
 github.com/allora-network/allora-chain v0.2.15-0.20240803224711-cc85ac89877a/go.mod h1:jt6mz2EdJgvHenWxhSMAesYTp2Ku68r9nzn3D+8UpPg=
+github.com/allora-network/allora-chain v0.2.15-0.20240805202614-778f47de0f0c h1:Ld4q6XScZ9MUEoLV1nvKohq4UYVm0lh078fR0S7Ty10=
+github.com/allora-network/allora-chain v0.2.15-0.20240805202614-778f47de0f0c/go.mod h1:jt6mz2EdJgvHenWxhSMAesYTp2Ku68r9nzn3D+8UpPg=
+github.com/allora-network/allora-chain v0.2.15-0.20240806144904-cb5ee4981d9a h1:Zku/4IDi6vt7CikJdRL6Qp3rZqH8BFOrkndKfBXWQZc=
+github.com/allora-network/allora-chain v0.2.15-0.20240806144904-cb5ee4981d9a/go.mod h1:jt6mz2EdJgvHenWxhSMAesYTp2Ku68r9nzn3D+8UpPg=
+github.com/allora-network/allora-chain v0.2.15-0.20240806173712-f3a07a5ea3c2 h1:NDNKu8jA0Khflkud/wxyhXy/iLrK7LWqCDANIvRzoZU=
+github.com/allora-network/allora-chain v0.2.15-0.20240806173712-f3a07a5ea3c2/go.mod h1:jt6mz2EdJgvHenWxhSMAesYTp2Ku68r9nzn3D+8UpPg=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apache/thrift v0.13.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
