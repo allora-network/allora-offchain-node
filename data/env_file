@@ -1,0 +1,2 @@
+NAME=offchain_node
+ENV_LOADED=false

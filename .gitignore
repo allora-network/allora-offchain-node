@@ -26,3 +26,4 @@ go.work.sum
 # Personal data
 .env
 .allorad
+config.json
