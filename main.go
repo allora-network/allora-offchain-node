@@ -85,8 +85,6 @@ func main() {
 		finalUserConfig = UserConfig
 	}
 
-	// Print config
-	log.Info().Interface("config", finalUserConfig).Msg("User Config before Entrypoint conversion.")
 	// Convert entrypoints to instances of adapters
 	err := ConvertEntrypointsToInstances(finalUserConfig)
 	if err != nil {
