@@ -1,18 +1,4 @@
 services:
-  initializer:
-    container_name: initializer
-    image: alloranetwork/allora-chain:latest
-    volumes:
-      - ./data:/data
-    entrypoint: /data/scripts/init.sh
-    env_file:
-      - ./data/env_file 
-    healthcheck:
-      test: ["CMD", "bash", "-c", "[[ $(grep '^ENV_LOADED=true$' /data/env_file) ]]"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   source:
     container_name: offchain_source
     build: ./adapter/api/source
@@ -30,8 +16,6 @@ services:
     volumes:
       - ./data:/data
     depends_on:
-      initializer:
-        condition: service_completed_successfully
       source:
         condition: service_healthy
     env_file:

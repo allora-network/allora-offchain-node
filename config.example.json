@@ -18,7 +18,7 @@
         "inferenceEntrypointName": "api-worker-reputer",
         "loopSeconds": 5,
         "parameters": {
-          "InferenceEndpoint": "http://localhost:8000/inference/{Token}",
+          "InferenceEndpoint": "http://source:8000/inference/{Token}",
           "Token": "ETH"
         }
       }
@@ -30,7 +30,7 @@
         "loopSeconds": 30,
         "minStake": 100000,
         "parameters": {
-          "SourceOfTruthEndpoint": "http://localhost:8888/truth/{Token}/{BlockHeight}",
+          "SourceOfTruthEndpoint": "http://source:8888/truth/{Token}/{BlockHeight}",
           "Token": "ethereum"
         }
       }
