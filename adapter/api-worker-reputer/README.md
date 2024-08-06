@@ -4,7 +4,7 @@ This repository contains the adapter module for the Allora Offchain Node. The ad
 
 It is intended to be used by configuration.
 
-This Adapter is intented to be used to send inferences and/or forecasts and/or source_truth from external services which provide an API endpoint.
+This Adapter is intended to be used to send inferences and/or forecasts and/or source_truth from external services which provide an API endpoint.
 
 ## Config
 
@@ -46,7 +46,7 @@ The parameters section contains additional properties the user wants to use to c
 
 ### Worker
 
-`InferenceEndpoint`is required if `InferenceEntrypoint` is defined.
+`InferenceEndpoint` is required if `InferenceEntrypoint` is defined.
 `ForecastEndpoint` is required if `ForecastEntrypoint` is defined.
 
 `InferenceEndpoint`: provides the inference endpoint to hit. It supports URL template variables.
@@ -63,7 +63,7 @@ InferenceEntrypoint: nil
 
 ### Additional Parameters 
 
-Any additional parameter can be defined freely, like `Token` in the example, and be use in the endpoint templates.
+Any additional parameter can be defined freely, like `Token` in the example, and be used in the endpoint templates.
 Additional parameters do not support template variables.
 
 
