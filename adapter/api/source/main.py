@@ -8,6 +8,10 @@ class NodeValue:
         self.worker = worker
         self.value = value
 
+@app.route('/', methods=['GET'])
+def health():
+    return "Hello, World, I'm alive!"
+
 @app.route('/inference/<token>', methods=['GET'])
 def get_inference(token):
     random_float = str(random.uniform(0.0, 100.0))

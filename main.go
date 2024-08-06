@@ -86,8 +86,8 @@ func main() {
 			return
 		}
 	} else {
-		log.Info().Msg("Using default JSON config file")
-		finalUserConfig = UserConfig
+		log.Fatal().Msg("Could not find config file. Please create a config.json file and pass as environment variable.")
+		return
 	}
 
 	// Print config

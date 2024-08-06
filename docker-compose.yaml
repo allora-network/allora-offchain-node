@@ -5,27 +5,35 @@ services:
     volumes:
       - ./data:/data
     entrypoint: /data/scripts/init.sh
-    environment:
-      - NAME=offchain_node
+    env_file:
+      - ./data/env_file 
+    healthcheck:
+      test: ["CMD", "bash", "-c", "[[ $(grep '^ENV_LOADED=true$' /data/env_file) ]]"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   source:
     container_name: offchain_source
     build: ./adapter/api/source
     ports:
       - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   node:
     container_name: offchain_node
     build: .
-    environment:
-      - ALLORA_NODE_RPC=https://allora-rpc.testnet-1.testnet.allora.network
-      - INFERENCE_URL=http://source:8000/inference
-      - FORECAST_URL=http://source:8000/forecast
-      - TRUTH_URL=http://source:8000/truth
     volumes:
       - ./data:/data
     depends_on:
-      - initializer
-      - source
+      initializer:
+        condition: service_completed_successfully
+      source:
+        condition: service_healthy
     env_file:
       - ./data/env_file 
+    entrypoint: /node/data/scripts/reload-node.sh

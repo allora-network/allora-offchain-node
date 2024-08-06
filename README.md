@@ -4,10 +4,15 @@ Allora off-chain nodes publish inferences, forecasts, and losses informed by a c
 
 ## How to run with docker
 1. Clone the repository
+4. Copy config.example.json and populate with your variables
+
+```shell
+cp config.example.json config.json
+```
 2. Run docker compose from the root diectory. This will:
-   1. Automatically create allora keys for you. You will have to request for some tokens from faucet to be able to register your worker and stake your reputer
-   2. Automatically export the needed variables from the account created to be used by the offchain node. You should pass other needed  variable like RPC into the service yourself
-   3. Run the both the offchain node and the inference services, communicating through endpoints attached to the internal dns
+   1. Automatically create allora keys for you. You will have to request for some tokens from faucet to be able to register your worker and stake your reputer. You can find your address in ./data/env_file
+   2. Automatically export the needed variables from the account created to be used by the offchain node and bundles it with the your provided config.json and then pass them to the node as environemnt variable
+   3. Run the both the offchain node and the source services, communicating through endpoints attached to the internal dns
 ```
 docker-compose up --build 
 ```
@@ -37,17 +42,16 @@ cp .env.example .env
 9. Run the following commands:
 
 ```shell
-chmod +x run
-./run
+chmod +x start.local
+./start.local
 ```
 
 
 ## How to configure
 
-There are several ways to configure the node. In order of preference: 
+There are several ways to configure the node. In order of preference, you can do any of these: 
 * Set the `ALLORA_OFFCHAIN_NODE_CONFIG_JSON` env var with a configuration as a JSON string.
 * Set the `ALLORA_OFFCHAIN_NODE_CONFIG_FILE_PATH` env var pointing to a file, which contains configuration as JSON. An example if provided in `config.example.json`.
-* Read the `config.go` file.
 
 Each option completely overwrites the other options.
 
