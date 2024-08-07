@@ -69,7 +69,7 @@ func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
 		}
 	} else if config.Wallet.AddressRestoreMnemonic != "" && config.Wallet.AddressKeyName != "" {
 		// restore from mnemonic
-		account, err = client.AccountRegistry.Import(config.Wallet.AddressKeyName, config.Wallet.AddressRestoreMnemonic, config.Wallet.AddressAccountPassphrase)
+		account, err = client.AccountRegistry.Import(config.Wallet.AddressKeyName, config.Wallet.AddressRestoreMnemonic, "")
 		if err != nil {
 			if err.Error() == "account already exists" {
 				account, err = client.Account(config.Wallet.AddressKeyName)

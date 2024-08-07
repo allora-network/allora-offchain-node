@@ -2,8 +2,6 @@
 
 set -e
 
-NAME="${NAME:-offchain_node}"  
-
 if allorad keys --home=/data/.allorad --keyring-backend test show $NAME > /dev/null 2>&1 ; then
     echo "allora account: $NAME already imported"
 else
@@ -13,10 +11,9 @@ else
     mnemonic=$(echo "$output" | tail -n 1)
 
     # Parse and update the JSON string
-    updated_json=$(echo "$ALLORA_OFFCHAIN_NODE_CONFIG_JSON" | jq --arg name "$NAME" --arg mnemonic "$mnemonic" --arg passphrase "secret" '
+    updated_json=$(echo "$ALLORA_OFFCHAIN_NODE_CONFIG_JSON" | jq --arg name "$NAME" --arg mnemonic "$mnemonic" '
     .wallet.addressKeyName = $name |
-    .wallet.addressRestoreMnemonic = $mnemonic |
-    .wallet.addressAccountPassphrase = $passphrase
+    .wallet.addressRestoreMnemonic = $mnemonic 
     ')
 
     stringified_json=$(echo "$updated_json" | jq -c .)

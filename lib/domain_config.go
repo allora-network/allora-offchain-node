@@ -13,7 +13,6 @@ type WalletConfig struct {
 	Address                  string // will be overwritten by the keystore. This is the 1 value that is auto-generated in this struct
 	AddressKeyName           string // load a address by key from the keystore
 	AddressRestoreMnemonic   string
-	AddressAccountPassphrase string
 	AlloraHomeDir            string  // home directory for the allora keystore
 	Gas                      string  // gas to use for the allora client
 	GasAdjustment            float64 // gas adjustment to use for the allora client

@@ -2,7 +2,6 @@
     "wallet": {
       "addressKeyName": "test",
       "addressRestoreMnemonic": "",
-      "addressAccountPassphrase": "",
       "alloraHomeDir": "",
       "gas": "1000000",
       "gasAdjustment": 1.0,
