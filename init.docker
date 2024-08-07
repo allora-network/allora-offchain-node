@@ -14,4 +14,3 @@ else
     echo "config.json is already loaded, skipping the operation. You can set ENV_LOADED variable to false in ./data/env_file to reload the config.json"
 fi
 
-docker compose up --build
