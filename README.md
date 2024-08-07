@@ -18,8 +18,8 @@ chmod +x init.docker
 ```
 
 from the root diectory. This will:
-   1. Automatically create allora keys for you. You will have to request for some tokens from faucet to be able to register your worker and stake your reputer. You can find your address in ./data/env_file
-   2. Automatically export the needed variables from the account created to be used by the offchain node and bundles it with the your provided config.json and then pass them to the node as environemnt variable
+   - Automatically create allora keys for you. You will have to request for some tokens from faucet to be able to register your worker and stake your reputer. You can find your address in ./data/env_file
+   - Automatically export the needed variables from the account created to be used by the offchain node and bundles it with the your provided config.json and then pass them to the node as environemnt variable
 
 5. Run `docker compose up -d`. This will:
    - Run the both the offchain node and the source services, communicating through endpoints attached to the internal dns
