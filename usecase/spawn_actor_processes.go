@@ -59,7 +59,7 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 
 	latestNonceHeightActedUpon := int64(0)
 	for {
-		log.Debug().Uint64("topicId", worker.TopicId).Msg("Checking for latest open worker nonce on topic")
+		log.Debug().Uint64("topicId", worker.TopicId).Msg("Checking for latest open worker nonce")
 
 		latestOpenWorkerNonce, err := suite.Node.GetLatestOpenWorkerNonceByTopicId(worker.TopicId)
 		if err != nil {
@@ -91,7 +91,7 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 
 	latestNonceHeightActedUpon := int64(0)
 	for {
-		log.Debug().Uint64("topicId", reputer.TopicId).Msg("Checking for latest open reputer nonce on topic")
+		log.Debug().Uint64("topicId", reputer.TopicId).Msg("Checking for latest open reputer nonce")
 
 		latestOpenReputerNonce, err := suite.Node.GetOldestReputerNonceByTopicId(reputer.TopicId)
 		if err != nil {

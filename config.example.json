@@ -8,8 +8,7 @@
       "gasAdjustment": 1.0,
       "nodeRpc": "http://localhost:26657",
       "maxRetries": 1,
-      "minDelay": 1,
-      "maxDelay": 2,
+      "delay": 1,
       "submitTx": false
     },
     "worker": [
