@@ -93,7 +93,7 @@ func (suite *UseCaseSuite) runReputerProcess(reputer lib.ReputerConfig) {
 	for {
 		log.Debug().Uint64("topicId", reputer.TopicId).Msg("Checking for latest open reputer nonce on topic")
 
-		latestOpenReputerNonce, err := suite.Node.GetLatestOpenReputerNonceByTopicId(reputer.TopicId)
+		latestOpenReputerNonce, err := suite.Node.GetOldestReputerNonceByTopicId(reputer.TopicId)
 		if err != nil {
 			log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error getting latest open reputer nonce on topic")
 		}

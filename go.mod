@@ -8,7 +8,7 @@ go 1.22.5
 
 require (
 	cosmossdk.io/math v1.3.0
-	github.com/allora-network/allora-chain v0.2.15-0.20240806173712-f3a07a5ea3c2
+	github.com/allora-network/allora-chain v0.2.15-0.20240807021625-402006fe2b77
 	github.com/cosmos/cosmos-sdk v0.50.8
 	github.com/ignite/cli/v28 v28.5.0
 	github.com/joho/godotenv v1.5.1

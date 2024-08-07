@@ -24,7 +24,7 @@ func (node *NodeConfig) GetLatestOpenWorkerNonceByTopicId(topicId emissionstypes
 	return res.Nonces.Nonces[0], nil
 }
 
-func (node *NodeConfig) GetLatestOpenReputerNonceByTopicId(topicId emissionstypes.TopicId) (BlockHeight, error) {
+func (node *NodeConfig) GetOldestReputerNonceByTopicId(topicId emissionstypes.TopicId) (BlockHeight, error) {
 	ctx := context.Background()
 
 	res, err := node.Chain.EmissionsQueryClient.GetUnfulfilledReputerNonces(
@@ -38,6 +38,6 @@ func (node *NodeConfig) GetLatestOpenReputerNonceByTopicId(topicId emissionstype
 	if len(res.Nonces.Nonces) == 0 {
 		return 0, nil
 	}
-	// Per `AddWorkerNonce()` in `allora-chain/x/emissions/keeper.go`, the latest nonce is first
-	return res.Nonces.Nonces[0].ReputerNonce.BlockHeight, nil
+	// Per `AddWorkerNonce()` in `allora-chain/x/emissions/keeper.go`, the oldest nonce is last
+	return res.Nonces.Nonces[len(res.Nonces.Nonces)-1].ReputerNonce.BlockHeight, nil
 }
