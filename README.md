@@ -75,7 +75,7 @@ It spins off a distinct processes per role worker, reputer per topic configered 
    1. Get and set latest_open_worker_nonce_from_chain from the chain
    2. If latest_open_worker_nonce_from_chain does not exist or nil then continue to next loop
       1. i.e. wait another config.loop_seconds
-   3. Retry request_retries times with backoff:
+   3. Retry request_retries times with uniform backoff:
       1. Invoke configured `inferenceEntrypoint`, `forecastEntrypoint` for topic and get results
          1. Else, break this inner retry loop
       2. Attempt to commit inference and forecast bundle to the chain
@@ -97,7 +97,7 @@ It spins off a distinct processes per role worker, reputer per topic configered 
    1. Get and set latest_open_reputer_nonce_from_chain from the chain
    2. If latest_open_reputer_nonce_from_chain does not exist or nil then continue to next loop
       1. i.e. wait another config.loop_seconds
-   3. Retry request_retries times with backoff:
+   3. Retry request_retries times with uniform backoff:
       1. Invoke configured `truthEntrypoint, lossEntrypoint` for topic and get results
          1. Else, break this inner retry loop
       2. Attempt to commit loss bundle to the chain
