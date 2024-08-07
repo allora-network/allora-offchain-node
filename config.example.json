@@ -7,9 +7,9 @@
       "gas": "1000000",
       "gasAdjustment": 1.0,
       "nodeRpc": "http://localhost:26657",
-      "maxRetries": 3,
+      "maxRetries": 1,
       "minDelay": 1,
-      "maxDelay": 6,
+      "maxDelay": 2,
       "submitTx": false
     },
     "worker": [
