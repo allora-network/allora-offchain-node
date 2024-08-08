@@ -14,8 +14,8 @@ cp config.example.json config.json
 4. Run
 
 ```shell
-chmod +x init.docker
-./init.docker 
+chmod +x init.config
+./init.config
 ```
 
 from the root diectory. This will:
