@@ -5,16 +5,16 @@ Allora off-chain nodes publish inferences, forecasts, and losses informed by a c
 ## How to run with docker
 1. Clone the repository
 2. Make sure to remove any .env file so it doesn't clash with the automated environment variables
-3. Copy config.example.json and populate with your variables
+3. Copy config.example.json and populate with your variables. You can either populate with your existing wallet or leave it empty for it to be autocreated
 
 ```shell
 cp config.example.json config.json
 ```
-4. Run
+4. Run command below if you want to autocreate wallet
 
 ```shell
-chmod +x init.docker
-./init.docker 
+chmod +x init.wallet
+./init.wallet 
 ```
 
 from the root diectory. This will:
