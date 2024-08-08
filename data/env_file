@@ -1,2 +1,2 @@
-NAME=offchain-node
+NAME=offchain_node
 ENV_LOADED=false
