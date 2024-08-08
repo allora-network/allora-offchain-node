@@ -36,6 +36,7 @@ jobs:
 
       - name: Source Build, tag, and push image to Amazon ECR
         id: build-push-image-source
+        working-directory: ./adapter/api/source
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: ${{github.event.repository.name}}-source
@@ -52,8 +53,7 @@ jobs:
           fi
 
           # Build a docker container and push it to ECR so that it can be deployed to ECS.
-          docker build --pull -f ./adapter/api/source/Dockerfile \
-              -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build --pull -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
           # Build and PUSH additional tags
