@@ -1,2 +1,2 @@
-NAME=offchain_node
+NAME=konji
 ENV_LOADED=false
