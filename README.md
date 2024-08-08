@@ -11,7 +11,7 @@ Allora off-chain nodes publish inferences, forecasts, and losses informed by a c
 ```shell
 cp config.example.json config.json
 ```
-4. Run
+4. Run command below to load your config.json file to environment
 
 ```shell
 chmod +x init.config
@@ -19,8 +19,10 @@ chmod +x init.config
 ```
 
 from the root diectory. This will:
-   - Automatically create allora keys for you. You will have to request for some tokens from faucet to be able to register your worker and stake your reputer. You can find your address in ./data/env_file
-   - Automatically export the needed variables from the account created to be used by the offchain node and bundles it with the your provided config.json and then pass them to the node as environemnt variable
+   - Load your config.json file into the environment. Depending on wheather you provided your wallet details or not it will also do the following:
+      - Automatically create allora keys for you. You will have to request for some tokens from faucet to be able to register your worker and stake your reputer. You can find your address in ./data/env_file
+      - Automatically export the needed variables from the account created to be used by the offchain node and bundles it with the your provided config.json and then pass them to the node as environemnt variable
+   
 
 5. Run `docker compose up --build`. This will:
    - Run the both the offchain node and the source services, communicating through endpoints attached to the internal dns
