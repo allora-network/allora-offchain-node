@@ -14,7 +14,7 @@ cp config.example.json config.json
 
 ```shell
 chmod +x init.config
-./init.config 
+./init.config
 ```
 
 from the root diectory. This will:
