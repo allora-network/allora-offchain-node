@@ -69,7 +69,7 @@ func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
 		}
 	} else if config.Wallet.AddressRestoreMnemonic != "" && config.Wallet.AddressKeyName != "" {
 		// restore from mnemonic
-		account, err = client.AccountRegistry.Import(config.Wallet.AddressKeyName, config.Wallet.AddressRestoreMnemonic, config.Wallet.AddressAccountPassphrase)
+		account, err = client.AccountRegistry.Import(config.Wallet.AddressKeyName, config.Wallet.AddressRestoreMnemonic, "")
 		if err != nil {
 			if err.Error() == "account already exists" {
 				account, err = client.Account(config.Wallet.AddressKeyName)
@@ -82,7 +82,7 @@ func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
 		}
 	} else {
 		log.Debug().Msg("no allora account was loaded")
-		return nil, nil
+		return nil, errors.New("no allora account was loaded")
 	}
 
 	address, err := account.Address(ADDRESS_PREFIX)

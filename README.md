@@ -2,6 +2,31 @@
 
 Allora off-chain nodes publish inferences, forecasts, and losses informed by a configurable ground truth to the Allora chain.
 
+## How to run with docker
+1. Clone the repository
+2. Make sure to remove any .env file so it doesn't clash with the automated environment variables
+3. Copy config.example.json and populate with your variables
+
+```shell
+cp config.example.json config.json
+```
+4. Run
+
+```shell
+chmod +x init.docker
+./init.docker 
+```
+
+from the root diectory. This will:
+   - Automatically create allora keys for you. You will have to request for some tokens from faucet to be able to register your worker and stake your reputer. You can find your address in ./data/env_file
+   - Automatically export the needed variables from the account created to be used by the offchain node and bundles it with the your provided config.json and then pass them to the node as environemnt variable
+
+5. Run `docker compose up --build`. This will:
+   - Run the both the offchain node and the source services, communicating through endpoints attached to the internal dns
+
+Please note that the environment variable will be created as bumdle of your config.json and allora account secrets, please make sure to remove every sectrets before commiting to remote git repository
+
+
 ## How to run without docker
 
 1. Clone the repository
@@ -27,9 +52,19 @@ cp .env.example .env
 9. Run the following commands:
 
 ```shell
-chmod +x run
-./run
+chmod +x start.local
+./start.local
 ```
+
+
+## How to configure
+
+There are several ways to configure the node. In order of preference, you can do any of these: 
+* Set the `ALLORA_OFFCHAIN_NODE_CONFIG_JSON` env var with a configuration as a JSON string.
+* Set the `ALLORA_OFFCHAIN_NODE_CONFIG_FILE_PATH` env var pointing to a file, which contains configuration as JSON. An example if provided in `config.example.json`.
+
+Each option completely overwrites the other options.
+
 
 This is the entrypoint for the application that simply builds and runs the Go program.
 
@@ -46,7 +81,7 @@ It spins off a distinct processes per role worker, reputer per topic configered 
    1. Get and set latest_open_worker_nonce_from_chain from the chain
    2. If latest_open_worker_nonce_from_chain does not exist or nil then continue to next loop
       1. i.e. wait another config.loop_seconds
-   3. Retry request_retries times with backoff:
+   3. Retry request_retries times with uniform backoff:
       1. Invoke configured `inferenceEntrypoint`, `forecastEntrypoint` for topic and get results
          1. Else, break this inner retry loop
       2. Attempt to commit inference and forecast bundle to the chain
@@ -68,7 +103,7 @@ It spins off a distinct processes per role worker, reputer per topic configered 
    1. Get and set latest_open_reputer_nonce_from_chain from the chain
    2. If latest_open_reputer_nonce_from_chain does not exist or nil then continue to next loop
       1. i.e. wait another config.loop_seconds
-   3. Retry request_retries times with backoff:
+   3. Retry request_retries times with uniform backoff:
       1. Invoke configured `truthEntrypoint, lossEntrypoint` for topic and get results
          1. Else, break this inner retry loop
       2. Attempt to commit loss bundle to the chain

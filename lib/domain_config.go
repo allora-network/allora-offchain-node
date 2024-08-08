@@ -13,14 +13,12 @@ type WalletConfig struct {
 	Address                  string // will be overwritten by the keystore. This is the 1 value that is auto-generated in this struct
 	AddressKeyName           string // load a address by key from the keystore
 	AddressRestoreMnemonic   string
-	AddressAccountPassphrase string
 	AlloraHomeDir            string  // home directory for the allora keystore
 	Gas                      string  // gas to use for the allora client
 	GasAdjustment            float64 // gas adjustment to use for the allora client
 	NodeRpc                  string  // rpc node for allora chain
 	MaxRetries               int64   // retry to get data from chain up to this many times per query or tx
-	MinDelay                 int64   // minimum of uniform distribution that is sampled then used to calcluate exponential backoff for txs (in seconds)
-	MaxDelay                 int64   // maximum of uniform distribution that is sampled then used to calcluate exponential backoff for txs (in seconds)
+	Delay                    int64   // minimum of uniform distribution that is sampled then used to calcluate exponential backoff for txs (in seconds)
 	SubmitTx                 bool    // useful for dev/testing. set to false to run in dry-run processes without committing to the chain
 }
 
@@ -36,17 +34,20 @@ type ChainConfig struct {
 }
 
 type WorkerConfig struct {
-	TopicId             emissions.TopicId
-	InferenceEntrypoint AlloraAdapter
-	ForecastEntrypoint  AlloraAdapter
-	LoopSeconds         int64 // seconds to wait between attempts to get next worker nonce
-	AllowsNegativeValue bool
-	Parameters          map[string]string // Map for variable configuration values
+	TopicId                 emissions.TopicId
+	InferenceEntrypointName string
+	InferenceEntrypoint     AlloraAdapter
+	ForecastEntrypointName  string
+	ForecastEntrypoint      AlloraAdapter
+	LoopSeconds             int64 // seconds to wait between attempts to get next worker nonce
+	AllowsNegativeValue     bool
+	Parameters              map[string]string // Map for variable configuration values
 }
 
 type ReputerConfig struct {
-	TopicId           emissions.TopicId
-	ReputerEntrypoint AlloraAdapter
+	TopicId               emissions.TopicId
+	ReputerEntrypointName string
+	ReputerEntrypoint     AlloraAdapter
 	// Minimum stake to repute. will try to add stake from wallet if current stake is less than this.
 	// Will not repute if current stake is less than this, after trying to add any necessary stake.
 	// This is idempotent in that it will not add more stake than specified here.

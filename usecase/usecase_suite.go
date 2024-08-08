@@ -11,11 +11,12 @@ type UseCaseSuite struct {
 }
 
 // Static method to create a new UseCaseSuite
-func NewUseCaseSuite(userConfig lib.UserConfig) UseCaseSuite {
+func NewUseCaseSuite(userConfig lib.UserConfig) (*UseCaseSuite, error) {
 	userConfig.ValidateConfigAdapters()
 	nodeConfig, err := userConfig.GenerateNodeConfig()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to initialize allora client")
+		return nil, err
 	}
-	return UseCaseSuite{Node: *nodeConfig}
+	return &UseCaseSuite{Node: *nodeConfig}, nil
 }

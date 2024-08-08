@@ -2,7 +2,6 @@ package lib
 
 import (
 	"context"
-	"math/rand"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -11,6 +10,8 @@ import (
 	"github.com/ignite/cli/v28/ignite/pkg/cosmosclient"
 )
 
+// SendDataWithRetry attempts to send data with a uniform backoff strategy for retries.
+// uniform backoff is preferred to avoid exiting the open submission windows
 func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg, successMsg string) (*cosmosclient.Response, error) {
 	var txResp *cosmosclient.Response
 	var err error
@@ -23,12 +24,8 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 		}
 		// Log the error for each retry.
 		log.Error().Err(err).Str("msg", successMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, node.Wallet.MaxRetries)
-		// Generate a random number between MinDelay and MaxDelay
-		randomDelay := rand.Intn(int(node.Wallet.MaxDelay-node.Wallet.MinDelay+1)) + int(node.Wallet.MinDelay)
-		// Apply exponential backoff to the random delay
-		backoffDelay := randomDelay << retryCount
-		// Wait for the calculated delay before retrying
-		time.Sleep(time.Duration(backoffDelay) * time.Second)
+		// Wait for the uniform delay before retrying
+		time.Sleep(time.Duration(node.Wallet.Delay) * time.Second)
 	}
 	return txResp, err
 }

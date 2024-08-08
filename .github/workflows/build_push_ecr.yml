@@ -1,5 +1,4 @@
-# This workflow will build and push a new container image to Amazon ECR,
-# and then will deploy a new task definition to Amazon ECS which will be run by Fargate when a release is created
+# This workflow will build and push a new container image to private AWS ECR repo based on the tag
 name: Build and Push docker image to ECR
 
 on:
@@ -35,11 +34,12 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: offchain node build, tag, and push image to Amazon ECR
-        id: build-push-image-node
+      - name: Source Build, tag, and push image to Amazon ECR
+        id: build-push-image-source
+        working-directory: ./adapter/api/source
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{github.event.repository.name}}  # Naming convention: ECR registry name == GITHUB repo name
+          ECR_REPOSITORY: ${{github.event.repository.name}}-source
         run: |
           #! Due to we trigger on push.tags GITHUB_REF - is the tag name
           GIT_TAG="$(echo $GITHUB_REF| sed 's#refs/tags/##')"
@@ -53,8 +53,7 @@ jobs:
           fi
 
           # Build a docker container and push it to ECR so that it can be deployed to ECS.
-          docker build --pull -f Dockerfile_b7s \
-              -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build --pull -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
           # Build and PUSH additional tags
