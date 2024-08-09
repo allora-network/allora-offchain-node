@@ -49,7 +49,6 @@ func (suite *UseCaseSuite) Spawn() {
 
 func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 	log.Info().Uint64("topicId", worker.TopicId).Msg("Running worker process for topic")
-	println("Running worker process for topic", worker.TopicId)
 
 	registered := suite.Node.RegisterWorkerIdempotently(worker)
 	if !registered {
