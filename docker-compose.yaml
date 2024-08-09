@@ -13,6 +13,8 @@ services:
   node:
     container_name: offchain_node
     build: .
+    ports:
+      - "2112:2112"
     volumes:
       - ./data:/data
     depends_on:
