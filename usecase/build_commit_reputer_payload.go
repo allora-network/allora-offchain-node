@@ -33,14 +33,14 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to get source truth from reputer")
 		return false, err
 	}
-	suite.Metrics.IncreamentMetricsCounter(lib.TruthRequestCount, suite.Node.Chain.Address, reputer.TopicId)
+	suite.Metrics.IncrementMetricsCounter(lib.TruthRequestCount, suite.Node.Chain.Address, reputer.TopicId)
 
 	lossBundle, err := suite.ComputeLossBundle(sourceTruth, valueBundle, reputer)
 	if err != nil {
 		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to compute loss bundle")
 		return false, err
 	}
-	suite.Metrics.IncreamentMetricsCounter(lib.ReputerDataBuildCount, suite.Node.Chain.Address, reputer.TopicId)
+	suite.Metrics.IncrementMetricsCounter(lib.ReputerDataBuildCount, suite.Node.Chain.Address, reputer.TopicId)
 
 	signedValueBundle, err := suite.SignReputerValueBundle(&lossBundle)
 	if err != nil {
@@ -64,7 +64,7 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 			log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msgf("Error sending Reputer Data to chain: %s", err)
 			return false, err
 		}
-		suite.Metrics.IncreamentMetricsCounter(lib.ReputerChainSubmissionCount, suite.Node.Chain.Address, reputer.TopicId)
+		suite.Metrics.IncrementMetricsCounter(lib.ReputerChainSubmissionCount, suite.Node.Chain.Address, reputer.TopicId)
 	} else {
 		log.Info().Uint64("topicId", reputer.TopicId).Msg("SubmitTx=false; Skipping sending Reputer Data to chain")
 	}

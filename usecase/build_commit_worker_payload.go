@@ -32,7 +32,7 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 			return false, err
 		}
 		workerResponse.InfererValue = inference
-		suite.Metrics.IncreamentMetricsCounter(lib.InferenceRequestCount, suite.Node.Chain.Address, worker.TopicId)
+		suite.Metrics.IncrementMetricsCounter(lib.InferenceRequestCount, suite.Node.Chain.Address, worker.TopicId)
 	}
 
 	if worker.ForecastEntrypoint != nil {
@@ -43,7 +43,7 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 			return false, err
 		}
 		workerResponse.ForecasterValues = forecasts
-		suite.Metrics.IncreamentMetricsCounter(lib.ForecastRequestCount, suite.Node.Chain.Address, worker.TopicId)
+		suite.Metrics.IncrementMetricsCounter(lib.ForecastRequestCount, suite.Node.Chain.Address, worker.TopicId)
 	}
 
 	workerPayload, err := suite.BuildWorkerPayload(workerResponse, nonce.BlockHeight)
@@ -51,7 +51,7 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 		log.Error().Err(err).Msg("Error building workerPayload")
 		return false, err
 	}
-	suite.Metrics.IncreamentMetricsCounter(lib.WorkerDataBuildCount, suite.Node.Chain.Address, worker.TopicId)
+	suite.Metrics.IncrementMetricsCounter(lib.WorkerDataBuildCount, suite.Node.Chain.Address, worker.TopicId)
 
 	workerDataBundle, err := suite.SignWorkerPayload(&workerPayload)
 	if err != nil {
@@ -78,7 +78,7 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 			log.Error().Err(err).Msg("Error sending Worker Data to chain")
 			return false, err
 		}
-		suite.Metrics.IncreamentMetricsCounter(lib.WorkerChainSubmissionCount, suite.Node.Chain.Address, worker.TopicId)
+		suite.Metrics.IncrementMetricsCounter(lib.WorkerChainSubmissionCount, suite.Node.Chain.Address, worker.TopicId)
 	} else {
 		log.Info().Uint64("topicId", worker.TopicId).Msg("SubmitTx=false; Skipping sending Worker Data to chain")
 	}
