@@ -20,8 +20,8 @@ func getAlloraClient(config *UserConfig) (*cosmosclient.Client, error) {
 	ctx := context.Background()
 	userHomeDir, _ := os.UserHomeDir()
 	alloraClientHome := filepath.Join(userHomeDir, ".allorad")
-	if config.Wallet.AlloraHomeDir != "" {
-		alloraClientHome = config.Wallet.AlloraHomeDir
+	if config.Wallets.AlloraHomeDir != "" {
+		alloraClientHome = config.Wallets.AlloraHomeDir
 	}
 
 	// Check that the given home folder exist
@@ -30,67 +30,85 @@ func getAlloraClient(config *UserConfig) (*cosmosclient.Client, error) {
 		err = os.MkdirAll(alloraClientHome, 0755)
 		if err != nil {
 			log.Error().Err(err).Str("home", alloraClientHome).Msg("Cannot create allora client home directory")
-			config.Wallet.SubmitTx = false
+			config.Wallets.SubmitTx = false
 			return nil, err
 		}
 		log.Info().Str("home", alloraClientHome).Msg("Allora client home directory created")
 	}
 
 	client, err := cosmosclient.New(ctx,
-		cosmosclient.WithNodeAddress(config.Wallet.NodeRpc),
+		cosmosclient.WithNodeAddress(config.Wallets.NodeRpc),
 		cosmosclient.WithAddressPrefix(ADDRESS_PREFIX),
 		cosmosclient.WithHome(alloraClientHome),
-		cosmosclient.WithGas(config.Wallet.Gas),
-		cosmosclient.WithGasAdjustment(config.Wallet.GasAdjustment),
+		cosmosclient.WithGas(config.Wallets.Gas),
+		cosmosclient.WithGasAdjustment(config.Wallets.GasAdjustment),
 	)
 	if err != nil {
 		log.Error().Err(err).Msg("Unable to create an allora blockchain client")
-		config.Wallet.SubmitTx = false
+		config.Wallets.SubmitTx = false
 		return nil, err
 	}
 	return &client, nil
 }
 
-func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
-	config.Wallet.SubmitTx = true
-	client, err := getAlloraClient(config)
-	if err != nil {
-		config.Wallet.SubmitTx = false
-		return nil, err
-	}
+func configWallet(client *cosmosclient.Client, walletConfig WalletConfig) error {
+	walletConfig.SubmitTx = true
+
 	var account cosmosaccount.Account
+	var err error
 	// if we're giving a keyring ring name, with no mnemonic restore
-	if config.Wallet.AddressRestoreMnemonic == "" && config.Wallet.AddressKeyName != "" {
+	if walletConfig.AddressRestoreMnemonic == "" && walletConfig.AddressKeyName != "" {
 		// get account from the keyring
-		account, err = client.Account(config.Wallet.AddressKeyName)
+		account, err = client.Account(walletConfig.AddressKeyName)
 		if err != nil {
-			config.Wallet.SubmitTx = false
+			walletConfig.SubmitTx = false
 			log.Error().Err(err).Msg("could not retrieve account from keyring")
+			return err
 		}
-	} else if config.Wallet.AddressRestoreMnemonic != "" && config.Wallet.AddressKeyName != "" {
+	} else if walletConfig.AddressRestoreMnemonic != "" && walletConfig.AddressKeyName != "" {
 		// restore from mnemonic
-		account, err = client.AccountRegistry.Import(config.Wallet.AddressKeyName, config.Wallet.AddressRestoreMnemonic, "")
+		account, err = client.AccountRegistry.Import(walletConfig.AddressKeyName, walletConfig.AddressRestoreMnemonic, "")
 		if err != nil {
 			if err.Error() == "account already exists" {
-				account, err = client.Account(config.Wallet.AddressKeyName)
+				account, err = client.Account(walletConfig.AddressKeyName)
 			}
 
 			if err != nil {
-				config.Wallet.SubmitTx = false
+				walletConfig.SubmitTx = false
 				log.Err(err).Msg("could not restore account from mnemonic")
+				return err
 			}
 		}
 	} else {
 		log.Debug().Msg("no allora account was loaded")
-		return nil, errors.New("no allora account was loaded")
+		return errors.New("no allora account was loaded")
 	}
 
 	address, err := account.Address(ADDRESS_PREFIX)
 	if err != nil {
-		config.Wallet.SubmitTx = false
+		walletConfig.SubmitTx = false
 		log.Err(err).Msg("could not retrieve allora blockchain address, transactions will not be submitted to chain")
-	} else {
-		log.Info().Str("address", address).Msg("allora blockchain address loaded")
+		return err
+	}
+	walletConfig.Address = address // Overwrite the address with the one from the keystore
+	log.Info().Str("Account", walletConfig.AddressKeyName).Str("address", address).Msg("Allora address loaded succesfully")
+
+	return nil
+}
+
+func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
+	// Use one alloraClient for all wallets
+	client, err := getAlloraClient(config)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO Modify to iterate through wallets
+	for _, wallet := range config.Wallets {
+		err := configWallet(client, wallet)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Create query client
@@ -104,16 +122,9 @@ func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
 		return nil, nil
 	}
 
-	config.Wallet.Address = address // Overwrite the address with the one from the keystore
-
-	log.Info().Msg("Allora client created successfully")
-	log.Info().Msg("Wallet address: " + address)
-
 	alloraChain := ChainConfig{
-		Address:              address,
 		AddressPrefix:        ADDRESS_PREFIX,
 		DefaultBondDenom:     DEFAULT_BOND_DENOM,
-		Account:              account,
 		Client:               client,
 		EmissionsQueryClient: queryClient,
 		BankQueryClient:      bankClient,
@@ -121,10 +132,11 @@ func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
 
 	Node := NodeConfig{
 		Chain:   alloraChain,
-		Wallet:  config.Wallet,
+		Wallets: config.Wallets,
 		Worker:  config.Worker,
 		Reputer: config.Reputer,
 	}
 
+	log.Info().Msg("Allora client created successfully")
 	return &Node, nil
 }

@@ -3,29 +3,26 @@ package lib
 import (
 	emissions "github.com/allora-network/allora-chain/x/emissions/types"
 	bank "github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/ignite/cli/v28/ignite/pkg/cosmosaccount"
 	"github.com/ignite/cli/v28/ignite/pkg/cosmosclient"
 	"github.com/rs/zerolog/log"
 )
 
 // Properties manually provided by the user as part of UserConfig
 type WalletConfig struct {
-	Address                  string // will be overwritten by the keystore. This is the 1 value that is auto-generated in this struct
-	AddressKeyName           string // load a address by key from the keystore
-	AddressRestoreMnemonic   string
-	AlloraHomeDir            string  // home directory for the allora keystore
-	Gas                      string  // gas to use for the allora client
-	GasAdjustment            float64 // gas adjustment to use for the allora client
-	NodeRpc                  string  // rpc node for allora chain
-	MaxRetries               int64   // retry to get data from chain up to this many times per query or tx
-	Delay                    int64   // minimum of uniform distribution that is sampled then used to calcluate exponential backoff for txs (in seconds)
-	SubmitTx                 bool    // useful for dev/testing. set to false to run in dry-run processes without committing to the chain
+	Address                string // will be overwritten by the keystore. This is the 1 value that is auto-generated in this struct
+	AddressKeyName         string // load a address by key from the keystore
+	AddressRestoreMnemonic string
+	AlloraHomeDir          string  // home directory for the allora keystore
+	Gas                    string  // gas to use for the allora client
+	GasAdjustment          float64 // gas adjustment to use for the allora client
+	NodeRpc                string  // rpc node for allora chain
+	MaxRetries             int64   // retry to get data from chain up to this many times per query or tx
+	Delay                  int64   // minimum of uniform distribution that is sampled then used to calcluate exponential backoff for txs (in seconds)
+	SubmitTx               bool    // useful for dev/testing. set to false to run in dry-run processes without committing to the chain
 }
 
 // Properties auto-generated based on what the user has provided in WalletConfig fields of UserConfig
 type ChainConfig struct {
-	Address              string // will be auto-generated based on the keystore
-	Account              cosmosaccount.Account
 	Client               *cosmosclient.Client
 	EmissionsQueryClient emissions.QueryClient
 	BankQueryClient      bank.QueryClient
@@ -34,6 +31,7 @@ type ChainConfig struct {
 }
 
 type WorkerConfig struct {
+	AccountName             string
 	TopicId                 emissions.TopicId
 	InferenceEntrypointName string
 	InferenceEntrypoint     AlloraAdapter
@@ -45,6 +43,7 @@ type WorkerConfig struct {
 }
 
 type ReputerConfig struct {
+	AccountName           string
 	TopicId               emissions.TopicId
 	ReputerEntrypointName string
 	ReputerEntrypoint     AlloraAdapter
@@ -59,14 +58,14 @@ type ReputerConfig struct {
 }
 
 type UserConfig struct {
-	Wallet  WalletConfig
+	Wallets map[string]WalletConfig
 	Worker  []WorkerConfig
 	Reputer []ReputerConfig
 }
 
 type NodeConfig struct {
 	Chain   ChainConfig
-	Wallet  WalletConfig
+	Wallets map[string]WalletConfig
 	Worker  []WorkerConfig
 	Reputer []ReputerConfig
 }
