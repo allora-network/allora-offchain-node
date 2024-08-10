@@ -7,13 +7,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/joho/godotenv"
 )
-
-const ALLORA_OFFCHAIN_NODE_CONFIG_JSON = "ALLORA_OFFCHAIN_NODE_CONFIG_JSON"
-const ALLORA_OFFCHAIN_NODE_CONFIG_FILE_PATH = "ALLORA_OFFCHAIN_NODE_CONFIG_FILE_PATH"
 
 func ConvertEntrypointsToInstances(userConfig lib.UserConfig) error {
 	/// Initialize adapters using the factory function
@@ -52,15 +49,19 @@ func ConvertEntrypointsToInstances(userConfig lib.UserConfig) error {
 
 func main() {
 	if dotErr := godotenv.Load(); dotErr != nil {
-		log.Error().Err(dotErr).Msg("Error loading .env file")
+		log.Info().Msg("Unable to load .env file")
 	}
 
 	// UNIX Time is faster and smaller than most timestamps
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Info().Msg("Starting allora offchain node...")
 
+	metrics := lib.NewMetrics(lib.COUNTER_DATA)
+	metrics.RegisterMetricsCounters()
+	metrics.StartMetricsServer(":2112")
+
 	finalUserConfig := lib.UserConfig{}
-	alloraJsonConfig := os.Getenv(ALLORA_OFFCHAIN_NODE_CONFIG_JSON)
+	alloraJsonConfig := os.Getenv(lib.ALLORA_OFFCHAIN_NODE_CONFIG_JSON)
 	if alloraJsonConfig != "" {
 		log.Info().Msg("Config using JSON env var")
 		// completely reset UserConfig
@@ -69,10 +70,10 @@ func main() {
 			log.Fatal().Err(err).Msg("Failed to parse JSON config file from Config")
 			return
 		}
-	} else if os.Getenv(ALLORA_OFFCHAIN_NODE_CONFIG_FILE_PATH) != "" {
+	} else if os.Getenv(lib.ALLORA_OFFCHAIN_NODE_CONFIG_FILE_PATH) != "" {
 		log.Info().Msg("Config using JSON config file")
 		// parse file defined in CONFIG_FILE_PATH into UserConfig
-		file, err := os.Open(os.Getenv(ALLORA_OFFCHAIN_NODE_CONFIG_FILE_PATH))
+		file, err := os.Open(os.Getenv(lib.ALLORA_OFFCHAIN_NODE_CONFIG_FILE_PATH))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to open JSON config file")
 			return
@@ -101,5 +102,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to initialize use case, exiting")
 		return
 	}
+
+	spawner.Metrics = *metrics
 	spawner.Spawn()
 }
