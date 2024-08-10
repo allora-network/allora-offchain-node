@@ -2,7 +2,7 @@
     "wallet": {
       "addressKeyName": "_ALLORA_ACCOUNT_NAME_",
       "addressRestoreMnemonic": "_ALLORA_ACCOUNT_MNEMONIC_",
-      "alloraHomeDir": "_ALLORA_ACCOUNT_PASSPHRASE_",
+      "alloraHomeDir": "",
       "gas": "1000000",
       "gasAdjustment": 1.0,
       "nodeRpc": "_ALLORA_NODE_RPC_",
