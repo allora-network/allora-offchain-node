@@ -1,36 +1,36 @@
 {
-  "wallet": {
-    "addressKeyName": "_ALLORA_ACCOUNT_NAME_",
-    "addressRestoreMnemonic": "_ALLORA_ACCOUNT_MNEMONIC_",
-    "alloraHomeDir": "_ALLORA_ACCOUNT_PASSPHRASE_",
-    "gas": "1000000",
-    "gasAdjustment": 1.0,
-    "nodeRpc": "_ALLORA_NODE_RPC_",
-    "maxRetries": 1,
-    "delay": 1,
-    "submitTx": false
-  },
-  "worker": [
-    {
-      "topicId": _ALLORA_TOPIC_ID_,
-      "inferenceEntrypointName": "api-worker-reputer",
-      "loopSeconds": 5,
-      "parameters": {
-        "InferenceEndpoint": "http://source:8000/inference/{Token}",
-        "Token": "ETH"
+    "wallet": {
+      "addressKeyName": "_ALLORA_ACCOUNT_NAME_",
+      "addressRestoreMnemonic": "_ALLORA_ACCOUNT_MNEMONIC_",
+      "alloraHomeDir": "_ALLORA_ACCOUNT_PASSPHRASE_",
+      "gas": "1000000",
+      "gasAdjustment": 1.0,
+      "nodeRpc": "_ALLORA_NODE_RPC_",
+      "maxRetries": 1,
+      "delay": 1,
+      "submitTx": false
+    },
+    "worker": [
+      {
+        "topicId": _ALLORA_TOPIC_ID_,
+        "inferenceEntrypointName": "api-worker-reputer",
+        "loopSeconds": 5,
+        "parameters": {
+          "InferenceEndpoint": "http://source:8000/inference/{Token}",
+          "Token": "ETH"
+        }
       }
-    }
-  ],
-  "reputer": [
-    {
-      "topicId": _ALLORA_TOPIC_ID_,
-      "reputerEntrypointName": "api-worker-reputer",
-      "loopSeconds": 30,
-      "minStake": 100000,
-      "parameters": {
-        "SourceOfTruthEndpoint": "http://source:8000/truth/{Token}/{BlockHeight}",
-        "Token": "ethereum"
+    ],
+    "reputer": [
+      {
+        "topicId": _ALLORA_TOPIC_ID_,
+        "reputerEntrypointName": "api-worker-reputer",
+        "loopSeconds": 30,
+        "minStake": 100000,
+        "parameters": {
+          "SourceOfTruthEndpoint": "http://source:8000/truth/{Token}/{BlockHeight}",
+          "Token": "ethereum"
+        }
       }
-    }
-  ]
+    ]
 }
