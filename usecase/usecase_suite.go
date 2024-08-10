@@ -7,7 +7,8 @@ import (
 )
 
 type UseCaseSuite struct {
-	Node lib.NodeConfig
+	Node    lib.NodeConfig
+	Metrics lib.Metrics
 }
 
 // Static method to create a new UseCaseSuite

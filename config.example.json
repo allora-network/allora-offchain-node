@@ -28,7 +28,7 @@
         "loopSeconds": 30,
         "minStake": 100000,
         "parameters": {
-          "SourceOfTruthEndpoint": "http://source:8888/truth/{Token}/{BlockHeight}",
+          "SourceOfTruthEndpoint": "http://source:8000/truth/{Token}/{BlockHeight}",
           "Token": "ethereum"
         }
       }

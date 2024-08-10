@@ -10,16 +10,16 @@ import (
 
 // Properties manually provided by the user as part of UserConfig
 type WalletConfig struct {
-	Address                  string // will be overwritten by the keystore. This is the 1 value that is auto-generated in this struct
-	AddressKeyName           string // load a address by key from the keystore
-	AddressRestoreMnemonic   string
-	AlloraHomeDir            string  // home directory for the allora keystore
-	Gas                      string  // gas to use for the allora client
-	GasAdjustment            float64 // gas adjustment to use for the allora client
-	NodeRpc                  string  // rpc node for allora chain
-	MaxRetries               int64   // retry to get data from chain up to this many times per query or tx
-	Delay                    int64   // minimum of uniform distribution that is sampled then used to calcluate exponential backoff for txs (in seconds)
-	SubmitTx                 bool    // useful for dev/testing. set to false to run in dry-run processes without committing to the chain
+	Address                string // will be overwritten by the keystore. This is the 1 value that is auto-generated in this struct
+	AddressKeyName         string // load a address by key from the keystore
+	AddressRestoreMnemonic string
+	AlloraHomeDir          string  // home directory for the allora keystore
+	Gas                    string  // gas to use for the allora client
+	GasAdjustment          float64 // gas adjustment to use for the allora client
+	NodeRpc                string  // rpc node for allora chain
+	MaxRetries             int64   // retry to get data from chain up to this many times per query or tx
+	Delay                  int64   // minimum of uniform distribution that is sampled then used to calcluate exponential backoff for txs (in seconds)
+	SubmitTx               bool    // useful for dev/testing. set to false to run in dry-run processes without committing to the chain
 }
 
 // Properties auto-generated based on what the user has provided in WalletConfig fields of UserConfig
