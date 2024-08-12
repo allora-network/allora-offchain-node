@@ -52,7 +52,6 @@ func getAlloraClient(config *UserConfig) (*cosmosclient.Client, error) {
 }
 
 func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
-	config.Wallet.SubmitTx = true
 	client, err := getAlloraClient(config)
 	if err != nil {
 		config.Wallet.SubmitTx = false
