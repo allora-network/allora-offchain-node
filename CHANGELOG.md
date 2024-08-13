@@ -43,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+* SubmitTx fix: if set to false but properly configured, it should still not submit.
+
 ## v0.2.0
 
 ### Added
