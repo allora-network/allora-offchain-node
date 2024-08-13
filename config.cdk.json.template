@@ -12,24 +12,24 @@
     },
     "worker": [
       {
-        "topicId": _ALLORA_TOPIC_ID_,
-        "inferenceEntrypointName": "api-worker-reputer",
-        "loopSeconds": 5,
+        "topicId": _ALLORA_WORKER_TOPIC_ID_,
+        "inferenceEntrypointName": "_ALLORA_WORKER_INFERENCE_ENTRYPOINT_NAME_",
+        "loopSeconds": _ALLORA_WORKER_LOOP_SECONDS_,
         "parameters": {
-          "InferenceEndpoint": "http://source:8000/inference/{Token}",
-          "Token": "ETH"
+          "InferenceEndpoint": "_ALLORA_WORKER_INFERENCE_ENDPOINT_",
+          "Token": "_ALLORA_WORKER_TOKEN_"
         }
       }
     ],
     "reputer": [
       {
-        "topicId": _ALLORA_TOPIC_ID_,
-        "reputerEntrypointName": "api-worker-reputer",
-        "loopSeconds": 30,
-        "minStake": 100000,
+        "topicId": _ALLORA_REPUTER_TOPIC_ID_,
+        "reputerEntrypointName": "_ALLORA_REPUTER_ENTRYPOINT_NAME_",
+        "loopSeconds": _ALLORA_REPUTER_LOOP_SECONDS_,
+        "minStake": _ALLORA_REPUTER_MIN_STAKE_,
         "parameters": {
-          "SourceOfTruthEndpoint": "http://source:8000/truth/{Token}/{BlockHeight}",
-          "Token": "ethereum"
+          "SourceOfTruthEndpoint": "_ALLORA_SOURCE_OF_TRUTH_ENDPOINT_",
+          "Token": "_ALLORA_REPUTER_TOKEN_"
         }
       }
     ]
