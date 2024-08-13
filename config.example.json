@@ -8,7 +8,7 @@
       "nodeRpc": "http://localhost:26657",
       "maxRetries": 1,
       "delay": 1,
-      "submitTx": false
+      "submitTx": true
     },
     "worker": [
       {
