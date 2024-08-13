@@ -1,14 +1,14 @@
 {
     "wallet": {
-      "addressKeyName": "_ALLORA_ACCOUNT_NAME_",
-      "addressRestoreMnemonic": "_ALLORA_ACCOUNT_MNEMONIC_",
-      "alloraHomeDir": "",
-      "gas": "1000000",
-      "gasAdjustment": 1.0,
-      "nodeRpc": "_ALLORA_NODE_RPC_",
-      "maxRetries": 1,
-      "delay": 1,
-      "submitTx": false
+      "addressKeyName": "_ALLORA_WALLET_ADDRESS_KEY_NAME_",
+      "addressRestoreMnemonic": "_ALLORA_WALLET_ADDRESS_RESTORE_MNEMONIC_",
+      "alloraHomeDir": "_ALLORA_WALLET_HOME_DIR_",
+      "gas": "_ALLORA_WALLET_GAS_",
+      "gasAdjustment": _ALLORA_WALLET_GAS_ADJUSTMENT_,
+      "nodeRpc": "_ALLORA_WALLET_NODE_RPC_",
+      "maxRetries": _ALLORA_WALLET_MAX_RETRIES_,
+      "delay": _ALLORA_WALLET_DELAY_,
+      "submitTx": _ALLORA_WALLET_SUBMIT_TX_
     },
     "worker": [
       {
@@ -28,7 +28,7 @@
         "loopSeconds": _ALLORA_REPUTER_LOOP_SECONDS_,
         "minStake": _ALLORA_REPUTER_MIN_STAKE_,
         "parameters": {
-          "SourceOfTruthEndpoint": "_ALLORA_SOURCE_OF_TRUTH_ENDPOINT_",
+          "SourceOfTruthEndpoint": "_ALLORA_REPUTER_SOURCE_OF_TRUTH_ENDPOINT_",
           "Token": "_ALLORA_REPUTER_TOKEN_"
         }
       }
