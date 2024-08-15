@@ -20,12 +20,13 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 		txResp = &txResponse
 		if err == nil {
 			log.Debug().Str("msg", successMsg).Str("txHash", txResp.TxHash).Msg("Success")
-			break
+			return txResp, nil
 		}
 		// Log the error for each retry.
 		log.Error().Err(err).Str("msg", successMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, node.Wallet.MaxRetries)
 		// Wait for the uniform delay before retrying
 		time.Sleep(time.Duration(node.Wallet.Delay) * time.Second)
 	}
-	return txResp, err
+	// All retries failed, return the last error
+	return nil, err
 }
