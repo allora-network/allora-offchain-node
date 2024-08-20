@@ -15,10 +15,8 @@ import (
 // Get the reputer's values at the block from the chain
 // Compute loss bundle with the reputer provided Loss function and ground truth
 // sign and commit to chain
-func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, nonce lib.BlockHeight) (bool, error) {
-	ctx := context.Background()
-
-	valueBundle, err := suite.Node.GetReputerValuesAtBlock(reputer.TopicId, nonce)
+func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, reputer lib.ReputerConfig, nonce lib.BlockHeight) (bool, error) {
+	valueBundle, err := suite.Node.GetReputerValuesAtBlock(ctx, reputer.TopicId, nonce)
 	if err != nil {
 		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to get reputer values at block")
 		return false, err

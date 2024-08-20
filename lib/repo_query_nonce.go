@@ -6,9 +6,7 @@ import (
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
 )
 
-func (node *NodeConfig) GetLatestOpenWorkerNonceByTopicId(topicId emissionstypes.TopicId) (*emissionstypes.Nonce, error) {
-	ctx := context.Background()
-
+func (node *NodeConfig) GetLatestOpenWorkerNonceByTopicId(ctx context.Context, topicId emissionstypes.TopicId) (*emissionstypes.Nonce, error) {
 	res, err := node.Chain.EmissionsQueryClient.GetUnfulfilledWorkerNonces(
 		ctx,
 		&emissionstypes.QueryUnfulfilledWorkerNoncesRequest{TopicId: topicId},
@@ -24,9 +22,7 @@ func (node *NodeConfig) GetLatestOpenWorkerNonceByTopicId(topicId emissionstypes
 	return res.Nonces.Nonces[0], nil
 }
 
-func (node *NodeConfig) GetOldestReputerNonceByTopicId(topicId emissionstypes.TopicId) (BlockHeight, error) {
-	ctx := context.Background()
-
+func (node *NodeConfig) GetOldestReputerNonceByTopicId(ctx context.Context, topicId emissionstypes.TopicId) (BlockHeight, error) {
 	res, err := node.Chain.EmissionsQueryClient.GetUnfulfilledReputerNonces(
 		ctx,
 		&emissionstypes.QueryUnfulfilledReputerNoncesRequest{TopicId: topicId},

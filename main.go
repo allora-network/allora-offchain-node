@@ -3,9 +3,12 @@ package main
 import (
 	"allora_offchain_node/lib"
 	usecase "allora_offchain_node/usecase"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
@@ -104,5 +107,21 @@ func main() {
 	}
 
 	spawner.Metrics = *metrics
-	spawner.Spawn()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigCtx, sigCancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer sigCancel()
+
+	go func() {
+		spawner.Spawn(sigCtx)
+		cancel()
+	}()
+
+	<-sigCtx.Done()
+
+	log.Info().Msg("Stopping...")
+
+	<-ctx.Done()
 }

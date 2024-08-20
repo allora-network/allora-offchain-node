@@ -8,8 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (node *NodeConfig) GetReputerValuesAtBlock(topicId emissionstypes.TopicId, nonce BlockHeight) (*emissionstypes.ValueBundle, error) {
-	ctx := context.Background()
+func (node *NodeConfig) GetReputerValuesAtBlock(ctx context.Context, topicId emissionstypes.TopicId, nonce BlockHeight) (*emissionstypes.ValueBundle, error) {
 	lastReputerCommitValue := int64(0)
 	lastReputerCommit, err := node.Chain.EmissionsQueryClient.GetTopicLastReputerCommitInfo(ctx, &emissionstypes.QueryTopicLastCommitRequest{TopicId: topicId})
 	if err != nil {
