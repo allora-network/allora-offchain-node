@@ -18,7 +18,7 @@ type WalletConfig struct {
 	GasAdjustment          float64 // gas adjustment to use for the allora client
 	NodeRpc                string  // rpc node for allora chain
 	MaxRetries             int64   // retry to get data from chain up to this many times per query or tx
-	Delay                  int64   // minimum of uniform distribution that is sampled then used to calcluate exponential backoff for txs (in seconds)
+	Delay                  int64   // minimum of uniform distribution that is sampled then used to calculate exponential backoff for txs (in seconds)
 	SubmitTx               bool    // useful for dev/testing. set to false to run in dry-run processes without committing to the chain
 }
 
