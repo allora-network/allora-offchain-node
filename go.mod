@@ -12,6 +12,7 @@ require (
 	github.com/cosmos/cosmos-sdk v0.50.8
 	github.com/ignite/cli/v28 v28.5.0
 	github.com/joho/godotenv v1.5.1
+	github.com/prometheus/client_golang v1.19.0
 	github.com/rs/zerolog v1.33.0
 )
 
@@ -115,7 +116,6 @@ require (
 	github.com/petermattis/goid v0.0.0-20231207134359-e60b3f734c67 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/prometheus/client_golang v1.19.0 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.52.2 // indirect
 	github.com/prometheus/procfs v0.13.0 // indirect
