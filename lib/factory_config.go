@@ -57,30 +57,40 @@ func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
 		config.Wallet.SubmitTx = false
 		return nil, err
 	}
-	var account cosmosaccount.Account
+	var account *cosmosaccount.Account
 	// if we're giving a keyring ring name, with no mnemonic restore
 	if config.Wallet.AddressRestoreMnemonic == "" && config.Wallet.AddressKeyName != "" {
 		// get account from the keyring
-		account, err = client.Account(config.Wallet.AddressKeyName)
+		acc, err := client.Account(config.Wallet.AddressKeyName)
 		if err != nil {
 			config.Wallet.SubmitTx = false
 			log.Error().Err(err).Msg("could not retrieve account from keyring")
+		} else {
+			account = &acc
 		}
 	} else if config.Wallet.AddressRestoreMnemonic != "" && config.Wallet.AddressKeyName != "" {
 		// restore from mnemonic
-		account, err = client.AccountRegistry.Import(config.Wallet.AddressKeyName, config.Wallet.AddressRestoreMnemonic, "")
+		acc, err := client.AccountRegistry.Import(config.Wallet.AddressKeyName, config.Wallet.AddressRestoreMnemonic, "")
 		if err != nil {
 			if err.Error() == "account already exists" {
-				account, err = client.Account(config.Wallet.AddressKeyName)
+				acc, err = client.Account(config.Wallet.AddressKeyName)
 			}
 
 			if err != nil {
 				config.Wallet.SubmitTx = false
 				log.Err(err).Msg("could not restore account from mnemonic")
+			} else {
+				account = &acc
 			}
+		} else {
+			account = &acc
 		}
 	} else {
 		log.Debug().Msg("no allora account was loaded")
+		return nil, errors.New("no allora account was loaded")
+	}
+
+	if account == nil {
 		return nil, errors.New("no allora account was loaded")
 	}
 
@@ -112,7 +122,7 @@ func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
 		Address:              address,
 		AddressPrefix:        ADDRESS_PREFIX,
 		DefaultBondDenom:     DEFAULT_BOND_DENOM,
-		Account:              account,
+		Account:              *account,
 		Client:               client,
 		EmissionsQueryClient: queryClient,
 		BankQueryClient:      bankClient,
