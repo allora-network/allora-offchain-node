@@ -26,6 +26,7 @@ func (node *NodeConfig) RegisterWorkerIdempotently(config WorkerConfig) bool {
 	moduleParams, err := node.Chain.EmissionsQueryClient.Params(ctx, &emissionstypes.QueryParamsRequest{})
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get chain params for worker ")
+		return false
 	}
 
 	balance, err := node.GetBalance()
@@ -71,6 +72,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 	moduleParams, err := node.Chain.EmissionsQueryClient.Params(ctx, &emissionstypes.QueryParamsRequest{})
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get chain params for reputer")
+		return false
 	}
 
 	balance, err := node.GetBalance()
