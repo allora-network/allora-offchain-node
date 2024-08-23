@@ -39,7 +39,7 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 		forecasts := []lib.NodeValue{}
 		forecasts, err := worker.ForecastEntrypoint.CalcForecast(worker, nonce.BlockHeight)
 		if err != nil {
-			log.Error().Err(err).Str("worker", worker.InferenceEntrypoint.Name()).Msg("Error computing forecast for worker")
+			log.Error().Err(err).Str("worker", worker.ForecastEntrypoint.Name()).Msg("Error computing forecast for worker")
 			return false, err
 		}
 		workerResponse.ForecasterValues = forecasts

@@ -75,21 +75,52 @@ func (a *AlloraAdapter) CalcInference(node lib.WorkerConfig, blockHeight int64) 
 	return requestEndpoint(url)
 }
 
+// parseJSONToNodeValues parses the incoming JSON string and returns a slice of NodeValue.
+func parseJSONToNodeValues(jsonStr string) ([]lib.NodeValue, error) {
+	// Define a map to hold the parsed JSON data.
+	var data map[string][]float64
+
+	// Parse the JSON string into the map.
+	err := json.Unmarshal([]byte(jsonStr), &data)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a slice to hold the NodeValues.
+	var nodeValues []lib.NodeValue
+
+	// Iterate over the map to create NodeValue structs.
+	for worker, values := range data {
+		if len(values) > 0 {
+			// Only pick the first value in the list.
+			nodeValue := lib.NodeValue{
+				Worker: worker,
+				Value:  fmt.Sprintf("%f", values[0]),
+			}
+			nodeValues = append(nodeValues, nodeValue)
+		}
+	}
+
+	return nodeValues, nil
+}
+
 // Expects forecast as a json array of NodeValue
 func (a *AlloraAdapter) CalcForecast(node lib.WorkerConfig, blockHeight int64) ([]lib.NodeValue, error) {
-	urlTemplate := node.Parameters["InferenceEndpoint"]
+	urlTemplate := node.Parameters["ForecastEndpoint"]
 	url := replaceExtendedPlaceholders(urlTemplate, node.Parameters, blockHeight, node.TopicId)
-	log.Debug().Str("url", url).Msg("Inference")
-	forecastsAsString, err := requestEndpoint(url)
+	log.Debug().Str("url", url).Msg("Forecasts endpoint")
+
+	forecastsAsJsonString, err := requestEndpoint(url)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get forecasts")
 		return []lib.NodeValue{}, err
 	}
+
 	// parse json forecasts into a slice of NodeValue
-	var nodeValues []lib.NodeValue
-	err = json.Unmarshal([]byte(forecastsAsString), &nodeValues)
+	nodeValues, err := parseJSONToNodeValues(forecastsAsJsonString)
 	if err != nil {
-		log.Error().Err(err).Msg("Error unmarshalling JSON forecasts")
+		log.Error().Err(err).Msg("Error transforming forecasts")
+		return []lib.NodeValue{}, err
 	}
 	return nodeValues, nil
 }
