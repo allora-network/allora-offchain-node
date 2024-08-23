@@ -45,7 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * SubmitTx fix: if set to false but properly configured, it should still not submit.
 * Fix covering nil pointer when params are not available
-
 * Fix error handling (nil pointer dereference) on registration.
 
 ## v0.2.0
