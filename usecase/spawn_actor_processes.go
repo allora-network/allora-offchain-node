@@ -58,19 +58,19 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 
 	latestNonceHeightActedUpon := int64(0)
 	for {
-		log.Debug().Uint64("topicId", worker.TopicId).Msg("Checking for latest open worker nonce")
-
 		latestOpenWorkerNonce, err := suite.Node.GetLatestOpenWorkerNonceByTopicId(worker.TopicId)
 		if err != nil {
 			log.Error().Err(err).Uint64("topicId", worker.TopicId).Msg("Error getting latest open worker nonce on topic")
+		} else {
+			log.Debug().Uint64("topicId", worker.TopicId).Int64("BlockHeight", latestOpenWorkerNonce.BlockHeight).Msg("Got latest open worker nonce")
 		}
 
 		if latestOpenWorkerNonce.BlockHeight > latestNonceHeightActedUpon {
-			log.Debug().Uint64("topicId", worker.TopicId).Msg("Building and committing worker payload for topic")
+			log.Debug().Uint64("topicId", worker.TopicId).Int64("BlockHeight", latestOpenWorkerNonce.BlockHeight).Msg("Building and committing worker payload for topic")
 
 			success, err := suite.BuildCommitWorkerPayload(worker, latestOpenWorkerNonce)
 			if !success || err != nil {
-				log.Error().Err(err).Uint64("topicId", worker.TopicId).Msg("Error building and committing worker payload for topic")
+				log.Error().Err(err).Uint64("topicId", worker.TopicId).Int64("BlockHeight", latestOpenWorkerNonce.BlockHeight).Msg("Error building and committing worker payload for topic")
 			}
 			latestNonceHeightActedUpon = latestOpenWorkerNonce.BlockHeight
 		}

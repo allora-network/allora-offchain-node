@@ -43,9 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-* SubmitTx fix: if set to false but properly configured, it should still not submit.
-* Fix covering nil pointer when params are not available
-* Fix error handling (nil pointer dereference) on registration.
+* [#31](https://github.com/allora-network/allora-offchain-node/pull/31) SubmitTx fix: if set to false but properly configured, it should still not submit.
+* [#37](https://github.com/allora-network/allora-offchain-node/pull/37) Fix covering nil pointer when params are not available
+* [#38](https://github.com/allora-network/allora-offchain-node/pull/38) Fix error handling (nil pointer dereference) on registration.
+* [#40](https://github.com/allora-network/allora-offchain-node/pull/40) Forecasting fixes
 
 ## v0.2.0
 
