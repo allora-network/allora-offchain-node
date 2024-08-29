@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 
 	alloraMath "github.com/allora-network/allora-chain/math"
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
@@ -73,6 +75,20 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 }
 
 func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionstypes.ValueBundle, reputer lib.ReputerConfig) (emissionstypes.ValueBundle, error) {
+	if vb == nil {
+		return emissionstypes.ValueBundle{}, errors.New("nil ValueBundle")
+	}
+	// Check if vb is empty
+	if IsEmpty(*vb) {
+		return emissionstypes.ValueBundle{}, errors.New("empty ValueBundle")
+	}
+	if err := ValidateDec(vb.CombinedValue); err != nil {
+		return emissionstypes.ValueBundle{}, errors.New("ValueBundle - invalid CombinedValue")
+	}
+	if err := ValidateDec(vb.NaiveValue); err != nil {
+		return emissionstypes.ValueBundle{}, errors.New("ValueBundle - invalid NaiveValue")
+	}
+
 	losses := emissionstypes.ValueBundle{
 		TopicId:             vb.TopicId,
 		ReputerRequestNonce: vb.ReputerRequestNonce,
@@ -80,116 +96,101 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 		ExtraData:           vb.ExtraData,
 	}
 
-	if combineValueLoss, err := alloraMath.NewDecFromString(reputer.ReputerEntrypoint.LossFunction(sourceTruth, vb.CombinedValue.Abs().String())); err != nil {
+	computeLoss := func(value alloraMath.Dec, description string) (alloraMath.Dec, error) {
+		lossStr, err := reputer.ReputerEntrypoint.LossFunction(sourceTruth, value.Abs().String())
+		if err != nil {
+			return alloraMath.Dec{}, fmt.Errorf("error computing loss for %s: %w", description, err)
+		}
+
+		loss, err := alloraMath.NewDecFromString(lossStr)
+		if err != nil {
+			return alloraMath.Dec{}, fmt.Errorf("error parsing loss value for %s: %w", description, err)
+		}
+
+		if err := ValidateDec(loss); err != nil {
+			return alloraMath.Dec{}, fmt.Errorf("invalid loss value for %s: %w", description, err)
+		}
+
+		if !reputer.AllowsNegativeValue {
+			loss, err = alloraMath.Log10(loss)
+			if err != nil {
+				return alloraMath.Dec{}, fmt.Errorf("error Log10 for %s: %w", description, err)
+			}
+		}
+
+		return loss, nil
+	}
+
+	// Combined Value
+	if combinedLoss, err := computeLoss(vb.CombinedValue, "combined value"); err != nil {
 		log.Error().Err(err).Msg("Error computing loss for combined value")
 		return emissionstypes.ValueBundle{}, err
 	} else {
-		if !reputer.AllowsNegativeValue {
-			combineValueLoss, err = alloraMath.Log10(combineValueLoss)
-			if err != nil {
-				log.Error().Err(err).Msg("Error Log10 for Combined Value:")
-			}
-		}
-		losses.CombinedValue = combineValueLoss
+		losses.CombinedValue = combinedLoss
 	}
 
-	if naiveValue, err := alloraMath.NewDecFromString(reputer.ReputerEntrypoint.LossFunction(sourceTruth, vb.NaiveValue.Abs().String())); err != nil {
+	// Naive Value
+	if naiveLoss, err := computeLoss(vb.NaiveValue, "naive value"); err != nil {
 		log.Error().Err(err).Msg("Error computing loss for naive value")
 		return emissionstypes.ValueBundle{}, err
 	} else {
-		if !reputer.AllowsNegativeValue {
-			naiveValue, err = alloraMath.Log10(naiveValue)
-			if err != nil {
-				log.Error().Err(err).Msg("Error Log10 for Naive Value:")
-			}
-		}
-		losses.NaiveValue = naiveValue
+		losses.NaiveValue = naiveLoss
 	}
 
-	infererLosses := make([]*emissionstypes.WorkerAttributedValue, len(vb.InfererValues))
+	// Inferer Values
+	losses.InfererValues = make([]*emissionstypes.WorkerAttributedValue, len(vb.InfererValues))
 	for i, val := range vb.InfererValues {
-		value, err := alloraMath.NewDecFromString(reputer.ReputerEntrypoint.LossFunction(sourceTruth, val.Value.Abs().String()))
-		if err != nil {
-			log.Error().Err(err).Msg("Error computing loss for inferer values")
+		if loss, err := computeLoss(val.Value, fmt.Sprintf("inferer value %d", i)); err != nil {
+			log.Error().Err(err).Msg("Error computing loss for inferer value")
 			return emissionstypes.ValueBundle{}, err
+		} else {
+			losses.InfererValues[i] = &emissionstypes.WorkerAttributedValue{Worker: val.Worker, Value: loss}
 		}
-		if !reputer.AllowsNegativeValue {
-			value, err = alloraMath.Log10(value)
-			if err != nil {
-				log.Error().Err(err).Msg("Error Log10 for inferer Values")
-			}
-		}
-		infererLosses[i] = &emissionstypes.WorkerAttributedValue{Worker: val.Worker, Value: value}
 	}
-	losses.InfererValues = infererLosses
 
-	forecasterLosses := make([]*emissionstypes.WorkerAttributedValue, len(vb.ForecasterValues))
+	// Forecaster Values
+	losses.ForecasterValues = make([]*emissionstypes.WorkerAttributedValue, len(vb.ForecasterValues))
 	for i, val := range vb.ForecasterValues {
-		value, err := alloraMath.NewDecFromString(reputer.ReputerEntrypoint.LossFunction(sourceTruth, val.Value.Abs().String()))
-		if err != nil {
-			log.Error().Err(err).Msg("Error computing loss for forecaster values")
+		if loss, err := computeLoss(val.Value, fmt.Sprintf("forecaster value %d", i)); err != nil {
+			log.Error().Err(err).Msg("Error computing loss for forecaster value")
 			return emissionstypes.ValueBundle{}, err
+		} else {
+			losses.ForecasterValues[i] = &emissionstypes.WorkerAttributedValue{Worker: val.Worker, Value: loss}
 		}
-		if !reputer.AllowsNegativeValue {
-			value, err = alloraMath.Log10(value)
-			if err != nil {
-				log.Error().Err(err).Msg("Error Log10 for forecaster Values")
-			}
-		}
-		forecasterLosses[i] = &emissionstypes.WorkerAttributedValue{Worker: val.Worker, Value: value}
 	}
-	losses.ForecasterValues = forecasterLosses
 
-	oneOutInfererLosses := make([]*emissionstypes.WithheldWorkerAttributedValue, len(vb.OneOutInfererValues))
+	// One Out Inferer Values
+	losses.OneOutInfererValues = make([]*emissionstypes.WithheldWorkerAttributedValue, len(vb.OneOutInfererValues))
 	for i, val := range vb.OneOutInfererValues {
-		value, err := alloraMath.NewDecFromString(reputer.ReputerEntrypoint.LossFunction(sourceTruth, val.Value.Abs().String()))
-		if err != nil {
-			log.Error().Err(err).Msg("Error computing loss for one out inferer values")
+		if loss, err := computeLoss(val.Value, fmt.Sprintf("one out inferer value %d", i)); err != nil {
+			log.Error().Err(err).Msg("Error computing loss for one out inferer value")
 			return emissionstypes.ValueBundle{}, err
+		} else {
+			losses.OneOutInfererValues[i] = &emissionstypes.WithheldWorkerAttributedValue{Worker: val.Worker, Value: loss}
 		}
-		if !reputer.AllowsNegativeValue {
-			value, err = alloraMath.Log10(value)
-			if err != nil {
-				log.Error().Err(err).Msg("Error Log10 for out inferer values")
-			}
-		}
-		oneOutInfererLosses[i] = &emissionstypes.WithheldWorkerAttributedValue{Worker: val.Worker, Value: value}
 	}
-	losses.OneOutInfererValues = oneOutInfererLosses
 
-	oneOutForecasterLosses := make([]*emissionstypes.WithheldWorkerAttributedValue, len(vb.OneOutForecasterValues))
+	// One Out Forecaster Values
+	losses.OneOutForecasterValues = make([]*emissionstypes.WithheldWorkerAttributedValue, len(vb.OneOutForecasterValues))
 	for i, val := range vb.OneOutForecasterValues {
-		value, err := alloraMath.NewDecFromString(reputer.ReputerEntrypoint.LossFunction(sourceTruth, val.Value.Abs().String()))
-		if err != nil {
-			log.Error().Err(err).Msg("Error computing loss for one out forecaster values")
+		if loss, err := computeLoss(val.Value, fmt.Sprintf("one out forecaster value %d", i)); err != nil {
+			log.Error().Err(err).Msg("Error computing loss for one out forecaster value")
 			return emissionstypes.ValueBundle{}, err
+		} else {
+			losses.OneOutForecasterValues[i] = &emissionstypes.WithheldWorkerAttributedValue{Worker: val.Worker, Value: loss}
 		}
-		if !reputer.AllowsNegativeValue {
-			value, err = alloraMath.Log10(value)
-			if err != nil {
-				log.Error().Err(err).Msg("Error Log10 for out forecaster values")
-			}
-		}
-		oneOutForecasterLosses[i] = &emissionstypes.WithheldWorkerAttributedValue{Worker: val.Worker, Value: value}
 	}
-	losses.OneOutForecasterValues = oneOutForecasterLosses
 
-	oneInForecasterLosses := make([]*emissionstypes.WorkerAttributedValue, len(vb.OneInForecasterValues))
+	// One In Forecaster Values
+	losses.OneInForecasterValues = make([]*emissionstypes.WorkerAttributedValue, len(vb.OneInForecasterValues))
 	for i, val := range vb.OneInForecasterValues {
-		value, err := alloraMath.NewDecFromString(reputer.ReputerEntrypoint.LossFunction(sourceTruth, val.Value.Abs().String()))
-		if err != nil {
-			log.Error().Err(err).Msg("Error computing loss for one in forecaster values")
+		if loss, err := computeLoss(val.Value, fmt.Sprintf("one in forecaster value %d", i)); err != nil {
+			log.Error().Err(err).Msg("Error computing loss for one in forecaster value")
 			return emissionstypes.ValueBundle{}, err
+		} else {
+			losses.OneInForecasterValues[i] = &emissionstypes.WorkerAttributedValue{Worker: val.Worker, Value: loss}
 		}
-		if !reputer.AllowsNegativeValue {
-			value, err = alloraMath.Log10(value)
-			if err != nil {
-				log.Error().Err(err).Msg("Error Log10 for in forecaster values")
-			}
-		}
-		oneInForecasterLosses[i] = &emissionstypes.WorkerAttributedValue{Worker: val.Worker, Value: value}
 	}
-	losses.OneInForecasterValues = oneInForecasterLosses
 	return losses, nil
 }
 

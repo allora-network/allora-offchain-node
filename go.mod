@@ -8,12 +8,13 @@ go 1.22.5
 
 require (
 	cosmossdk.io/math v1.3.0
-	github.com/allora-network/allora-chain v0.2.15-0.20240807021625-402006fe2b77
+	github.com/allora-network/allora-chain v0.2.15-0.20240808025526-8fbc57a707a6
 	github.com/cosmos/cosmos-sdk v0.50.8
 	github.com/ignite/cli/v28 v28.5.0
 	github.com/joho/godotenv v1.5.1
 	github.com/prometheus/client_golang v1.19.0
 	github.com/rs/zerolog v1.33.0
+	github.com/stretchr/testify v1.9.0
 )
 
 require (
@@ -131,7 +132,7 @@ require (
 	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.18.2 // indirect
-	github.com/stretchr/testify v1.9.0 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect

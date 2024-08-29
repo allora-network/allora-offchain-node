@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"strconv"
 	"strings"
 
+	alloraMath "github.com/allora-network/allora-chain/math"
 	"github.com/rs/zerolog/log"
 )
 
@@ -132,13 +132,29 @@ func (a *AlloraAdapter) SourceTruth(node lib.ReputerConfig, blockHeight int64) (
 	return requestEndpoint(url)
 }
 
-func (a *AlloraAdapter) LossFunction(sourceTruth string, inferenceValue string) string {
-	sourceTruthFloat, _ := strconv.ParseFloat(sourceTruth, 64)
-	inferenceValueFloat, _ := strconv.ParseFloat(inferenceValue, 64)
-	loss := math.Abs(sourceTruthFloat - inferenceValueFloat)
-	str := fmt.Sprintf("%f", loss)
-	log.Debug().Str("str", str).Msg("Returned loss value")
-	return str
+func (a *AlloraAdapter) LossFunction(sourceTruth string, inferenceValue string) (string, error) {
+	sourceTruthDec, err := alloraMath.NewDecFromString(sourceTruth)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse sourceTruth: %w", err)
+	}
+
+	inferenceValueDec, err := alloraMath.NewDecFromString(inferenceValue)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse inferenceValue: %w", err)
+	}
+
+	// Calculate MSE
+	diff, err := sourceTruthDec.Sub(inferenceValueDec)
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate difference: %w", err)
+	}
+	squaredError, err := diff.Mul(diff)
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate squared error: %w", err)
+	}
+
+	log.Debug().Str("MSE", squaredError.String()).Msg("Calculated MSE loss value")
+	return squaredError.String(), nil
 }
 
 func (a *AlloraAdapter) CanInfer() bool {
