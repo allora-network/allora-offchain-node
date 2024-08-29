@@ -97,7 +97,7 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 	}
 
 	computeLoss := func(value alloraMath.Dec, description string) (alloraMath.Dec, error) {
-		lossStr, err := reputer.ReputerEntrypoint.LossFunction(sourceTruth, value.Abs().String())
+		lossStr, err := reputer.ReputerEntrypoint.LossFunction(sourceTruth, value.String())
 		if err != nil {
 			return alloraMath.Dec{}, fmt.Errorf("error computing loss for %s: %w", description, err)
 		}
@@ -107,15 +107,15 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 			return alloraMath.Dec{}, fmt.Errorf("error parsing loss value for %s: %w", description, err)
 		}
 
-		if err := ValidateDec(loss); err != nil {
-			return alloraMath.Dec{}, fmt.Errorf("invalid loss value for %s: %w", description, err)
-		}
-
 		if !reputer.AllowsNegativeValue {
 			loss, err = alloraMath.Log10(loss)
 			if err != nil {
 				return alloraMath.Dec{}, fmt.Errorf("error Log10 for %s: %w", description, err)
 			}
+		}
+
+		if err := ValidateDec(loss); err != nil {
+			return alloraMath.Dec{}, fmt.Errorf("invalid loss value for %s: %w", description, err)
 		}
 
 		return loss, nil
