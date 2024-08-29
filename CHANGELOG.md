@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [#37](https://github.com/allora-network/allora-offchain-node/pull/37) Fix covering nil pointer when params are not available
 * [#38](https://github.com/allora-network/allora-offchain-node/pull/38) Fix error handling (nil pointer dereference) on registration.
 * [#40](https://github.com/allora-network/allora-offchain-node/pull/40) Forecasting fixes
+* [#41](https://github.com/allora-network/allora-offchain-node/pull/41) MSE insteead of MAE, Reputer data validation, refactoring.
 
 ## v0.2.0
 
