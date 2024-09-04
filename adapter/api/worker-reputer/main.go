@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"strconv"
 	"strings"
 
+	alloraMath "github.com/allora-network/allora-chain/math"
 	"github.com/rs/zerolog/log"
 )
 
@@ -62,7 +62,7 @@ func requestEndpoint(url string) (string, error) {
 		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	log.Debug().Bytes("body", body).Msg("Inference")
+	log.Debug().Bytes("body", body).Msg("Requested endpoint")
 	// convert bytes to string
 	return string(body), nil
 }
@@ -129,16 +129,47 @@ func (a *AlloraAdapter) SourceTruth(node lib.ReputerConfig, blockHeight int64) (
 	urlTemplate := node.Parameters["SourceOfTruthEndpoint"]
 	url := replaceExtendedPlaceholders(urlTemplate, node.Parameters, blockHeight, node.TopicId)
 	log.Debug().Str("url", url).Msg("Source of truth")
-	return requestEndpoint(url)
+	groundTruth, err := requestEndpoint(url)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get ground truth")
+		return "", err
+	}
+	// Check conversion to decimal before handing it over
+	groundTruthDec, err := alloraMath.NewDecFromString(groundTruth)
+	if err != nil {
+		groundTruthDec, err = alloraMath.NewDecFromString(sanitizeDecString(groundTruth))
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to convert ground truth to decimal")
+			return "", err
+		}
+	}
+	log.Debug().Str("groundTruth", groundTruthDec.String()).Msg("Ground truth")
+	return lib.Truth(groundTruthDec.String()), nil
 }
 
-func (a *AlloraAdapter) LossFunction(sourceTruth string, inferenceValue string) string {
-	sourceTruthFloat, _ := strconv.ParseFloat(sourceTruth, 64)
-	inferenceValueFloat, _ := strconv.ParseFloat(inferenceValue, 64)
-	loss := math.Abs(sourceTruthFloat - inferenceValueFloat)
-	str := fmt.Sprintf("%f", loss)
-	log.Debug().Str("str", str).Msg("Returned loss value")
-	return str
+func (a *AlloraAdapter) LossFunction(sourceTruth string, inferenceValue string) (string, error) {
+	sourceTruthDec, err := alloraMath.NewDecFromString(sourceTruth)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse sourceTruth: %w", err)
+	}
+
+	inferenceValueDec, err := alloraMath.NewDecFromString(inferenceValue)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse inferenceValue: %w", err)
+	}
+
+	// Calculate MSE
+	diff, err := sourceTruthDec.Sub(inferenceValueDec)
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate difference: %w", err)
+	}
+	squaredError, err := diff.Mul(diff)
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate squared error: %w", err)
+	}
+
+	log.Debug().Str("MSE", squaredError.String()).Msg("Calculated MSE loss value")
+	return squaredError.String(), nil
 }
 
 func (a *AlloraAdapter) CanInfer() bool {
@@ -157,4 +188,23 @@ func NewAlloraAdapter() *AlloraAdapter {
 	return &AlloraAdapter{
 		name: "api-worker-reputer",
 	}
+}
+
+func sanitizeDecString(input string) string {
+	// Remove any double quotes
+	input = strings.ReplaceAll(input, "\"", "")
+
+	// Remove any leading/trailing whitespace
+	input = strings.TrimSpace(input)
+
+	// Remove any commas (often used as thousand separators)
+	input = strings.ReplaceAll(input, ",", "")
+
+	// Ensure only one decimal point
+	parts := strings.Split(input, ".")
+	if len(parts) > 2 {
+		input = parts[0] + "." + strings.Join(parts[1:], "")
+	}
+
+	return input
 }
