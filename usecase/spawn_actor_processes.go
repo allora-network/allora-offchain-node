@@ -65,6 +65,12 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 			log.Debug().Uint64("topicId", worker.TopicId).Int64("BlockHeight", latestOpenWorkerNonce.BlockHeight).Msg("Got latest open worker nonce")
 		}
 
+		if latestOpenWorkerNonce.BlockHeight == 0 {
+			log.Debug().Uint64("topicId", worker.TopicId).Msg("No open worker nonce found for topic")
+			suite.Wait(worker.LoopSeconds)
+			continue
+		}
+
 		if latestOpenWorkerNonce.BlockHeight > latestNonceHeightActedUpon {
 			log.Debug().Uint64("topicId", worker.TopicId).Int64("BlockHeight", latestOpenWorkerNonce.BlockHeight).Msg("Building and committing worker payload for topic")
 
