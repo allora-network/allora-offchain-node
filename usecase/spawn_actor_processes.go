@@ -61,14 +61,12 @@ func (suite *UseCaseSuite) runWorkerProcess(worker lib.WorkerConfig) {
 		latestOpenWorkerNonce, err := suite.Node.GetLatestOpenWorkerNonceByTopicId(worker.TopicId)
 		if err != nil {
 			log.Error().Err(err).Uint64("topicId", worker.TopicId).Msg("Error getting latest open worker nonce on topic")
-		} else {
-			log.Debug().Uint64("topicId", worker.TopicId).Int64("BlockHeight", latestOpenWorkerNonce.BlockHeight).Msg("Got latest open worker nonce")
-		}
-
-		if latestOpenWorkerNonce.BlockHeight == 0 {
+		} else if latestOpenWorkerNonce.BlockHeight == 0 {
 			log.Debug().Uint64("topicId", worker.TopicId).Msg("No open worker nonce found for topic")
 			suite.Wait(worker.LoopSeconds)
 			continue
+		} else {
+			log.Debug().Uint64("topicId", worker.TopicId).Int64("BlockHeight", latestOpenWorkerNonce.BlockHeight).Msg("Got latest open worker nonce")
 		}
 
 		if latestOpenWorkerNonce.BlockHeight > latestNonceHeightActedUpon {
