@@ -14,6 +14,18 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+func NewNegativeInfinity() alloraMath.Dec {
+	// var dec apd.Decimal
+	// dec.Negative = true
+	// dec.Form = apd.Infinite
+	// return alloraMath.Dec{dec: dec, isNaN: false}
+	dec, err := alloraMath.MustNewDecFromString("1").Quo(alloraMath.MustNewDecFromString("0"))
+	if err != nil {
+		log.Error().Err(err).Msg("Error creating negative infinity")
+	}
+	return dec
+}
+
 // Get the reputer's values at the block from the chain
 // Compute loss bundle with the reputer provided Loss function and ground truth
 // sign and commit to chain
@@ -50,7 +62,7 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 		return false, err
 	}
 
-	req := &emissionstypes.MsgInsertReputerPayload{
+	req := &emissionstypes.InsertReputerPayloadRequest{
 		Sender:             suite.Node.Wallet.Address,
 		ReputerValueBundle: signedValueBundle,
 	}
@@ -58,7 +70,7 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 	if err != nil {
 		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msgf("Error marshaling MsgInserReputerPayload to print Msg as JSON")
 	} else {
-		log.Debug().Uint64("topicId", reputer.TopicId).Msgf("Sending MsgInsertReputerPayload to chain %s", string(reqJSON))
+		log.Debug().Uint64("topicId", reputer.TopicId).Msgf("Sending InsertReputerPayload to chain %s", string(reqJSON))
 	}
 	if suite.Node.Wallet.SubmitTx {
 		_, err = suite.Node.SendDataWithRetry(ctx, req, "Send Reputer Data to chain")
@@ -128,7 +140,6 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 	} else {
 		losses.CombinedValue = combinedLoss
 	}
-
 	// Naive Value
 	if naiveLoss, err := computeLoss(vb.NaiveValue, "naive value"); err != nil {
 		log.Error().Err(err).Msg("Error computing loss for naive value")

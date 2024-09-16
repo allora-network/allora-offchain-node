@@ -23,7 +23,7 @@ func (node *NodeConfig) RegisterWorkerIdempotently(config WorkerConfig) bool {
 		return true
 	}
 
-	moduleParams, err := node.Chain.EmissionsQueryClient.Params(ctx, &emissionstypes.QueryParamsRequest{})
+	moduleParams, err := node.Chain.EmissionsQueryClient.GetParams(ctx, &emissionstypes.GetParamsRequest{})
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get chain params for worker ")
 		return false
@@ -39,7 +39,7 @@ func (node *NodeConfig) RegisterWorkerIdempotently(config WorkerConfig) bool {
 		return false
 	}
 
-	msg := &emissionstypes.MsgRegister{
+	msg := &emissionstypes.RegisterRequest{
 		Sender:    node.Chain.Address,
 		TopicId:   config.TopicId,
 		Owner:     node.Chain.Address,
@@ -69,7 +69,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 		return true
 	}
 
-	moduleParams, err := node.Chain.EmissionsQueryClient.Params(ctx, &emissionstypes.QueryParamsRequest{})
+	moduleParams, err := node.Chain.EmissionsQueryClient.GetParams(ctx, &emissionstypes.GetParamsRequest{})
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get chain params for reputer")
 		return false
@@ -85,7 +85,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 		return false
 	}
 
-	msgRegister := &emissionstypes.MsgRegister{
+	msgRegister := &emissionstypes.RegisterRequest{
 		Sender:    node.Chain.Address,
 		TopicId:   config.TopicId,
 		Owner:     node.Chain.Address,
@@ -108,7 +108,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 		return true
 	}
 
-	msgAddStake := &emissionstypes.MsgAddStake{
+	msgAddStake := &emissionstypes.AddStakeRequest{
 		Sender:  node.Wallet.Address,
 		Amount:  minStake,
 		TopicId: config.TopicId,

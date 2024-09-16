@@ -27,7 +27,7 @@ type ChainConfig struct {
 	Address              string // will be auto-generated based on the keystore
 	Account              cosmosaccount.Account
 	Client               *cosmosclient.Client
-	EmissionsQueryClient emissions.QueryClient
+	EmissionsQueryClient emissions.QueryServiceClient
 	BankQueryClient      bank.QueryClient
 	DefaultBondDenom     string
 	AddressPrefix        string // prefix for the allora addresses

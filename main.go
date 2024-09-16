@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -53,7 +52,7 @@ func main() {
 	}
 
 	// UNIX Time is faster and smaller than most timestamps
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	// zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Info().Msg("Starting allora offchain node...")
 
 	metrics := lib.NewMetrics(lib.COUNTER_DATA)
