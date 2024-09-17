@@ -140,6 +140,7 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 	} else {
 		losses.CombinedValue = combinedLoss
 	}
+
 	// Naive Value
 	if naiveLoss, err := computeLoss(vb.NaiveValue, "naive value"); err != nil {
 		log.Error().Err(err).Msg("Error computing loss for naive value")

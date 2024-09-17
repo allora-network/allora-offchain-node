@@ -24,7 +24,7 @@ func getAlloraClient(config *UserConfig) (*cosmosclient.Client, error) {
 		alloraClientHome = config.Wallet.AlloraHomeDir
 	}
 
-	// Check that the given home folder exist
+	// Check that the given home folder exists
 	if _, err := os.Stat(alloraClientHome); errors.Is(err, os.ErrNotExist) {
 		log.Info().Msg("Home directory does not exist, creating...")
 		err = os.MkdirAll(alloraClientHome, 0755)
