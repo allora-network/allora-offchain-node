@@ -63,7 +63,7 @@ Some metrics has been provided for in the node. You can access them with port `:
 - `allora_worker_forecast_request_count`: The total number of times worker requests forecast from source
 - `allora_reputer_truth_request_count`: The total number of times reputer requests truth from source
 - `allora_worker_data_build_count`: The total number of times worker built data successfully
-- `allora_reputer_data_build_count`: The total number of times worker built data successfully
+- `allora_reputer_data_build_count`: The total number of times reputer built data successfully
 - `allora_worker_chain_submission_count`: The total number of worker commits to the chain
 - `allora_reputer_chain_submission_count`: The total number of reputer commits to the chain
 
