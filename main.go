@@ -51,7 +51,8 @@ func main() {
 		log.Info().Msg("Unable to load .env file")
 	}
 
-	// UNIX Time is faster and smaller than most timestamps
+	// UNIX Time is faster and smaller than most timestamps,
+	// uncomment below line to improve efficiency over human readability
 	// zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Info().Msg("Starting allora offchain node...")
 
