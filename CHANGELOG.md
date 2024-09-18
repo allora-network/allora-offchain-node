@@ -45,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+* [#53](https://github.com/allora-network/allora-offchain-node/pull/53) Update to v0.5.0 chain dependencies. Validate bundles before sending.
+
 ### Removed
 
 ### Fixed
