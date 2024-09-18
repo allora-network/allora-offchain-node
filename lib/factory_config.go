@@ -103,7 +103,7 @@ func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
 	}
 
 	// Create query client
-	queryClient := emissionstypes.NewQueryClient(client.Context())
+	queryClient := emissionstypes.NewQueryServiceClient(client.Context())
 
 	// Create bank client
 	bankClient := banktypes.NewQueryClient(client.Context())

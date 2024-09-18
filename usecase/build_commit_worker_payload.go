@@ -61,15 +61,19 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 	workerDataBundle.Nonce = nonce
 	workerDataBundle.TopicId = worker.TopicId
 
-	req := &emissionstypes.MsgInsertWorkerPayload{
+	if err := workerDataBundle.Validate(); err != nil {
+		return false, err
+	}
+
+	req := &emissionstypes.InsertWorkerPayloadRequest{
 		Sender:           suite.Node.Wallet.Address,
 		WorkerDataBundle: workerDataBundle,
 	}
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		log.Error().Err(err).Msg("Error marshaling MsgInsertWorkerPayload to print Msg as JSON")
+		log.Error().Err(err).Msg("Error marshaling InsertWorkerPayload to print Msg as JSON")
 	} else {
-		log.Info().Str("req", string(reqJSON)).Msg("Sending MsgInsertWorkerPayload to chain")
+		log.Info().Str("req", string(reqJSON)).Msg("Sending InsertWorkerPayload to chain")
 	}
 
 	if suite.Node.Wallet.SubmitTx {

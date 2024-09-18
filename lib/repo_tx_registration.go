@@ -23,7 +23,7 @@ func (node *NodeConfig) RegisterWorkerIdempotently(config WorkerConfig) bool {
 		return true
 	}
 
-	moduleParams, err := node.Chain.EmissionsQueryClient.Params(ctx, &emissionstypes.QueryParamsRequest{})
+	moduleParams, err := node.Chain.EmissionsQueryClient.GetParams(ctx, &emissionstypes.GetParamsRequest{})
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get chain params for worker ")
 		return false
@@ -39,7 +39,7 @@ func (node *NodeConfig) RegisterWorkerIdempotently(config WorkerConfig) bool {
 		return false
 	}
 
-	msg := &emissionstypes.MsgRegister{
+	msg := &emissionstypes.RegisterRequest{
 		Sender:    node.Chain.Address,
 		TopicId:   config.TopicId,
 		Owner:     node.Chain.Address,
@@ -67,9 +67,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 
 	if isRegistered {
 		log.Info().Uint64("topicId", config.TopicId).Msg("Reputer node already registered")
-	}
-
-	if !isRegistered {
+	} else {
 		log.Info().Uint64("topicId", config.TopicId).Msg("Reputer node not yet registered. Attempting registration...")
 
 		balance, err := node.GetBalance()
@@ -77,8 +75,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 			log.Error().Err(err).Msg("Could not check if the Reputer node has enough balance to register, skipping")
 			return false
 		}
-
-		moduleParams, err := node.Chain.EmissionsQueryClient.Params(ctx, &emissionstypes.QueryParamsRequest{})
+		moduleParams, err := node.Chain.EmissionsQueryClient.GetParams(ctx, &emissionstypes.GetParamsRequest{})
 		if err != nil {
 			log.Error().Err(err).Msg("Could not get chain params for reputer")
 			return false
@@ -88,7 +85,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 			return false
 		}
 
-		msgRegister := &emissionstypes.MsgRegister{
+		msgRegister := &emissionstypes.RegisterRequest{
 			Sender:    node.Chain.Address,
 			TopicId:   config.TopicId,
 			Owner:     node.Chain.Address,
@@ -114,7 +111,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 		return true
 	}
 
-	msgAddStake := &emissionstypes.MsgAddStake{
+	msgAddStake := &emissionstypes.AddStakeRequest{
 		Sender:  node.Wallet.Address,
 		Amount:  minStake.Sub(stake),
 		TopicId: config.TopicId,

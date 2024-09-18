@@ -11,15 +11,15 @@ import (
 func (node *NodeConfig) GetReputerValuesAtBlock(topicId emissionstypes.TopicId, nonce BlockHeight) (*emissionstypes.ValueBundle, error) {
 	ctx := context.Background()
 
-	req := &emissionstypes.QueryNetworkInferencesAtBlockRequest{
+	req := &emissionstypes.GetNetworkInferencesAtBlockRequest{
 		TopicId:                  topicId,
 		BlockHeightLastInference: nonce,
 	}
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		log.Error().Err(err).Msg("Error marshaling QueryNetworkInferencesAtBlockRequest to print Msg as JSON")
+		log.Error().Err(err).Msg("Error marshaling GetNetworkInferencesAtBlockRequest to print Msg as JSON")
 	} else {
-		log.Info().Str("req", string(reqJSON)).Msg("Getting QueryNetworkInferencesAtBlockRequest from chain")
+		log.Info().Str("req", string(reqJSON)).Msg("Getting GetNetworkInferencesAtBlockRequest from chain")
 	}
 
 	res, err := node.Chain.EmissionsQueryClient.GetNetworkInferencesAtBlock(ctx, req)
