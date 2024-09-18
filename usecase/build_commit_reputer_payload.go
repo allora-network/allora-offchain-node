@@ -14,18 +14,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func NewNegativeInfinity() alloraMath.Dec {
-	// var dec apd.Decimal
-	// dec.Negative = true
-	// dec.Form = apd.Infinite
-	// return alloraMath.Dec{dec: dec, isNaN: false}
-	dec, err := alloraMath.MustNewDecFromString("1").Quo(alloraMath.MustNewDecFromString("0"))
-	if err != nil {
-		log.Error().Err(err).Msg("Error creating negative infinity")
-	}
-	return dec
-}
-
 // Get the reputer's values at the block from the chain
 // Compute loss bundle with the reputer provided Loss function and ground truth
 // sign and commit to chain
@@ -59,6 +47,10 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 	signedValueBundle, err := suite.SignReputerValueBundle(&lossBundle)
 	if err != nil {
 		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to sign reputer value bundle")
+		return false, err
+	}
+
+	if err := signedValueBundle.Validate(); err != nil {
 		return false, err
 	}
 

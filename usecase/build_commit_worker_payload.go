@@ -61,6 +61,10 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 	workerDataBundle.Nonce = nonce
 	workerDataBundle.TopicId = worker.TopicId
 
+	if err := workerDataBundle.Validate(); err != nil {
+		return false, err
+	}
+
 	req := &emissionstypes.InsertWorkerPayloadRequest{
 		Sender:           suite.Node.Wallet.Address,
 		WorkerDataBundle: workerDataBundle,
