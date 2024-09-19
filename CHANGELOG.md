@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [#55](https://github.com/allora-network/allora-offchain-node/pull/55) Passive set retrial optimization.
 * [#56](https://github.com/allora-network/allora-offchain-node/pull/56) Improve logs
+* [#57](https://github.com/allora-network/allora-offchain-node/pull/57) Reduced severity of nonce failure to Warning.
 
 ### Security
 
