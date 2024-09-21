@@ -50,7 +50,11 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 		return false, err
 	}
 
-	req := &emissionstypes.MsgInsertReputerPayload{
+	if err := signedValueBundle.Validate(); err != nil {
+		return false, err
+	}
+
+	req := &emissionstypes.InsertReputerPayloadRequest{
 		Sender:             suite.Node.Wallet.Address,
 		ReputerValueBundle: signedValueBundle,
 	}
@@ -58,7 +62,7 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 	if err != nil {
 		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msgf("Error marshaling MsgInserReputerPayload to print Msg as JSON")
 	} else {
-		log.Debug().Uint64("topicId", reputer.TopicId).Msgf("Sending MsgInsertReputerPayload to chain %s", string(reqJSON))
+		log.Debug().Uint64("topicId", reputer.TopicId).Msgf("Sending InsertReputerPayload to chain %s", string(reqJSON))
 	}
 	if suite.Node.Wallet.SubmitTx {
 		_, err = suite.Node.SendDataWithRetry(ctx, req, "Send Reputer Data to chain")

@@ -11,7 +11,7 @@ func (node *NodeConfig) GetLatestOpenWorkerNonceByTopicId(topicId emissionstypes
 
 	res, err := node.Chain.EmissionsQueryClient.GetUnfulfilledWorkerNonces(
 		ctx,
-		&emissionstypes.QueryUnfulfilledWorkerNoncesRequest{TopicId: topicId},
+		&emissionstypes.GetUnfulfilledWorkerNoncesRequest{TopicId: topicId},
 	)
 	if err != nil {
 		return &emissionstypes.Nonce{}, err
@@ -29,7 +29,7 @@ func (node *NodeConfig) GetOldestReputerNonceByTopicId(topicId emissionstypes.To
 
 	res, err := node.Chain.EmissionsQueryClient.GetUnfulfilledReputerNonces(
 		ctx,
-		&emissionstypes.QueryUnfulfilledReputerNoncesRequest{TopicId: topicId},
+		&emissionstypes.GetUnfulfilledReputerNoncesRequest{TopicId: topicId},
 	)
 	if err != nil {
 		return 0, err
