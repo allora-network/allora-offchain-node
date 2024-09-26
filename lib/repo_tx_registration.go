@@ -66,7 +66,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(ctx context.Context,
 	} else {
 		log.Info().Uint64("topicId", config.TopicId).Msg("Reputer node not yet registered. Attempting registration...")
 
-		balance, err := node.GetBalance()
+		balance, err := node.GetBalance(ctx)
 		if err != nil {
 			log.Error().Err(err).Msg("Could not check if the Reputer node has enough balance to register, skipping")
 			return false
