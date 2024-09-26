@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -8,8 +9,14 @@ import (
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
 )
 
-func (suite *UseCaseSuite) Wait(seconds int64) {
-	time.Sleep(time.Duration(seconds) * time.Second)
+// DoneOrWait returns true if ctx.Done() arrived first
+func (suite *UseCaseSuite) DoneOrWait(ctx context.Context, seconds int64) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	case <-time.After(time.Duration(seconds) * time.Second):
+		return false
+	}
 }
 
 // Validations for Dec values

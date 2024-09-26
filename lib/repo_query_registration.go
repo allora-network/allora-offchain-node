@@ -7,9 +7,7 @@ import (
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
 )
 
-func (node *NodeConfig) IsWorkerRegistered(topicId uint64) (bool, error) {
-	ctx := context.Background()
-
+func (node *NodeConfig) IsWorkerRegistered(ctx context.Context, topicId uint64) (bool, error) {
 	var (
 		res *emissionstypes.IsWorkerRegisteredInTopicIdResponse
 		err error
@@ -31,9 +29,7 @@ func (node *NodeConfig) IsWorkerRegistered(topicId uint64) (bool, error) {
 	return res.IsRegistered, nil
 }
 
-func (node *NodeConfig) IsReputerRegistered(topicId uint64) (bool, error) {
-	ctx := context.Background()
-
+func (node *NodeConfig) IsReputerRegistered(ctx context.Context, topicId uint64) (bool, error) {
 	var (
 		res *emissionstypes.IsReputerRegisteredInTopicIdResponse
 		err error

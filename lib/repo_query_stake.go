@@ -8,10 +8,10 @@ import (
 )
 
 func (node *NodeConfig) GetReputerStakeInTopic(
+	ctx context.Context,
 	topicId emissionstypes.TopicId,
 	reputer Address,
 ) (cosmossdk_io_math.Int, error) {
-	ctx := context.Background()
 	resp, err := node.Chain.EmissionsQueryClient.GetStakeFromReputerInTopicInSelf(ctx, &emissionstypes.GetStakeFromReputerInTopicInSelfRequest{
 		ReputerAddress: reputer,
 		TopicId:        topicId,

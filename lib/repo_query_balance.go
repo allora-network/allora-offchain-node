@@ -7,8 +7,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 )
 
-func (node *NodeConfig) GetBalance() (cosmossdk_io_math.Int, error) {
-	ctx := context.Background()
+func (node *NodeConfig) GetBalance(ctx context.Context) (cosmossdk_io_math.Int, error) {
 	resp, err := node.Chain.BankQueryClient.Balance(ctx, &banktypes.QueryBalanceRequest{
 		Address: node.Chain.Address,
 		Denom:   node.Chain.DefaultBondDenom,

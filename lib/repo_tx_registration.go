@@ -11,10 +11,8 @@ import (
 
 // True if the actor is ultimately, definitively registered for the specified topic, else False
 // Idempotent in registration
-func (node *NodeConfig) RegisterWorkerIdempotently(config WorkerConfig) bool {
-	ctx := context.Background()
-
-	isRegistered, err := node.IsWorkerRegistered(config.TopicId)
+func (node *NodeConfig) RegisterWorkerIdempotently(ctx context.Context, config WorkerConfig) bool {
+	isRegistered, err := node.IsWorkerRegistered(ctx, config.TopicId)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not check if the node is already registered for topic as worker, skipping")
 	}
@@ -29,7 +27,7 @@ func (node *NodeConfig) RegisterWorkerIdempotently(config WorkerConfig) bool {
 		return false
 	}
 
-	balance, err := node.GetBalance()
+	balance, err := node.GetBalance(ctx)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not check if the worker node has enough balance to register, skipping")
 		return false
@@ -57,10 +55,8 @@ func (node *NodeConfig) RegisterWorkerIdempotently(config WorkerConfig) bool {
 // True if the actor is ultimately, definitively registered for the specified topic with at least config.MinStake placed on topic, else False
 // Actor may be either a worker or a reputer
 // Idempotent in registration and stake addition
-func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig) bool {
-	ctx := context.Background()
-
-	isRegistered, err := node.IsReputerRegistered(config.TopicId)
+func (node *NodeConfig) RegisterAndStakeReputerIdempotently(ctx context.Context, config ReputerConfig) bool {
+	isRegistered, err := node.IsReputerRegistered(ctx, config.TopicId)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not check if the node is already registered for topic as reputer, skipping")
 	}
@@ -70,7 +66,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 	} else {
 		log.Info().Uint64("topicId", config.TopicId).Msg("Reputer node not yet registered. Attempting registration...")
 
-		balance, err := node.GetBalance()
+		balance, err := node.GetBalance(ctx)
 		if err != nil {
 			log.Error().Err(err).Msg("Could not check if the Reputer node has enough balance to register, skipping")
 			return false
@@ -100,7 +96,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 		log.Info().Uint64("topicId", config.TopicId).Msg("Reputer node registered")
 	}
 
-	stake, err := node.GetReputerStakeInTopic(config.TopicId, node.Chain.Address)
+	stake, err := node.GetReputerStakeInTopic(ctx, config.TopicId, node.Chain.Address)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not check if the reputer node has enough balance to stake, skipping")
 		return false
