@@ -1,0 +1,4 @@
+scrape_configs:
+  - job_name: 'offchain_node'
+    static_configs:
+      - targets: ['node:2112']

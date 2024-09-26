@@ -9,25 +9,15 @@ import (
 )
 
 func (node *NodeConfig) GetReputerValuesAtBlock(ctx context.Context, topicId emissionstypes.TopicId, nonce BlockHeight) (*emissionstypes.ValueBundle, error) {
-	lastReputerCommitValue := int64(0)
-	lastReputerCommit, err := node.Chain.EmissionsQueryClient.GetTopicLastReputerCommitInfo(ctx, &emissionstypes.QueryTopicLastCommitRequest{TopicId: topicId})
-	if err != nil {
-		log.Warn().Err(err).Int64("height", nonce).Msg("Error getting last reputer commit, using 0 as last reputer commit")
-	}
-
-	if lastReputerCommit != nil && lastReputerCommit.LastCommit != nil && lastReputerCommit.LastCommit.Nonce != nil {
-		lastReputerCommitValue = lastReputerCommit.LastCommit.Nonce.BlockHeight
-	}
-	req := &emissionstypes.QueryNetworkInferencesAtBlockRequest{
+	req := &emissionstypes.GetNetworkInferencesAtBlockRequest{
 		TopicId:                  topicId,
 		BlockHeightLastInference: nonce,
-		BlockHeightLastReward:    lastReputerCommitValue,
 	}
 	reqJSON, err := json.Marshal(req)
 	if err != nil {
-		log.Error().Err(err).Msg("Error marshaling QueryNetworkInferencesAtBlockRequest to print Msg as JSON")
+		log.Error().Err(err).Msg("Error marshaling GetNetworkInferencesAtBlockRequest to print Msg as JSON")
 	} else {
-		log.Info().Str("req", string(reqJSON)).Msg("Getting QueryNetworkInferencesAtBlockRequest from chain")
+		log.Info().Str("req", string(reqJSON)).Msg("Getting GetNetworkInferencesAtBlockRequest from chain")
 	}
 
 	res, err := node.Chain.EmissionsQueryClient.GetNetworkInferencesAtBlock(ctx, req)

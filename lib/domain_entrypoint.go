@@ -7,7 +7,7 @@ type AlloraAdapter interface {
 	CalcInference(WorkerConfig, int64) (string, error)
 	CalcForecast(WorkerConfig, int64) ([]NodeValue, error)
 	SourceTruth(ReputerConfig, int64) (Truth, error) // to be interpreted on a per-topic basis
-	LossFunction(sourceTruth string, inferenceValue string) string
+	LossFunction(sourceTruth string, inferenceValue string) (string, error)
 	CanInfer() bool
 	CanForecast() bool
 	CanSourceTruthAndComputeLoss() bool

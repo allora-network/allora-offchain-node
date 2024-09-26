@@ -9,12 +9,12 @@ import (
 
 func (node *NodeConfig) IsWorkerRegistered(ctx context.Context, topicId uint64) (bool, error) {
 	var (
-		res *emissionstypes.QueryIsWorkerRegisteredInTopicIdResponse
+		res *emissionstypes.IsWorkerRegisteredInTopicIdResponse
 		err error
 	)
 
 	if node.Worker != nil {
-		res, err = node.Chain.EmissionsQueryClient.IsWorkerRegisteredInTopicId(ctx, &emissionstypes.QueryIsWorkerRegisteredInTopicIdRequest{
+		res, err = node.Chain.EmissionsQueryClient.IsWorkerRegisteredInTopicId(ctx, &emissionstypes.IsWorkerRegisteredInTopicIdRequest{
 			TopicId: topicId,
 			Address: node.Wallet.Address,
 		})
@@ -31,12 +31,12 @@ func (node *NodeConfig) IsWorkerRegistered(ctx context.Context, topicId uint64) 
 
 func (node *NodeConfig) IsReputerRegistered(ctx context.Context, topicId uint64) (bool, error) {
 	var (
-		res *emissionstypes.QueryIsReputerRegisteredInTopicIdResponse
+		res *emissionstypes.IsReputerRegisteredInTopicIdResponse
 		err error
 	)
 
 	if node.Reputer != nil {
-		res, err = node.Chain.EmissionsQueryClient.IsReputerRegisteredInTopicId(ctx, &emissionstypes.QueryIsReputerRegisteredInTopicIdRequest{
+		res, err = node.Chain.EmissionsQueryClient.IsReputerRegisteredInTopicId(ctx, &emissionstypes.IsReputerRegisteredInTopicIdRequest{
 			TopicId: topicId,
 			Address: node.Wallet.Address,
 		})

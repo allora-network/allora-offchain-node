@@ -59,21 +59,21 @@ func (suite *UseCaseSuite) runWorkerProcess(ctx context.Context, worker lib.Work
 
 	latestNonceHeightActedUpon := int64(0)
 	for {
-		log.Debug().Uint64("topicId", worker.TopicId).Msg("Checking for latest open worker nonce")
-
 		latestOpenWorkerNonce, err := suite.Node.GetLatestOpenWorkerNonceByTopicId(ctx, worker.TopicId)
 		if err != nil {
-			log.Error().Err(err).Uint64("topicId", worker.TopicId).Msg("Error getting latest open worker nonce on topic")
-		}
+			log.Warn().Err(err).Uint64("topicId", worker.TopicId).Msg("Error getting latest open worker nonce on topic - node availability issue?")
+		} else {
+			if latestOpenWorkerNonce.BlockHeight > latestNonceHeightActedUpon {
+				log.Debug().Uint64("topicId", worker.TopicId).Int64("BlockHeight", latestOpenWorkerNonce.BlockHeight).Msg("Building and committing worker payload for topic")
 
-		if latestOpenWorkerNonce.BlockHeight > latestNonceHeightActedUpon {
-			log.Debug().Uint64("topicId", worker.TopicId).Msg("Building and committing worker payload for topic")
-
-			success, err := suite.BuildCommitWorkerPayload(ctx, worker, latestOpenWorkerNonce)
-			if !success || err != nil {
-				log.Error().Err(err).Uint64("topicId", worker.TopicId).Msg("Error building and committing worker payload for topic")
+				success, err := suite.BuildCommitWorkerPayload(ctx, worker, latestOpenWorkerNonce)
+				if !success || err != nil {
+					log.Error().Err(err).Uint64("topicId", worker.TopicId).Int64("BlockHeight", latestOpenWorkerNonce.BlockHeight).Msg("Error building and committing worker payload for topic")
+				}
+				latestNonceHeightActedUpon = latestOpenWorkerNonce.BlockHeight
+			} else {
+				log.Debug().Uint64("topicId", worker.TopicId).Msg("No new worker nonce found")
 			}
-			latestNonceHeightActedUpon = latestOpenWorkerNonce.BlockHeight
 		}
 
 		if suite.DoneOrWait(ctx, worker.LoopSeconds) {
@@ -93,21 +93,21 @@ func (suite *UseCaseSuite) runReputerProcess(ctx context.Context, reputer lib.Re
 
 	latestNonceHeightActedUpon := int64(0)
 	for {
-		log.Debug().Uint64("topicId", reputer.TopicId).Msg("Checking for latest open reputer nonce")
-
 		latestOpenReputerNonce, err := suite.Node.GetOldestReputerNonceByTopicId(ctx, reputer.TopicId)
 		if err != nil {
-			log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error getting latest open reputer nonce on topic")
-		}
+			log.Warn().Err(err).Uint64("topicId", reputer.TopicId).Int64("BlockHeight", latestOpenReputerNonce).Msg("Error getting latest open reputer nonce on topic - node availability issue?")
+		} else {
+			if latestOpenReputerNonce > latestNonceHeightActedUpon {
+				log.Debug().Uint64("topicId", reputer.TopicId).Int64("BlockHeight", latestOpenReputerNonce).Msg("Building and committing reputer payload for topic")
 
-		if latestOpenReputerNonce > latestNonceHeightActedUpon {
-			log.Debug().Uint64("topicId", reputer.TopicId).Msg("Building and committing reputer payload for topic")
-
-			success, err := suite.BuildCommitReputerPayload(ctx, reputer, latestOpenReputerNonce)
-			if !success || err != nil {
-				log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error building and committing reputer payload for topic")
+				success, err := suite.BuildCommitReputerPayload(ctx, reputer, latestOpenReputerNonce)
+				if !success || err != nil {
+					log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Error building and committing reputer payload for topic")
+				}
+				latestNonceHeightActedUpon = latestOpenReputerNonce
+			} else {
+				log.Debug().Uint64("topicId", reputer.TopicId).Msg("No new reputer nonce found")
 			}
-			latestNonceHeightActedUpon = latestOpenReputerNonce
 		}
 
 		if suite.DoneOrWait(ctx, reputer.LoopSeconds) {

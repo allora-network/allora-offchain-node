@@ -2,6 +2,7 @@ package lib
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -21,6 +22,10 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 		if err == nil {
 			log.Debug().Str("msg", successMsg).Str("txHash", txResp.TxHash).Msg("Success")
 			return txResp, nil
+		}
+		if strings.Contains(err.Error(), "cannot update EMA") {
+			log.Error().Err(err).Str("msg", successMsg).Msg("Already sent data for this epoch, no retry")
+			return nil, err
 		}
 		// Log the error for each retry.
 		log.Error().Err(err).Str("msg", successMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, node.Wallet.MaxRetries)

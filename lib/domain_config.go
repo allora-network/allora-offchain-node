@@ -18,7 +18,7 @@ type WalletConfig struct {
 	GasAdjustment          float64 // gas adjustment to use for the allora client
 	NodeRpc                string  // rpc node for allora chain
 	MaxRetries             int64   // retry to get data from chain up to this many times per query or tx
-	Delay                  int64   // minimum of uniform distribution that is sampled then used to calcluate exponential backoff for txs (in seconds)
+	Delay                  int64   // number of seconds to wait between retries
 	SubmitTx               bool    // useful for dev/testing. set to false to run in dry-run processes without committing to the chain
 }
 
@@ -27,7 +27,7 @@ type ChainConfig struct {
 	Address              string // will be auto-generated based on the keystore
 	Account              cosmosaccount.Account
 	Client               *cosmosclient.Client
-	EmissionsQueryClient emissions.QueryClient
+	EmissionsQueryClient emissions.QueryServiceClient
 	BankQueryClient      bank.QueryClient
 	DefaultBondDenom     string
 	AddressPrefix        string // prefix for the allora addresses

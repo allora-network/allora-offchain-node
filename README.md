@@ -18,7 +18,7 @@ chmod +x init.config
 ```
 
 from the root diectory. This will:
-   - Load your config.json file into the environment. Depending on wheather you provided your wallet details or not it will also do the following:
+   - Load your config.json file into the environment. Depending on whether you provided your wallet details or not it will also do the following:
       - Automatically create allora keys for you. You will have to request for some tokens from faucet to be able to register your worker and stake your reputer. You can find your address in ./data/env_file
       - Automatically export the needed variables from the account created to be used by the offchain node and bundles it with the your provided config.json and then pass them to the node as environemnt variable
 
@@ -63,7 +63,7 @@ Some metrics has been provided for in the node. You can access them with port `:
 - `allora_worker_forecast_request_count`: The total number of times worker requests forecast from source
 - `allora_reputer_truth_request_count`: The total number of times reputer requests truth from source
 - `allora_worker_data_build_count`: The total number of times worker built data successfully
-- `allora_reputer_data_build_count`: The total number of times worker built data successfully
+- `allora_reputer_data_build_count`: The total number of times reputer built data successfully
 - `allora_worker_chain_submission_count`: The total number of worker commits to the chain
 - `allora_reputer_chain_submission_count`: The total number of reputer commits to the chain
 

@@ -21,9 +21,10 @@ func (node *NodeConfig) RegisterWorkerIdempotently(ctx context.Context, config W
 		return true
 	}
 
-	moduleParams, err := node.Chain.EmissionsQueryClient.Params(ctx, &emissionstypes.QueryParamsRequest{})
+	moduleParams, err := node.Chain.EmissionsQueryClient.GetParams(ctx, &emissionstypes.GetParamsRequest{})
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get chain params for worker ")
+		return false
 	}
 
 	balance, err := node.GetBalance(ctx)
@@ -36,7 +37,7 @@ func (node *NodeConfig) RegisterWorkerIdempotently(ctx context.Context, config W
 		return false
 	}
 
-	msg := &emissionstypes.MsgRegister{
+	msg := &emissionstypes.RegisterRequest{
 		Sender:    node.Chain.Address,
 		TopicId:   config.TopicId,
 		Owner:     node.Chain.Address,
@@ -59,36 +60,40 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(ctx context.Context,
 	if err != nil {
 		log.Error().Err(err).Msg("Could not check if the node is already registered for topic as reputer, skipping")
 	}
+
 	if isRegistered {
 		log.Info().Uint64("topicId", config.TopicId).Msg("Reputer node already registered")
-		return true
-	}
+	} else {
+		log.Info().Uint64("topicId", config.TopicId).Msg("Reputer node not yet registered. Attempting registration...")
 
-	moduleParams, err := node.Chain.EmissionsQueryClient.Params(ctx, &emissionstypes.QueryParamsRequest{})
-	if err != nil {
-		log.Error().Err(err).Msg("Could not get chain params for reputer")
-	}
+		balance, err := node.GetBalance()
+		if err != nil {
+			log.Error().Err(err).Msg("Could not check if the Reputer node has enough balance to register, skipping")
+			return false
+		}
+		moduleParams, err := node.Chain.EmissionsQueryClient.GetParams(ctx, &emissionstypes.GetParamsRequest{})
+		if err != nil {
+			log.Error().Err(err).Msg("Could not get chain params for reputer")
+			return false
+		}
+		if !balance.GTE(moduleParams.Params.RegistrationFee) {
+			log.Error().Msg("Reputer node does not have enough balance to register, skipping.")
+			return false
+		}
 
-	balance, err := node.GetBalance(ctx)
-	if err != nil {
-		log.Error().Err(err).Msg("Could not check if the Reputer node has enough balance to register, skipping")
-		return false
-	}
-	if !balance.GTE(moduleParams.Params.RegistrationFee) {
-		log.Error().Msg("Reputer node does not have enough balance to register, skipping.")
-		return false
-	}
+		msgRegister := &emissionstypes.RegisterRequest{
+			Sender:    node.Chain.Address,
+			TopicId:   config.TopicId,
+			Owner:     node.Chain.Address,
+			IsReputer: true,
+		}
+		res, err := node.SendDataWithRetry(ctx, msgRegister, "Register reputer node")
+		if err != nil {
+			log.Error().Err(err).Uint64("topic", config.TopicId).Str("txHash", res.TxHash).Msg("Could not register the reputer node with the Allora blockchain")
+			return false
+		}
 
-	msgRegister := &emissionstypes.MsgRegister{
-		Sender:    node.Chain.Address,
-		TopicId:   config.TopicId,
-		Owner:     node.Chain.Address,
-		IsReputer: true,
-	}
-	res, err := node.SendDataWithRetry(ctx, msgRegister, "Register reputer node")
-	if err != nil {
-		log.Error().Err(err).Uint64("topic", config.TopicId).Str("txHash", res.TxHash).Msg("Could not register the reputer node with the Allora blockchain")
-		return false
+		log.Info().Uint64("topicId", config.TopicId).Msg("Reputer node registered")
 	}
 
 	stake, err := node.GetReputerStakeInTopic(ctx, config.TopicId, node.Chain.Address)
@@ -102,12 +107,12 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(ctx context.Context,
 		return true
 	}
 
-	msgAddStake := &emissionstypes.MsgAddStake{
+	msgAddStake := &emissionstypes.AddStakeRequest{
 		Sender:  node.Wallet.Address,
-		Amount:  minStake,
+		Amount:  minStake.Sub(stake),
 		TopicId: config.TopicId,
 	}
-	res, err = node.SendDataWithRetry(ctx, msgAddStake, "Add reputer stake")
+	res, err := node.SendDataWithRetry(ctx, msgAddStake, "Add reputer stake")
 	if err != nil {
 		log.Error().Err(err).Uint64("topic", config.TopicId).Str("txHash", res.TxHash).Msg("Could not stake the reputer node with the Allora blockchain in specified topic")
 		return false

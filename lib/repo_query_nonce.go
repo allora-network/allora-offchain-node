@@ -9,7 +9,7 @@ import (
 func (node *NodeConfig) GetLatestOpenWorkerNonceByTopicId(ctx context.Context, topicId emissionstypes.TopicId) (*emissionstypes.Nonce, error) {
 	res, err := node.Chain.EmissionsQueryClient.GetUnfulfilledWorkerNonces(
 		ctx,
-		&emissionstypes.QueryUnfulfilledWorkerNoncesRequest{TopicId: topicId},
+		&emissionstypes.GetUnfulfilledWorkerNoncesRequest{TopicId: topicId},
 	)
 	if err != nil {
 		return &emissionstypes.Nonce{}, err
@@ -25,7 +25,7 @@ func (node *NodeConfig) GetLatestOpenWorkerNonceByTopicId(ctx context.Context, t
 func (node *NodeConfig) GetOldestReputerNonceByTopicId(ctx context.Context, topicId emissionstypes.TopicId) (BlockHeight, error) {
 	res, err := node.Chain.EmissionsQueryClient.GetUnfulfilledReputerNonces(
 		ctx,
-		&emissionstypes.QueryUnfulfilledReputerNoncesRequest{TopicId: topicId},
+		&emissionstypes.GetUnfulfilledReputerNoncesRequest{TopicId: topicId},
 	)
 	if err != nil {
 		return 0, err
