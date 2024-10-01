@@ -30,7 +30,7 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 	}
 	valueBundle.Reputer = suite.Node.Wallet.Address
 
-	sourceTruth, err := reputer.ReputerEntrypoint.SourceTruth(reputer, nonce)
+	sourceTruth, err := reputer.GroundTruthEntrypoint.GroundTruth(reputer, nonce)
 	if err != nil {
 		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to get source truth from reputer")
 		return false, err
@@ -86,11 +86,19 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 	if IsEmpty(*vb) {
 		return emissionstypes.ValueBundle{}, errors.New("empty ValueBundle")
 	}
-	if err := ValidateDec(vb.CombinedValue); err != nil {
+	if err := emissionstypes.ValidateDec(vb.CombinedValue); err != nil {
 		return emissionstypes.ValueBundle{}, errors.New("ValueBundle - invalid CombinedValue")
 	}
-	if err := ValidateDec(vb.NaiveValue); err != nil {
+	if err := emissionstypes.ValidateDec(vb.NaiveValue); err != nil {
 		return emissionstypes.ValueBundle{}, errors.New("ValueBundle - invalid NaiveValue")
+	}
+
+	// Check if loss function is never negative
+	lossMethodOptions := reputer.LossFunctionParameters.LossMethodOptions
+	is_never_negative, err := reputer.LossFunctionEntrypoint.IsLossFunctionNeverNegative(reputer, lossMethodOptions)
+	if err != nil {
+		log.Error().Err(err).Msg("Error checking if loss function is never negative")
+		return emissionstypes.ValueBundle{}, err
 	}
 
 	losses := emissionstypes.ValueBundle{
@@ -101,7 +109,7 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 	}
 
 	computeLoss := func(value alloraMath.Dec, description string) (alloraMath.Dec, error) {
-		lossStr, err := reputer.ReputerEntrypoint.LossFunction(sourceTruth, value.String())
+		lossStr, err := reputer.LossFunctionEntrypoint.LossFunction(reputer, sourceTruth, value.String(), lossMethodOptions)
 		if err != nil {
 			return alloraMath.Dec{}, fmt.Errorf("error computing loss for %s: %w", description, err)
 		}
@@ -111,14 +119,14 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 			return alloraMath.Dec{}, fmt.Errorf("error parsing loss value for %s: %w", description, err)
 		}
 
-		if !reputer.AllowsNegativeValue {
+		if is_never_negative {
 			loss, err = alloraMath.Log10(loss)
 			if err != nil {
 				return alloraMath.Dec{}, fmt.Errorf("error Log10 for %s: %w", description, err)
 			}
 		}
 
-		if err := ValidateDec(loss); err != nil {
+		if err := emissionstypes.ValidateDec(loss); err != nil {
 			return alloraMath.Dec{}, fmt.Errorf("invalid loss value for %s: %w", description, err)
 		}
 

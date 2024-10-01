@@ -112,7 +112,7 @@ func TestComputeLossBundle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockAdapter := ReturnBasicMockAlloraAdapter()
 			tt.mockSetup(mockAdapter)
-			tt.reputerConfig.ReputerEntrypoint = mockAdapter
+			tt.reputerConfig.GroundTruthEntrypoint = mockAdapter
 
 			suite := &UseCaseSuite{}
 			result, err := suite.ComputeLossBundle(tt.sourceTruth, tt.valueBundle, tt.reputerConfig)

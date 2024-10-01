@@ -25,7 +25,7 @@ func (m *MockAlloraAdapter) CalcForecast(config lib.WorkerConfig, timestamp int6
 	return args.Get(0).([]lib.NodeValue), args.Error(1)
 }
 
-func (m *MockAlloraAdapter) SourceTruth(config lib.ReputerConfig, timestamp int64) (lib.Truth, error) {
+func (m *MockAlloraAdapter) GroundTruth(config lib.ReputerConfig, timestamp int64) (lib.Truth, error) {
 	args := m.Called(config, timestamp)
 	return args.Get(0).(lib.Truth), args.Error(1)
 }
@@ -45,7 +45,7 @@ func (m *MockAlloraAdapter) CanForecast() bool {
 	return args.Bool(0)
 }
 
-func (m *MockAlloraAdapter) CanSourceTruthAndComputeLoss() bool {
+func (m *MockAlloraAdapter) CanSourceGroundTruthAndComputeLoss() bool {
 	args := m.Called()
 	return args.Bool(0)
 }

@@ -25,24 +25,44 @@ Worker: []lib.WorkerConfig{
 },
 ```
 
-Example as Reputer: 
+Example as Reputer ("gt" in this context means "ground truth"): 
 ```
 Reputer: []lib.ReputerConfig{
     {
-        TopicId:           1,
-        ReputerEntrypoint: apiAdapter.NewAlloraAdapter(),
-        LoopSeconds:       30,
-        MinStake:          100000,
-        Parameters: map[string]string{
-            "SourceOfTruthEndpoint": "http://localhost:8000/groundtruth/{Token}/{BlockHeight}",
-            "Token":                 "ethereum",
+        "topicId": 1,
+        "groundTruthEntrypointName": "api-worker-reputer",
+        "lossFunctionEntrypointName": "api-worker-reputer",
+        "loopSeconds": 30,
+        "minStake": 100000,
+        "groundTruthParameters": {
+          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockHeight}",
+          "Token": "ETHUSD"
         },
-    },
+        "lossFunctionParameters": {
+          "LossFunctionService": "http://localhost:5000",
+          "LossMethodOptions": {
+            "loss_method": "huber",
+            "delta": "1.0"
+          }
+        }
+    }
 },
 ```
 
-## Parameters 
+## Parameters
+
 The parameters section contains additional properties the user wants to use to configure their URLs to hit.
+In the case of the reputer, there are two parameters sections, one for the ground truth and one for the loss function.
+In particular, the `LossMethodOptions` are specific to the loss function and passed unconverted to the loss function service.
+They can be used to pass additional parameters to the loss function service. For example, the `delta` parameter is passed to the huber loss function like this (or as per defined in the loss function service of choice): 
+
+```
+"LossMethodOptions": {
+    "loss_method": "huber",
+    "delta": "1.0"
+}
+```
+
 
 ### Worker
 
@@ -59,7 +79,10 @@ InferenceEntrypoint: nil
 
 ### Reputer
 
-`SourceOfTruthEndpoint`is required if `ReputerEntrypoint` is defined.
+Two endpoints are required:
+* `GroundTruthEndpoint`: provides the ground truth endpoint to hit. It does support template variables.
+* `LossFunctionService`: provides the loss function service to hit on loss calculation and the endpoint to know whether the loss function is never negative. These are appended to create `/calculate` and `/is_never_negative` endpoints respectively. They do not support template variables.
+
 
 ### Additional Parameters 
 
