@@ -57,15 +57,6 @@ func (m *MockAlloraAdapter) IsLossFunctionNeverNegative(node lib.ReputerConfig, 
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *MockAlloraAdapter) NewTestReputerConfig() lib.ReputerConfig {
-	return lib.ReputerConfig{
-		LossFunctionParameters: lib.LossFunctionParameters{
-			LossMethodOptions: map[string]string{"loss_method": "mse"},
-		},
-		LossFunctionEntrypoint: m,
-	}
-}
-
 func NewMockAlloraAdapter() *MockAlloraAdapter {
 	m := &MockAlloraAdapter{}
 
