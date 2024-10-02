@@ -1,7 +1,7 @@
 {
     "wallet": {
       "addressKeyName": "testkey",
-      "addressRestoreMnemonic": "",
+      "addressRestoreMnemonic": "your mnemonic here",
       "alloraHomeDir": "",
       "gas": "auto",
       "gasAdjustment": 1.5,
@@ -10,6 +10,17 @@
       "delay": 1,
       "submitTx": true
     },
+    "worker": [
+      {
+        "topicId": 1,
+        "inferenceEntrypointName": "api-worker-reputer",
+        "loopSeconds": 10,
+        "parameters": {
+          "InferenceEndpoint": "http://source:8000/inference/{Token}",
+          "Token": "ETH"
+        }
+      }
+    ],
     "reputer": [
       {
         "topicId": 1,
