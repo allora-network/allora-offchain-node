@@ -55,8 +55,7 @@ type ReputerConfig struct {
 	// This is idempotent in that it will not add more stake than specified here.
 	// Set to 0 to effectively disable this feature and use whatever stake has already been added.
 	MinStake               int64
-	LoopSeconds            int64 // seconds to wait between attempts to get next reptuer nonces
-	AllowsNegativeValue    bool
+	LoopSeconds            int64                  // seconds to wait between attempts to get next reptuer nonces
 	GroundTruthParameters  map[string]string      // Map for variable configuration values
 	LossFunctionParameters LossFunctionParameters // Map for variable configuration values
 }

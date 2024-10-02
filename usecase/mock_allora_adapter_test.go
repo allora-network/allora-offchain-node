@@ -30,8 +30,9 @@ func (m *MockAlloraAdapter) GroundTruth(config lib.ReputerConfig, timestamp int6
 	return args.Get(0).(lib.Truth), args.Error(1)
 }
 
-func (m *MockAlloraAdapter) LossFunction(sourceTruth string, inferenceValue string) (string, error) {
-	args := m.Called(sourceTruth, inferenceValue)
+// Update LossFunction to match the new signature
+func (m *MockAlloraAdapter) LossFunction(node lib.ReputerConfig, sourceTruth string, inferenceValue string, options map[string]string) (string, error) {
+	args := m.Called(node, sourceTruth, inferenceValue, options)
 	return args.String(0), args.Error(1)
 }
 
@@ -50,8 +51,25 @@ func (m *MockAlloraAdapter) CanSourceGroundTruthAndComputeLoss() bool {
 	return args.Bool(0)
 }
 
+// Add the new IsLossFunctionNeverNegative method
+func (m *MockAlloraAdapter) IsLossFunctionNeverNegative(node lib.ReputerConfig, options map[string]string) (bool, error) {
+	args := m.Called(node, options)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockAlloraAdapter) NewTestReputerConfig() lib.ReputerConfig {
+	return lib.ReputerConfig{
+		LossFunctionParameters: lib.LossFunctionParameters{
+			LossMethodOptions: map[string]string{"loss_method": "mse"},
+		},
+		LossFunctionEntrypoint: m,
+	}
+}
+
 func NewMockAlloraAdapter() *MockAlloraAdapter {
-	return &MockAlloraAdapter{}
+	m := &MockAlloraAdapter{}
+
+	return m
 }
 
 func ReturnBasicMockAlloraAdapter() *MockAlloraAdapter {
