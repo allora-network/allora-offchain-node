@@ -93,12 +93,20 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 		return emissionstypes.ValueBundle{}, errors.New("ValueBundle - invalid NaiveValue")
 	}
 
-	// Check if loss function is never negative
 	lossMethodOptions := reputer.LossFunctionParameters.LossMethodOptions
-	is_never_negative, err := reputer.LossFunctionEntrypoint.IsLossFunctionNeverNegative(reputer, lossMethodOptions)
-	if err != nil {
-		log.Error().Err(err).Msg("Error checking if loss function is never negative")
-		return emissionstypes.ValueBundle{}, err
+	// Use the cached IsNeverNegative value
+	is_never_negative := false
+	if reputer.LossFunctionParameters.IsNeverNegative != nil {
+		is_never_negative = *reputer.LossFunctionParameters.IsNeverNegative
+	} else {
+		var err error
+		is_never_negative, err = reputer.LossFunctionEntrypoint.IsLossFunctionNeverNegative(reputer, lossMethodOptions)
+		if err != nil {
+			log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to determine if loss function is never negative")
+			return emissionstypes.ValueBundle{}, err
+		}
+		// cache the result
+		reputer.LossFunctionParameters.IsNeverNegative = &is_never_negative
 	}
 
 	losses := emissionstypes.ValueBundle{

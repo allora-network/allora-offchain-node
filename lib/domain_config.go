@@ -64,6 +64,7 @@ type ReputerConfig struct {
 type LossFunctionParameters struct {
 	LossFunctionService string
 	LossMethodOptions   map[string]string
+	IsNeverNegative     *bool // Cached result of whether the loss function is never negative
 }
 
 type UserConfig struct {
