@@ -39,8 +39,7 @@ type WorkerConfig struct {
 	InferenceEntrypoint     AlloraAdapter
 	ForecastEntrypointName  string
 	ForecastEntrypoint      AlloraAdapter
-	LoopSeconds             int64 // seconds to wait between attempts to get next worker nonce
-	AllowsNegativeValue     bool
+	LoopSeconds             int64             // seconds to wait between attempts to get next worker nonce
 	Parameters              map[string]string // Map for variable configuration values
 }
 
