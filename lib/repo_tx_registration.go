@@ -107,7 +107,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 	}
 	minStake := cosmossdk_io_math.NewInt(config.MinStake)
 	if minStake.LTE(stake) {
-		log.Error().Msg("Reputer stake below minimum stake, skipping.")
+		log.Info().Msg("Reputer stake above minimum requested stake, skipping adding stake.")
 		return true
 	}
 

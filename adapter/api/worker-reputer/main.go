@@ -2,6 +2,7 @@ package api_worker_reputer
 
 import (
 	"allora_offchain_node/lib"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -125,9 +126,9 @@ func (a *AlloraAdapter) CalcForecast(node lib.WorkerConfig, blockHeight int64) (
 	return nodeValues, nil
 }
 
-func (a *AlloraAdapter) SourceTruth(node lib.ReputerConfig, blockHeight int64) (lib.Truth, error) {
-	urlTemplate := node.Parameters["SourceOfTruthEndpoint"]
-	url := replaceExtendedPlaceholders(urlTemplate, node.Parameters, blockHeight, node.TopicId)
+func (a *AlloraAdapter) GroundTruth(node lib.ReputerConfig, blockHeight int64) (lib.Truth, error) {
+	urlTemplate := node.GroundTruthParameters["GroundTruthEndpoint"]
+	url := replaceExtendedPlaceholders(urlTemplate, node.GroundTruthParameters, blockHeight, node.TopicId)
 	log.Debug().Str("url", url).Msg("Source of truth")
 	groundTruth, err := requestEndpoint(url)
 	if err != nil {
@@ -147,29 +148,119 @@ func (a *AlloraAdapter) SourceTruth(node lib.ReputerConfig, blockHeight int64) (
 	return lib.Truth(groundTruthDec.String()), nil
 }
 
-func (a *AlloraAdapter) LossFunction(sourceTruth string, inferenceValue string) (string, error) {
-	sourceTruthDec, err := alloraMath.NewDecFromString(sourceTruth)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse sourceTruth: %w", err)
+func (a *AlloraAdapter) LossFunction(node lib.ReputerConfig, groundTruth string, inferenceValue string, options map[string]string) (string, error) {
+	url := node.LossFunctionParameters.LossFunctionService
+	if url == "" {
+		return "", fmt.Errorf("no loss function endpoint provided")
+	}
+	// Use /calculate endpoint of loss-functions service
+	url = fmt.Sprintf("%s/calculate", url)
+
+	// Prepare the request payload
+	payload := map[string]interface{}{
+		"y_true":  groundTruth,
+		"y_pred":  inferenceValue,
+		"options": options,
 	}
 
-	inferenceValueDec, err := alloraMath.NewDecFromString(inferenceValue)
+	// Convert payload to JSON
+	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse inferenceValue: %w", err)
+		return "", fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	// Calculate MSE
-	diff, err := sourceTruthDec.Sub(inferenceValueDec)
+	// Create a new POST request
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
 	if err != nil {
-		return "", fmt.Errorf("failed to calculate difference: %w", err)
+		return "", fmt.Errorf("failed to create request: %w", err)
 	}
-	squaredError, err := diff.Mul(diff)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to calculate squared error: %w", err)
+		return "", fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check the response status
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("received non-OK HTTP status %d", resp.StatusCode)
 	}
 
-	log.Debug().Str("MSE", squaredError.String()).Msg("Calculated MSE loss value")
-	return squaredError.String(), nil
+	// Read and parse the response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var result struct {
+		Loss string `json:"loss"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	log.Debug().Str("Loss", result.Loss).Msg("Calculated loss value from external endpoint")
+	return result.Loss, nil
+}
+
+func (a *AlloraAdapter) IsLossFunctionNeverNegative(node lib.ReputerConfig, options map[string]string) (bool, error) {
+	url := node.LossFunctionParameters.LossFunctionService
+	if url == "" {
+		return false, fmt.Errorf("no loss function endpoint provided")
+	}
+	// Use /is_never_negative endpoint of loss-functions service
+	url = fmt.Sprintf("%s/is_never_negative", url)
+	log.Debug().Str("url", url).Msg("Checking if loss function is never negative")
+
+	// Prepare the request payload
+	payload := map[string]interface{}{
+		"options": options,
+	}
+
+	// Convert payload to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	// Create a new POST request
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return false, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check the response status
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("received non-OK HTTP status %d", resp.StatusCode)
+	}
+
+	// Read and parse the response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var result struct {
+		IsNeverNegative bool `json:"is_never_negative"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return false, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	log.Debug().Interface("options", options).Bool("IsNeverNegative", result.IsNeverNegative).Msg("Checked if loss function is never negative")
+	return result.IsNeverNegative, nil
 }
 
 func (a *AlloraAdapter) CanInfer() bool {
@@ -180,7 +271,7 @@ func (a *AlloraAdapter) CanForecast() bool {
 	return true
 }
 
-func (a *AlloraAdapter) CanSourceTruthAndComputeLoss() bool {
+func (a *AlloraAdapter) CanSourceGroundTruthAndComputeLoss() bool {
 	return true
 }
 

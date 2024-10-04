@@ -39,23 +39,30 @@ type WorkerConfig struct {
 	InferenceEntrypoint     AlloraAdapter
 	ForecastEntrypointName  string
 	ForecastEntrypoint      AlloraAdapter
-	LoopSeconds             int64 // seconds to wait between attempts to get next worker nonce
-	AllowsNegativeValue     bool
+	LoopSeconds             int64             // seconds to wait between attempts to get next worker nonce
 	Parameters              map[string]string // Map for variable configuration values
 }
 
 type ReputerConfig struct {
-	TopicId               emissions.TopicId
-	ReputerEntrypointName string
-	ReputerEntrypoint     AlloraAdapter
+	TopicId                    emissions.TopicId
+	GroundTruthEntrypointName  string
+	GroundTruthEntrypoint      AlloraAdapter
+	LossFunctionEntrypointName string
+	LossFunctionEntrypoint     AlloraAdapter
 	// Minimum stake to repute. will try to add stake from wallet if current stake is less than this.
 	// Will not repute if current stake is less than this, after trying to add any necessary stake.
 	// This is idempotent in that it will not add more stake than specified here.
 	// Set to 0 to effectively disable this feature and use whatever stake has already been added.
-	MinStake            int64
-	LoopSeconds         int64 // seconds to wait between attempts to get next reptuer nonces
-	AllowsNegativeValue bool
-	Parameters          map[string]string // Map for variable configuration values
+	MinStake               int64
+	LoopSeconds            int64                  // seconds to wait between attempts to get next reptuer nonces
+	GroundTruthParameters  map[string]string      // Map for variable configuration values
+	LossFunctionParameters LossFunctionParameters // Map for variable configuration values
+}
+
+type LossFunctionParameters struct {
+	LossFunctionService string
+	LossMethodOptions   map[string]string
+	IsNeverNegative     *bool // Cached result of whether the loss function is never negative
 }
 
 type UserConfig struct {
@@ -106,8 +113,8 @@ func (c *UserConfig) ValidateConfigAdapters() {
 	}
 
 	for _, reputerConfig := range c.Reputer {
-		if reputerConfig.ReputerEntrypoint != nil && !reputerConfig.ReputerEntrypoint.CanSourceTruthAndComputeLoss() {
-			log.Fatal().Interface("entrypoint", reputerConfig.ReputerEntrypoint).Msg("Invalid loss entrypoint")
+		if reputerConfig.GroundTruthEntrypoint != nil && !reputerConfig.GroundTruthEntrypoint.CanSourceGroundTruthAndComputeLoss() {
+			log.Fatal().Interface("entrypoint", reputerConfig.GroundTruthEntrypoint).Msg("Invalid loss entrypoint")
 		}
 	}
 }

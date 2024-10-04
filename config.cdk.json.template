@@ -24,12 +24,19 @@
     "reputer": [
       {
         "topicId": _ALLORA_REPUTER_TOPIC_ID_,
-        "reputerEntrypointName": "_ALLORA_REPUTER_ENTRYPOINT_NAME_",
+        "groundTruthEntrypointName": "_ALLORA_REPUTER_ENTRYPOINT_NAME_",
+        "lossFunctionEntrypointName": "_ALLORA_REPUTER_ENTRYPOINT_NAME_",
         "loopSeconds": _ALLORA_REPUTER_LOOP_SECONDS_,
         "minStake": _ALLORA_REPUTER_MIN_STAKE_,
-        "parameters": {
-          "SourceOfTruthEndpoint": "_ALLORA_REPUTER_SOURCE_OF_TRUTH_ENDPOINT_",
+        "groundTruthParameters": {
+          "GroundTruthEndpoint": "_ALLORA_REPUTER_SOURCE_OF_TRUTH_ENDPOINT_",
           "Token": "_ALLORA_REPUTER_TOKEN_"
+        },
+        "lossFunctionParameters": {
+          "LossFunctionService": "_ALLORA_REPUTER_LOSS_FUNCTION_SERVICE_",
+          "LossMethodOptions": {
+            "loss_method": "_ALLORA_REPUTER_LOSS_METHOD_OPTIONS_LOSS_METHOD_"
+          }
         }
       }
     ]
