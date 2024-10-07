@@ -8,9 +8,9 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	errorsmod "cosmossdk.io/errors"
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
-
 	"github.com/ignite/cli/v28/ignite/pkg/cosmosaccount"
 	"github.com/ignite/cli/v28/ignite/pkg/cosmosclient"
 )
@@ -29,9 +29,8 @@ func getAlloraClient(config *UserConfig) (*cosmosclient.Client, error) {
 		log.Info().Msg("Home directory does not exist, creating...")
 		err = os.MkdirAll(alloraClientHome, 0755)
 		if err != nil {
-			log.Error().Err(err).Str("home", alloraClientHome).Msg("Cannot create allora client home directory")
 			config.Wallet.SubmitTx = false
-			return nil, err
+			return nil, errorsmod.Wrap(err, "cannot create allora client home directory")
 		}
 		log.Info().Str("home", alloraClientHome).Msg("Allora client home directory created")
 	}
@@ -44,7 +43,6 @@ func getAlloraClient(config *UserConfig) (*cosmosclient.Client, error) {
 		cosmosclient.WithGasAdjustment(config.Wallet.GasAdjustment),
 	)
 	if err != nil {
-		log.Error().Err(err).Msg("Unable to create an allora blockchain client")
 		config.Wallet.SubmitTx = false
 		return nil, err
 	}
@@ -86,7 +84,6 @@ func (config *UserConfig) GenerateNodeConfig() (*NodeConfig, error) {
 			account = &acc
 		}
 	} else {
-		log.Debug().Msg("no allora account was loaded")
 		return nil, errors.New("no allora account was loaded")
 	}
 

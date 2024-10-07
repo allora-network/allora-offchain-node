@@ -47,7 +47,11 @@ func (node *NodeConfig) RegisterWorkerIdempotently(config WorkerConfig) bool {
 	}
 	res, err := node.SendDataWithRetry(ctx, msg, "Register worker node")
 	if err != nil {
-		log.Error().Err(err).Uint64("topic", config.TopicId).Str("txHash", res.TxHash).Msg("Could not register the worker node with the Allora blockchain")
+		txHash := ""
+		if res != nil {
+			txHash = res.TxHash
+		}
+		log.Error().Err(err).Uint64("topic", config.TopicId).Str("txHash", txHash).Msg("Could not register the worker node with the Allora blockchain")
 		return false
 	}
 
@@ -93,7 +97,11 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 		}
 		res, err := node.SendDataWithRetry(ctx, msgRegister, "Register reputer node")
 		if err != nil {
-			log.Error().Err(err).Uint64("topic", config.TopicId).Str("txHash", res.TxHash).Msg("Could not register the reputer node with the Allora blockchain")
+			txHash := ""
+			if res != nil {
+				txHash = res.TxHash
+			}
+			log.Error().Err(err).Uint64("topic", config.TopicId).Str("txHash", txHash).Msg("Could not register the reputer node with the Allora blockchain")
 			return false
 		}
 
@@ -118,7 +126,11 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(config ReputerConfig
 	}
 	res, err := node.SendDataWithRetry(ctx, msgAddStake, "Add reputer stake")
 	if err != nil {
-		log.Error().Err(err).Uint64("topic", config.TopicId).Str("txHash", res.TxHash).Msg("Could not stake the reputer node with the Allora blockchain in specified topic")
+		txHash := ""
+		if res != nil {
+			txHash = res.TxHash
+		}
+		log.Error().Err(err).Uint64("topic", config.TopicId).Str("txHash", txHash).Msg("Could not stake the reputer node with the Allora blockchain in specified topic")
 		return false
 	}
 	return true
