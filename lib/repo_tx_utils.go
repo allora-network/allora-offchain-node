@@ -20,8 +20,9 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 	var txResp *cosmosclient.Response
 	var err error
 	var hadEOFTxError bool
+	var txResponse cosmosclient.Response
 	for retryCount := int64(0); retryCount <= node.Wallet.MaxRetries; retryCount++ {
-		txResponse, err := node.Chain.Client.BroadcastTx(ctx, node.Chain.Account, req)
+		txResponse, err = node.Chain.Client.BroadcastTx(ctx, node.Chain.Account, req)
 		txResp = &txResponse
 		if err == nil {
 			log.Debug().Str("msg", successMsg).Str("txHash", txResp.TxHash).Msg("Success")

@@ -79,7 +79,7 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 	if suite.Node.Wallet.SubmitTx {
 		_, err = suite.Node.SendDataWithRetry(ctx, req, "Send Worker Data to chain")
 		if err != nil {
-			log.Error().Err(err).Msg("Error sending Worker Data to chain")
+			// log.Error().Err(err).Msg("Error sending Worker Data to chain")
 			return false, err
 		}
 		suite.Metrics.IncrementMetricsCounter(lib.WorkerChainSubmissionCount, suite.Node.Chain.Address, worker.TopicId)
