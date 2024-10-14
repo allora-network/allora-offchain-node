@@ -46,10 +46,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * [#63](https://github.com/allora-network/allora-offchain-node/pull/63) Loss Function Library support.
+* [#65](https://github.com/allora-network/allora-offchain-node/pull/65) Introduced different retry delays for account sequence.
 
 ### Removed
 
 ### Fixed
+
+* [#65](https://github.com/allora-network/allora-offchain-node/pull/65) Error handling (incl ABCI errors).
 
 ### Security
 * [#62](https://github.com/allora-network/allora-offchain-node/pull/62) Fix security email
