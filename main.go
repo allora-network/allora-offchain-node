@@ -58,13 +58,11 @@ func ConvertEntrypointsToInstances(userConfig lib.UserConfig) error {
 }
 
 func main() {
+	initLogger()
 	if dotErr := godotenv.Load(); dotErr != nil {
 		log.Info().Msg("Unable to load .env file")
 	}
 
-	// UNIX Time is faster and smaller than most timestamps,
-	// uncomment below line to improve efficiency over human readability
-	// zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Info().Msg("Starting allora offchain node...")
 
 	metrics := lib.NewMetrics(lib.COUNTER_DATA)
