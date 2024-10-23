@@ -48,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [#63](https://github.com/allora-network/allora-offchain-node/pull/63) Loss Function Library support.
 * [#65](https://github.com/allora-network/allora-offchain-node/pull/65) Introduced different retry delays for account sequence.
 * [#68](https://github.com/allora-network/allora-offchain-node/pull/68) Logging configuration
+* [#69](https://github.com/allora-network/allora-offchain-node/pull/69) Update to allora-chain v0.6.1 dependencies.
 
 ### Removed
 
