@@ -54,7 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-* [#65](https://github.com/allora-network/allora-offchain-node/pull/65) Error handling (incl ABCI errors).
+* [#65](https://github.com/allora-network/allora-offchain-node/pull/65) Error handling (incl ABCI errors)
+* [#70](https://github.com/allora-network/allora-offchain-node/pull/70) Clean and improve readme
 
 ### Security
 * [#62](https://github.com/allora-network/allora-offchain-node/pull/62) Fix security email
