@@ -77,10 +77,14 @@ There are several ways to configure the node. In order of preference, you can do
 
 Each option completely overwrites the other options.
 
-
 This is the entrypoint for the application that simply builds and runs the Go program.
 
 It spins off a distinct processes per role worker, reputer per topic configered in `config.json`.
+
+## Logging env vars
+
+* LOG_LEVEL: Set the logging level. Valid values are `debug`, `info`, `warn`, `error`, `fatal`, `panic`. Defaults to `info`.
+* LOG_TIME_FORMAT: Sets the format of the timestamp in the log. Valid values are `unix`, `unixms`, `unixmicro`, `iso8601`. Defaults to `iso8601`.
 
 ## Configuration examples
 
