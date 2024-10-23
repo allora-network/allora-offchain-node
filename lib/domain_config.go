@@ -10,16 +10,17 @@ import (
 
 // Properties manually provided by the user as part of UserConfig
 type WalletConfig struct {
-	Address                string // will be overwritten by the keystore. This is the 1 value that is auto-generated in this struct
-	AddressKeyName         string // load a address by key from the keystore
-	AddressRestoreMnemonic string
-	AlloraHomeDir          string  // home directory for the allora keystore
-	Gas                    string  // gas to use for the allora client
-	GasAdjustment          float64 // gas adjustment to use for the allora client
-	NodeRpc                string  // rpc node for allora chain
-	MaxRetries             int64   // retry to get data from chain up to this many times per query or tx
-	Delay                  int64   // number of seconds to wait between retries
-	SubmitTx               bool    // useful for dev/testing. set to false to run in dry-run processes without committing to the chain
+	Address                   string // will be overwritten by the keystore. This is the 1 value that is auto-generated in this struct
+	AddressKeyName            string // load a address by key from the keystore
+	AddressRestoreMnemonic    string
+	AlloraHomeDir             string  // home directory for the allora keystore
+	Gas                       string  // gas to use for the allora client
+	GasAdjustment             float64 // gas adjustment to use for the allora client
+	NodeRpc                   string  // rpc node for allora chain
+	MaxRetries                int64   // retry to get data from chain up to this many times per query or tx
+	RetryDelay                int64   // number of seconds to wait between retries (general case)
+	AccountSequenceRetryDelay int64   // number of seconds to wait between retries in case of account sequence error
+	SubmitTx                  bool    // useful for dev/testing. set to false to run in dry-run processes without committing to the chain
 }
 
 // Properties auto-generated based on what the user has provided in WalletConfig fields of UserConfig
@@ -39,23 +40,30 @@ type WorkerConfig struct {
 	InferenceEntrypoint     AlloraAdapter
 	ForecastEntrypointName  string
 	ForecastEntrypoint      AlloraAdapter
-	LoopSeconds             int64 // seconds to wait between attempts to get next worker nonce
-	AllowsNegativeValue     bool
+	LoopSeconds             int64             // seconds to wait between attempts to get next worker nonce
 	Parameters              map[string]string // Map for variable configuration values
 }
 
 type ReputerConfig struct {
-	TopicId               emissions.TopicId
-	ReputerEntrypointName string
-	ReputerEntrypoint     AlloraAdapter
+	TopicId                    emissions.TopicId
+	GroundTruthEntrypointName  string
+	GroundTruthEntrypoint      AlloraAdapter
+	LossFunctionEntrypointName string
+	LossFunctionEntrypoint     AlloraAdapter
 	// Minimum stake to repute. will try to add stake from wallet if current stake is less than this.
 	// Will not repute if current stake is less than this, after trying to add any necessary stake.
 	// This is idempotent in that it will not add more stake than specified here.
 	// Set to 0 to effectively disable this feature and use whatever stake has already been added.
-	MinStake            int64
-	LoopSeconds         int64 // seconds to wait between attempts to get next reptuer nonces
-	AllowsNegativeValue bool
-	Parameters          map[string]string // Map for variable configuration values
+	MinStake               int64
+	LoopSeconds            int64                  // seconds to wait between attempts to get next reptuer nonces
+	GroundTruthParameters  map[string]string      // Map for variable configuration values
+	LossFunctionParameters LossFunctionParameters // Map for variable configuration values
+}
+
+type LossFunctionParameters struct {
+	LossFunctionService string
+	LossMethodOptions   map[string]string
+	IsNeverNegative     *bool // Cached result of whether the loss function is never negative
 }
 
 type UserConfig struct {
@@ -106,8 +114,8 @@ func (c *UserConfig) ValidateConfigAdapters() {
 	}
 
 	for _, reputerConfig := range c.Reputer {
-		if reputerConfig.ReputerEntrypoint != nil && !reputerConfig.ReputerEntrypoint.CanSourceTruthAndComputeLoss() {
-			log.Fatal().Interface("entrypoint", reputerConfig.ReputerEntrypoint).Msg("Invalid loss entrypoint")
+		if reputerConfig.GroundTruthEntrypoint != nil && !reputerConfig.GroundTruthEntrypoint.CanSourceGroundTruthAndComputeLoss() {
+			log.Fatal().Interface("entrypoint", reputerConfig.GroundTruthEntrypoint).Msg("Invalid loss entrypoint")
 		}
 	}
 }

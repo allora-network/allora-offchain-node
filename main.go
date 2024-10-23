@@ -34,26 +34,35 @@ func ConvertEntrypointsToInstances(userConfig lib.UserConfig) error {
 	}
 
 	for i, reputer := range userConfig.Reputer {
-		if reputer.ReputerEntrypointName != "" {
-			adapter, err := NewAlloraAdapter(reputer.ReputerEntrypointName)
+		if reputer.GroundTruthEntrypointName != "" {
+			adapter, err := NewAlloraAdapter(reputer.GroundTruthEntrypointName)
 			if err != nil {
 				fmt.Println("Error creating reputer adapter:", err)
 				return err
 			}
-			userConfig.Reputer[i].ReputerEntrypoint = adapter
+			userConfig.Reputer[i].GroundTruthEntrypoint = adapter
+		}
+	}
+
+	for i, reputer := range userConfig.Reputer {
+		if reputer.LossFunctionEntrypointName != "" {
+			adapter, err := NewAlloraAdapter(reputer.LossFunctionEntrypointName)
+			if err != nil {
+				fmt.Println("Error creating reputer adapter:", err)
+				return err
+			}
+			userConfig.Reputer[i].LossFunctionEntrypoint = adapter
 		}
 	}
 	return nil
 }
 
 func main() {
+	initLogger()
 	if dotErr := godotenv.Load(); dotErr != nil {
 		log.Info().Msg("Unable to load .env file")
 	}
 
-	// UNIX Time is faster and smaller than most timestamps,
-	// uncomment below line to improve efficiency over human readability
-	// zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Info().Msg("Starting allora offchain node...")
 
 	metrics := lib.NewMetrics(lib.COUNTER_DATA)

@@ -79,7 +79,6 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, non
 	if suite.Node.Wallet.SubmitTx {
 		_, err = suite.Node.SendDataWithRetry(ctx, req, "Send Worker Data to chain")
 		if err != nil {
-			log.Error().Err(err).Msg("Error sending Worker Data to chain")
 			return false, err
 		}
 		suite.Metrics.IncrementMetricsCounter(lib.WorkerChainSubmissionCount, suite.Node.Chain.Address, worker.TopicId)
@@ -115,13 +114,6 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 			if err != nil {
 				log.Error().Err(err).Msg("Error converting forecasterValue to Dec")
 				return emissionstypes.InferenceForecastBundle{}, err
-			}
-			if !workerResponse.AllowsNegativeValue {
-				decVal, err = alloraMath.Log10(decVal)
-				if err != nil {
-					log.Error().Err(err).Msg("Error Log10 forecasterElements")
-					return emissionstypes.InferenceForecastBundle{}, err
-				}
 			}
 			forecasterElements = append(forecasterElements, &emissionstypes.ForecastElement{
 				Inferer: val.Worker,

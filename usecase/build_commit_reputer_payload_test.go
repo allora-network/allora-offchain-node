@@ -12,6 +12,16 @@ import (
 )
 
 func TestComputeLossBundle(t *testing.T) {
+	reputerOptions := map[string]string{
+		"method": "sqe",
+	}
+	reputerConfig := lib.ReputerConfig{
+		LossFunctionParameters: lib.LossFunctionParameters{
+			LossMethodOptions: reputerOptions,
+			IsNeverNegative:   &[]bool{false}[0],
+		},
+	}
+
 	tests := []struct {
 		name                string
 		sourceTruth         string
@@ -41,7 +51,7 @@ func TestComputeLossBundle(t *testing.T) {
 					},
 				}
 			}(),
-			reputerConfig: lib.ReputerConfig{AllowsNegativeValue: true},
+			reputerConfig: reputerConfig,
 			expectedLossStrings: map[string]string{
 				"CombinedValue":    "0.25",
 				"NaiveValue":       "1.00",
@@ -49,10 +59,11 @@ func TestComputeLossBundle(t *testing.T) {
 				"ForecasterValues": "0.04",
 			},
 			mockSetup: func(m *MockAlloraAdapter) {
-				m.On("LossFunction", "10.0", "9.5").Return("0.25", nil)
-				m.On("LossFunction", "10.0", "9.0").Return("1.00", nil)
-				m.On("LossFunction", "10.0", "9.7").Return("0.09", nil)
-				m.On("LossFunction", "10.0", "9.8").Return("0.04", nil)
+				m.On("LossFunction", mock.AnythingOfType("lib.ReputerConfig"), "10.0", "9.5", reputerOptions).Return("0.25", nil)
+				m.On("LossFunction", mock.AnythingOfType("lib.ReputerConfig"), "10.0", "9.0", reputerOptions).Return("1.00", nil)
+				m.On("LossFunction", mock.AnythingOfType("lib.ReputerConfig"), "10.0", "9.7", reputerOptions).Return("0.09", nil)
+				m.On("LossFunction", mock.AnythingOfType("lib.ReputerConfig"), "10.0", "9.8", reputerOptions).Return("0.04", nil)
+				// m.On("IsLossFunctionNeverNegative", mock.AnythingOfType("lib.ReputerConfig"), mock.AnythingOfType("string")).Return(true, nil)
 			},
 			expectError: false,
 		},
@@ -65,9 +76,9 @@ func TestComputeLossBundle(t *testing.T) {
 					CombinedValue: combined,
 				}
 			}(),
-			reputerConfig: lib.ReputerConfig{AllowsNegativeValue: true},
+			reputerConfig: reputerConfig,
 			mockSetup: func(m *MockAlloraAdapter) {
-				m.On("LossFunction", mock.Anything, mock.Anything).Return("", errors.New("loss function error"))
+				m.On("LossFunction", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return("", errors.New("loss function error"))
 			},
 			expectError:   true,
 			errorContains: "error computing loss for combined value",
@@ -81,9 +92,9 @@ func TestComputeLossBundle(t *testing.T) {
 					CombinedValue: combined,
 				}
 			}(),
-			reputerConfig: lib.ReputerConfig{AllowsNegativeValue: true},
+			reputerConfig: reputerConfig,
 			mockSetup: func(m *MockAlloraAdapter) {
-				m.On("LossFunction", mock.Anything, mock.Anything).Return("invalid", nil)
+				m.On("LossFunction", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return("invalid", nil)
 			},
 			expectError:   true,
 			errorContains: "error parsing loss",
@@ -92,7 +103,7 @@ func TestComputeLossBundle(t *testing.T) {
 			name:          "Nil ValueBundle",
 			sourceTruth:   "10.0",
 			valueBundle:   nil,
-			reputerConfig: lib.ReputerConfig{AllowsNegativeValue: true},
+			reputerConfig: reputerConfig,
 			mockSetup:     func(m *MockAlloraAdapter) {},
 			expectError:   true,
 			errorContains: "nil ValueBundle",
@@ -101,7 +112,7 @@ func TestComputeLossBundle(t *testing.T) {
 			name:          "Empty ValueBundle",
 			sourceTruth:   "10.0",
 			valueBundle:   &emissionstypes.ValueBundle{},
-			reputerConfig: lib.ReputerConfig{AllowsNegativeValue: true},
+			reputerConfig: reputerConfig,
 			mockSetup:     func(m *MockAlloraAdapter) {},
 			expectError:   true,
 			errorContains: "empty ValueBundle",
@@ -112,7 +123,8 @@ func TestComputeLossBundle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockAdapter := ReturnBasicMockAlloraAdapter()
 			tt.mockSetup(mockAdapter)
-			tt.reputerConfig.ReputerEntrypoint = mockAdapter
+			tt.reputerConfig.GroundTruthEntrypoint = mockAdapter
+			tt.reputerConfig.LossFunctionEntrypoint = mockAdapter
 
 			suite := &UseCaseSuite{}
 			result, err := suite.ComputeLossBundle(tt.sourceTruth, tt.valueBundle, tt.reputerConfig)

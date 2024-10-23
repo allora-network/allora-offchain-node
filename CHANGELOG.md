@@ -41,7 +41,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for all versions `v1.0.0` and beyond (still considered experimental prior to v1.0.0).
 
-## [Unreleased]
+## v0.5.0
+
+### Added
+
+* [#63](https://github.com/allora-network/allora-offchain-node/pull/63) Loss Function Library support.
+* [#65](https://github.com/allora-network/allora-offchain-node/pull/65) Introduced different retry delays for account sequence.
+* [#68](https://github.com/allora-network/allora-offchain-node/pull/68) Logging configuration
+* [#69](https://github.com/allora-network/allora-offchain-node/pull/69) Update to allora-chain v0.6.1 dependencies.
+
+### Removed
+
+### Fixed
+
+* [#65](https://github.com/allora-network/allora-offchain-node/pull/65) Error handling (incl ABCI errors)
+* [#70](https://github.com/allora-network/allora-offchain-node/pull/70) Clean and improve readme
+
+### Security
+* [#62](https://github.com/allora-network/allora-offchain-node/pull/62) Fix security email
+
+
+## v0.4.0
 
 ### Added
 

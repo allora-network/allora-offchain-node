@@ -1,13 +1,14 @@
 {
     "wallet": {
-      "addressKeyName": "test",
-      "addressRestoreMnemonic": "",
+      "addressKeyName": "testkey",
+      "addressRestoreMnemonic": "your mnemonic here",
       "alloraHomeDir": "",
       "gas": "auto",
       "gasAdjustment": 1.5,
-      "nodeRpc": "http://localhost:26657",
-      "maxRetries": 1,
-      "delay": 1,
+      "nodeRpc": "https://allora-rpc.testnet.allora.network",
+      "maxRetries": 5,
+      "retryDelay": 3,
+      "accountSequenceRetryDelay": 5,
       "submitTx": true
     },
     "worker": [
@@ -24,12 +25,19 @@
     "reputer": [
       {
         "topicId": 1,
-        "reputerEntrypointName": "api-worker-reputer",
+        "groundTruthEntrypointName": "api-worker-reputer",
+        "lossFunctionEntrypointName": "api-worker-reputer",
         "loopSeconds": 30,
         "minStake": 100000,
-        "parameters": {
-          "SourceOfTruthEndpoint": "http://source:8000/truth/{Token}/{BlockHeight}",
-          "Token": "ethereum"
+        "groundTruthParameters": {
+          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockHeight}",
+          "Token": "ETHUSD"
+        },
+        "lossFunctionParameters": {
+          "LossFunctionService": "http://localhost:5000",
+          "LossMethodOptions": {
+            "loss_method": "sqe"
+          }
         }
       }
     ]
