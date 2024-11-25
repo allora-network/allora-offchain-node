@@ -6,11 +6,12 @@ type AlloraAdapter interface {
 	Name() string
 	CalcInference(WorkerConfig, int64) (string, error)
 	CalcForecast(WorkerConfig, int64) ([]NodeValue, error)
-	SourceTruth(ReputerConfig, int64) (Truth, error) // to be interpreted on a per-topic basis
-	LossFunction(sourceTruth string, inferenceValue string) (string, error)
+	GroundTruth(ReputerConfig, int64) (Truth, error)
+	LossFunction(ReputerConfig, string, string, map[string]string) (string, error)
+	IsLossFunctionNeverNegative(ReputerConfig, map[string]string) (bool, error)
 	CanInfer() bool
 	CanForecast() bool
-	CanSourceTruthAndComputeLoss() bool
+	CanSourceGroundTruthAndComputeLoss() bool
 }
 
 type NodeValue struct {

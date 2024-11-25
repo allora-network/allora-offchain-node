@@ -59,5 +59,5 @@ func (metrics Metrics) StartMetricsServer(port string) {
 func (metrics *Metrics) IncrementMetricsCounter(counterName string, address string, topic uint64) {
 	counter := metrics.CounterMap[counterName].WithLabelValues(address, strconv.FormatUint(topic, 10))
 	counter.Inc()
-	log.Info().Msgf("Incremented counter %s for address %s and topic %d", counterName, address, topic)
+	log.Debug().Msgf("Incremented counter %s for address %s and topic %d", counterName, address, topic)
 }

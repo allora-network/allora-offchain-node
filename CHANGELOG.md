@@ -41,7 +41,71 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for all versions `v1.0.0` and beyond (still considered experimental prior to v1.0.0).
 
+
 ## [Unreleased]
+
+### Added
+
+### Removed
+
+### Fixed
+* [#82](https://github.com/allora-network/allora-offchain-node/pull/82) Adjust adapter log levels
+
+### Security
+
+
+## v0.6.0
+
+### Added
+* [#66](https://github.com/allora-network/allora-offchain-node/pull/66) Smart worker detection of submission windows + persistent error management + query retrials + reg/stake robustness + improved logging
+* [#81](https://github.com/allora-network/allora-offchain-node/pull/81) Timeout height handling on tx submission
+
+### Removed
+
+### Fixed
+
+### Security
+
+## v0.5.1
+
+### Added
+
+* [#75](https://github.com/allora-network/allora-offchain-node/pull/75) Configurable fee awareness
+
+### Removed
+
+* [#73](https://github.com/allora-network/allora-offchain-node/pull/73) Removal of legacy ECR workflow
+
+### Fixed
+
+* [#74](https://github.com/allora-network/allora-offchain-node/pull/74) Improve logging
+* [#76](https://github.com/allora-network/allora-offchain-node/pull/76) Account sequence mismatch using expected number + other error handling improvements
+* [#77](https://github.com/allora-network/allora-offchain-node/pull/77) More idiomatic buildcommit functions, use of errorsmod, error handling + duplicated error logs
+
+### Security
+
+
+## v0.5.0
+
+### Added
+
+* [#63](https://github.com/allora-network/allora-offchain-node/pull/63) Loss Function Library support.
+* [#65](https://github.com/allora-network/allora-offchain-node/pull/65) Introduced different retry delays for account sequence.
+* [#68](https://github.com/allora-network/allora-offchain-node/pull/68) Logging configuration
+* [#69](https://github.com/allora-network/allora-offchain-node/pull/69) Update to allora-chain v0.6.1 dependencies.
+
+### Removed
+
+### Fixed
+
+* [#65](https://github.com/allora-network/allora-offchain-node/pull/65) Error handling (incl ABCI errors)
+* [#70](https://github.com/allora-network/allora-offchain-node/pull/70) Clean and improve readme
+
+### Security
+* [#62](https://github.com/allora-network/allora-offchain-node/pull/62) Fix security email
+
+
+## v0.4.0
 
 ### Added
 

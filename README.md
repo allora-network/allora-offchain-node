@@ -1,6 +1,6 @@
 # allora-offchain-node
 
-Allora off-chain nodes publish inferences, forecasts, and losses informed by a configurable ground truth to the Allora chain.
+Allora off-chain nodes publish inferences, forecasts, and losses informed by a configurable ground truth and applying a configurable loss function to the Allora chain.
 
 ## How to run with docker
 1. Clone the repository
@@ -17,7 +17,7 @@ chmod +x init.config
 ./init.config
 ```
 
-from the root diectory. This will:
+from the root directory. This will:
    - Load your config.json file into the environment. Depending on whether you provided your wallet details or not it will also do the following:
       - Automatically create allora keys for you. You will have to request for some tokens from faucet to be able to register your worker and stake your reputer. You can find your address in ./data/env_file
       - Automatically export the needed variables from the account created to be used by the offchain node and bundles it with the your provided config.json and then pass them to the node as environemnt variable
@@ -25,7 +25,7 @@ from the root diectory. This will:
 5. Run `docker compose up --build`. This will:
    - Run the both the offchain node and the source services, communicating through endpoints attached to the internal dns
 
-Please note that the environment variable will be created as bumdle of your config.json and allora account secrets, please make sure to remove every sectrets before commiting to remote git repository
+Please note that the environment variable will be created as bumdle of your config.json and allora account secrets, please make sure to remove every secrets before commiting to remote git repository
 
 
 ## How to run without docker
@@ -69,6 +69,64 @@ Some metrics has been provided for in the node. You can access them with port `:
 
 > Please note that we will keep updating the list as more metrics are being added
 
+## Cycle Example
+
+Visualization of timeline and submission windows for an actor, in this case, a worker. 
+Reputers have submission windows too, but they are fixed to be 1 full topic's epoch length.
+
+Example configuration:
+* Topic epoch length is 100 blocks
+* Topic submission window is 10 blocks
+* Near zone is 2 submission windows (20 blocks)
+
+```
+                                   Epoch N                                        Epoch N+1
+|---------|----------------------------------|-----------------------------------|--------→
+Block:    1000                              1100                                1200
+          ↑                                  ↑                                   ↑
+          Epoch Start                        Epoch End                          Next Epoch End
+          (& Submission                      & Next Epoch Start
+          Window Start)                      (& Next Submission
+                                            Window Start)
+
+Detailed View of Zones (assuming epoch length = 100 blocks):
+
+Block 1000  Block 1010                Block 1080    Block 1100
+    |-----------|--------------------------|--------------|
+    |←                Far Zone            →|←  Near Zone →|
+    |←   SW    →|
+(SW = Submission Window)
+
+Zone Breakdown (example numbers):
+• Epoch Length: 100 blocks
+• Submission Window: 100 blocks (coincides with epoch)
+• Near Zone: Last 20 blocks (NUM_SUBMISSION_WINDOWS_FOR_SUBMISSION_NEARNESS * WorkerSubmissionWindow)
+
+-------------------------------
+- Full cycle transition points
+  - Block 1000: Epoch N starts & Submission Window opens
+  - Block 1010: Submission Window closes. Waiting for next window, typically from far zone.
+  - Block 1080: Enters Near Zone (more frequent checks)
+  - Block 1100: Epoch N ends & Epoch N+1 starts
+
+```
+
+### Notes
+
+- Submissions
+  - Submissions are accepted within the submission window
+  - Submission window opens at epoch start
+- Waiting Zone Behavior
+  - The behaviour of the node when waiting for the submission window depends on its nearness to the submission window to reduce likelihood of missing a window.
+  - Far Zone: Longer intervals between checks, optimized for efficiency
+    - This is controlled by `blockDurationEstimated` and `windowCorrectionFactor`
+  - Near Zone: More frequent checks with randomization for fair participation
+  - Submissions are separated - they must happen within the submission window
+
+### Random offset
+
+The node introduces a random offset to the submission time to avoid the thundering herd problem alleviating mempool congestion.
+
 ## How to configure
 
 There are several ways to configure the node. In order of preference, you can do any of these: 
@@ -77,56 +135,166 @@ There are several ways to configure the node. In order of preference, you can do
 
 Each option completely overwrites the other options.
 
-
 This is the entrypoint for the application that simply builds and runs the Go program.
 
 It spins off a distinct processes per role worker, reputer per topic configered in `config.json`.
 
-### Worker process
+## Logging env vars
 
-1. Spawn a go routine per topic
-2. Get topic data from chain via RPC. Hold this in memory
-3. Check if wallet registered in topic as worker
-4. If wallet not registered in topic as worker then attempt to register
-   1. Fail if failed to register
-5. Every config.loop_seconds seconds...
-   1. Get and set latest_open_worker_nonce_from_chain from the chain
-   2. If latest_open_worker_nonce_from_chain does not exist or nil then continue to next loop
-      1. i.e. wait another config.loop_seconds
-   3. Retry request_retries times with uniform backoff:
-      1. Invoke configured `inferenceEntrypoint`, `forecastEntrypoint` for topic and get results
-         1. Else, break this inner retry loop
-      2. Attempt to commit inference and forecast bundle to the chain
-         1. Log success/failures as usual
+* LOG_LEVEL: Set the logging level. Valid values are `debug`, `info`, `warn`, `error`, `fatal`, `panic`. Defaults to `info`.
+* LOG_TIME_FORMAT: Sets the format of the timestamp in the log. Valid values are `unix`, `unixms`, `unixmicro`, `iso8601`. Defaults to `iso8601`.
 
-### Reputer process
+## Wallet configuration
 
-1. Spawn a go routine per topic
-2. Get topic data from chain via RPC. Hold this in memory
-3. Check if wallet registered in topic as reputer
-4. If wallet not registered in topic as reputer then attempt to register
-   1. Fail if failed to register
-5. Get current stake from reputer on topic (not including delegate stake)
-   1. Fail if failed to get
-6. If config.min_stake_to_repute > current_stake then attempt to add difference in stake (config.min_stake_to_repute - current_stake) to hit the configured minimum, using config.wallet
-   1. Fail if failed to add stake
-   2. If success or if condition met, then continue with rest of loop
-7. Every config.loop_seconds seconds...
-   1. Get and set latest_open_reputer_nonce_from_chain from the chain
-   2. If latest_open_reputer_nonce_from_chain does not exist or nil then continue to next loop
-      1. i.e. wait another config.loop_seconds
-   3. Retry request_retries times with uniform backoff:
-      1. Invoke configured `truthEntrypoint, lossEntrypoint` for topic and get results
-         1. Else, break this inner retry loop
-      2. Attempt to commit loss bundle to the chain
-         1. Log success/failures as usual
+The wallet configuration is done in `config.json` under the `wallet` field.
 
-## Future Work
+### Gas and Fees
 
-* For now, we put adapters to generate or relay reputer/worker data in packages.
-   * Should use modules instead of packages
-   * Then in JSON one can specify which modules to use for which topics and automatically load them with a script that calls `go get ...`
-* Make lambda function adapters => super cheap to continuously run for all those with AWS accounts
+- `gas` can be set to `auto` or a specific gas value. If set to `auto`, the node will automatically calculate the gas limit based on the estimated gas used by the transactions.
+- `gasAdjustment` is used to adjust the gas limit.
+- `gasPrices` and `maxFees` fields are used to set the gas prices and max fees for the wallet. They are expressed in `uallo`.
+
+### Error handling
+
+Error handling is done differently for different types of errors.
+Note: when an account sequence mismatch is detected, the node will attempt to set the expected sequence number and retry the transaction before broadcasting.
+
+#### Retries 
+- `accounSequenceRetryDelay`: For the "account sequence mismatch" error. 
+- `retryDelay`: For all other errors that need retry delays.
+
+
+### Smart Window Detection
+
+The node will automatically detect the submission window length for each topic on each actor type.
+This can be configured by the following settings in the config.json:
+* `blockDurationEstimated`: Estimated network block time in seconds. Minimum is 1.
+* `windowCorrectionFactor`: Correction factor to fine-tune the submission window length. Higher values optimize the number of calls for window checking. Minimum is 0.5.
+
+## Configuration examples
+
+A complete example is provided in `config.example.json`. 
+These below are excerpts of the configuration (with some parts omitted for brevity) for different setups:
+
+### 1 workers as inferer 
+
+```json
+{
+   "worker": [
+      {
+        "topicId": 1,
+        "inferenceEntrypointName": "api-worker-reputer",
+        "loopSeconds": 10,
+        "parameters": {
+          "InferenceEndpoint": "http://source:8000/inference/{Token}",
+          "Token": "ETH"
+        }
+      }
+   ]
+}
+```
+
+###  1 worker as forecaster
+```json
+{
+   "worker": [
+      {
+        "topicId": 1,
+        "forecastEntrypointName": "api-worker-reputer",
+        "loopSeconds": 10,
+        "parameters": {
+          "ForecastEndpoint": "http://source:8000/forecasts/{TopicId}/{BlockHeight}"
+        }
+      }
+   ]
+}
+
+```
+
+###  1 worker as inferer and forecaster
+
+```json
+{
+   "worker": [
+      {
+        "topicId": 1,
+        "inferenceEntrypointName": "api-worker-reputer",
+        "forecastEntrypointName": "api-worker-reputer",
+        "loopSeconds": 10,
+        "parameters": {
+          "InferenceEndpoint": "http://source:8000/inference/{Token}",
+          "ForecastEndpoint": "http://source:8000/forecasts/{TopicId}/{BlockHeight}",
+          "Token": "ETH"
+        }
+      }
+   ]
+}
+```
+
+### 1 reputer
+
+```json
+{
+"reputer": [
+      {
+        "topicId": 1,
+        "groundTruthEntrypointName": "api-worker-reputer",
+        "lossFunctionEntrypointName": "api-worker-reputer",
+        "loopSeconds": 30,
+        "minStake": 100000,
+        "groundTruthParameters": {
+          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockHeight}",
+          "Token": "ETHUSD"
+        },
+        "lossFunctionParameters": {
+          "LossFunctionService": "http://localhost:5000",
+          "LossMethodOptions": {
+            "loss_method": "sqe"
+          }
+        }
+      }
+    ]
+}
+```
+
+### 1 worker as inferer and forecaster, and 1 reputer
+
+```json
+{
+"worker": [
+      {
+        "topicId": 1,
+        "inferenceEntrypointName": "api-worker-reputer",
+        "forecastEntrypointName": "api-worker-reputer",
+        "loopSeconds": 10,
+        "parameters": {
+          "InferenceEndpoint": "http://source:8000/inference/{Token}",
+          "ForecastEndpoint": "http://source:8000/forecasts/{TopicId}/{BlockHeight}",
+          "Token": "ETH"
+        }
+      }
+    ],
+"reputer": [
+      {
+        "topicId": 1,
+        "groundTruthEntrypointName": "api-worker-reputer",
+        "lossFunctionEntrypointName": "api-worker-reputer",
+        "loopSeconds": 30,
+        "minStake": 100000,
+        "groundTruthParameters": {
+          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockHeight}",
+          "Token": "ETHUSD"
+        },
+        "lossFunctionParameters": {
+          "LossFunctionService": "http://localhost:5000",
+          "LossMethodOptions": {
+            "loss_method": "sqe"
+          }
+        }
+      }
+    ]
+}
+```
 
 ## License
 
