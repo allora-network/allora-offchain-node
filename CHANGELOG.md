@@ -41,22 +41,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) for all versions `v1.0.0` and beyond (still considered experimental prior to v1.0.0).
 
-
-## [Unreleased]
+## v0.7.0
 
 ### Added
+
+* [#87](https://github.com/allora-network/allora-offchain-node/pull/87) Update v0.7.0 chain + whitelist coverage
 
 ### Removed
 
 ### Fixed
+
 * [#82](https://github.com/allora-network/allora-offchain-node/pull/82) Adjust adapter log levels
+* [#83](https://github.com/allora-network/allora-offchain-node/pull/83) Added missing params to .env example
 
 ### Security
 
+* [#84](https://github.com/allora-network/allora-offchain-node/pull/84) Bump cosmossdk.io/math from 1.3.0 to 1.4.0
+* [#86](https://github.com/allora-network/allora-offchain-node/pull/86) Remove scanning alert on example app
 
 ## v0.6.0
 
 ### Added
+
 * [#66](https://github.com/allora-network/allora-offchain-node/pull/66) Smart worker detection of submission windows + persistent error management + query retrials + reg/stake robustness + improved logging
 * [#81](https://github.com/allora-network/allora-offchain-node/pull/81) Timeout height handling on tx submission
 
