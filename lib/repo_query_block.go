@@ -18,7 +18,7 @@ func (node *NodeConfig) GetReputerValuesAtBlock(ctx context.Context, topicId emi
 				BlockHeightLastInference: nonce,
 			})
 		},
-		query.PageRequest{},
+		query.PageRequest{}, // nolint: exhaustruct
 		"get reputer values at block",
 	)
 	if err != nil {

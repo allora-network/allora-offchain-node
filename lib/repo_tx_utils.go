@@ -93,16 +93,20 @@ func processError(ctx context.Context, err error, infoMsg string, retryCount int
 						Err(err).
 						Str("msg", infoMsg).
 						Msg("Worker window not available, retrying with exponential backoff")
-					delay := calculateExponentialBackoffDelay(node.Wallet.RetryDelay, retryCount)
-					time.Sleep(delay)
+					delay := calculateExponentialBackoffDelaySeconds(node.Wallet.RetryDelay, retryCount)
+					if DoneOrWait(ctx, delay) {
+						return ERROR_PROCESSING_ERROR, ctx.Err()
+					}
 					return ERROR_PROCESSING_CONTINUE, nil
 				case int(emissions.ErrReputerNonceWindowNotAvailable.ABCICode()):
 					log.Warn().
 						Err(err).
 						Str("msg", infoMsg).
 						Msg("Reputer window not available, retrying with exponential backoff")
-					delay := calculateExponentialBackoffDelay(node.Wallet.RetryDelay, retryCount)
-					time.Sleep(delay)
+					delay := calculateExponentialBackoffDelaySeconds(node.Wallet.RetryDelay, retryCount)
+					if DoneOrWait(ctx, delay) {
+						return ERROR_PROCESSING_ERROR, ctx.Err()
+					}
 					return ERROR_PROCESSING_CONTINUE, nil
 				default:
 					log.Info().Int("errorCode", errorCode).Str("msg", infoMsg).Msg("ABCI error, but not special case - regular retry")
@@ -164,7 +168,7 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 	for retryCount := int64(0); retryCount <= node.Wallet.MaxRetries; retryCount++ {
 		log.Debug().Msgf("SendDataWithRetry iteration started (%d/%d)", retryCount, node.Wallet.MaxRetries)
 		// Create tx without fees
-		txOptions := cosmosclient.TxOptions{}
+		txOptions := cosmosclient.TxOptions{} // nolint: exhaustruct
 		if globalExpectedSeqNum > 0 && node.Chain.Client.TxFactory.Sequence() != globalExpectedSeqNum {
 			log.Debug().
 				Uint64("expected", globalExpectedSeqNum).
@@ -241,7 +245,7 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 				log.Warn().Uint64("gas", txService.Gas()).Uint64("limit", node.Wallet.MaxFees).Msg("Gas limit exceeded, using maxFees instead")
 				fees = node.Wallet.MaxFees
 			}
-			txOptions := cosmosclient.TxOptions{
+			txOptions := cosmosclient.TxOptions{ // nolint: exhaustruct
 				Fees: fmt.Sprintf("%duallo", fees),
 			}
 			log.Info().Str("fees", txOptions.Fees).Msg("Attempting tx with calculated fees")

@@ -19,7 +19,7 @@ func (node *NodeConfig) IsWorkerWhitelisted(ctx context.Context, topicId emissio
 				Address: address,
 			})
 		},
-		query.PageRequest{},
+		query.PageRequest{}, // nolint: exhaustruct
 		"check worker whitelist",
 	)
 	if err != nil {
@@ -41,7 +41,7 @@ func (node *NodeConfig) IsReputerWhitelisted(ctx context.Context, topicId emissi
 				Address: address,
 			})
 		},
-		query.PageRequest{},
+		query.PageRequest{}, // nolint: exhaustruct
 		"check reputer whitelist",
 	)
 	if err != nil {
@@ -62,7 +62,7 @@ func (node *NodeConfig) IsWhitelistedGlobalActor(ctx context.Context, address st
 				Address: address,
 			})
 		},
-		query.PageRequest{},
+		query.PageRequest{}, // nolint: exhaustruct
 		"check global actor whitelist",
 	)
 	if err != nil {

@@ -24,7 +24,7 @@ func (node *NodeConfig) IsWorkerRegistered(ctx context.Context, topicId uint64) 
 				Address: node.Wallet.Address,
 			})
 		},
-		query.PageRequest{},
+		query.PageRequest{}, // nolint: exhaustruct
 		"is worker registered in topic",
 	)
 	if err != nil {
@@ -50,7 +50,7 @@ func (node *NodeConfig) IsReputerRegistered(ctx context.Context, topicId uint64)
 				Address: node.Wallet.Address,
 			})
 		},
-		query.PageRequest{},
+		query.PageRequest{}, // nolint: exhaustruct
 		"is reputer registered in topic",
 	)
 	if err != nil {

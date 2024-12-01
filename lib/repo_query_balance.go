@@ -19,7 +19,7 @@ func (node *NodeConfig) GetBalance(ctx context.Context) (cosmossdk_io_math.Int, 
 				Denom:   node.Chain.DefaultBondDenom,
 			})
 		},
-		query.PageRequest{},
+		query.PageRequest{}, // nolint: exhaustruct
 		"get balance",
 	)
 	if err != nil {

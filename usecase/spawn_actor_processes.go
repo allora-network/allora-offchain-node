@@ -111,7 +111,7 @@ func (suite *UseCaseSuite) processWorkerPayload(ctx context.Context, worker lib.
 		if err != nil {
 			return latestNonceHeightActedUpon, errorsmod.Wrapf(err, "error building and committing worker payload for topic")
 		}
-		log.Debug().Uint64("topicId", uint64(worker.TopicId)).
+		log.Debug().Uint64("topicId", worker.TopicId).
 			Str("actorType", "worker").
 			Msg("Successfully finished processing payload")
 		return latestOpenWorkerNonce.BlockHeight, nil
@@ -173,7 +173,7 @@ func calculateTimeDistanceInSeconds(distanceUntilNextEpoch int64, blockDurationA
 // Generates a conservative random offset within the submission window
 func generateRandomOffset(submissionWindow int64) int64 {
 	// Ensure the random number generator is seeded
-	source := rand.NewSource(uint64(time.Now().UnixNano()))
+	source := rand.NewSource(uint64(time.Now().UnixNano())) // nolint: gosec
 	rng := rand.New(source)
 
 	// Calculate the center of the window
@@ -198,7 +198,7 @@ func (suite *UseCaseSuite) runWorkerProcess(ctx context.Context, worker lib.Work
 	log.Debug().Uint64("topicId", worker.TopicId).Msg("Worker registered")
 
 	// Using the helper function
-	topicInfo, err := queryTopicInfo(ctx, suite, worker, "worker", "topic info: worker")
+	topicInfo, err := queryTopicInfo(ctx, suite, worker)
 	if err != nil {
 		log.Error().Err(err).Uint64("topicId", worker.TopicId).Msg("Failed to get topic info for worker")
 		return
@@ -241,7 +241,7 @@ func (suite *UseCaseSuite) runReputerProcess(ctx context.Context, reputer lib.Re
 	log.Debug().Uint64("topicId", reputer.TopicId).Msg("Reputer registered and staked")
 
 	// Using the helper function
-	topicInfo, err := queryTopicInfo(ctx, suite, reputer, "reputer", "topic info: reputer")
+	topicInfo, err := queryTopicInfo(ctx, suite, reputer)
 	if err != nil {
 		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to get topic info for reputer")
 		return
@@ -276,15 +276,15 @@ func (suite *UseCaseSuite) runReputerProcess(ctx context.Context, reputer lib.Re
 // using ActorProcessParams to handle the different configurations and functions needed for each actor type
 func runActorProcess[T lib.TopicActor](ctx context.Context, suite *UseCaseSuite, params ActorProcessParams[T]) {
 	log.Debug().
-		Uint64("topicId", uint64(params.Config.GetTopicId())).
+		Uint64("topicId", params.Config.GetTopicId()).
 		Str("actorType", params.ActorType).
 		Msg("Running actor process for topic")
 
-	topicInfo, err := queryTopicInfo(ctx, suite, params.Config, params.ActorType, "topic info: actor process")
+	topicInfo, err := queryTopicInfo(ctx, suite, params.Config)
 	if err != nil {
 		log.Error().
 			Err(err).
-			Uint64("topicId", uint64(params.Config.GetTopicId())).
+			Uint64("topicId", params.Config.GetTopicId()).
 			Str("actorType", params.ActorType).
 			Msg("Failed to get topic info after retries")
 		return
@@ -308,11 +308,11 @@ func runActorProcess[T lib.TopicActor](ctx context.Context, suite *UseCaseSuite,
 		}
 		currentBlockHeight = status.SyncInfo.LatestBlockHeight
 
-		topicInfo, err := queryTopicInfo(ctx, suite, params.Config, params.ActorType, "topic info: actor process")
+		topicInfo, err := queryTopicInfo(ctx, suite, params.Config)
 		if err != nil {
 			log.Error().
 				Err(err).
-				Uint64("topicId", uint64(params.Config.GetTopicId())).
+				Uint64("topicId", params.Config.GetTopicId()).
 				Str("actorType", params.ActorType).
 				Msg("Error getting topic info")
 			return
@@ -329,11 +329,11 @@ func runActorProcess[T lib.TopicActor](ctx context.Context, suite *UseCaseSuite,
 			// timeoutHeight is one epoch length away
 			timeoutHeight := currentBlockHeight + epochLength
 
-			latestNonceHeightSentTxFor, err = params.ProcessPayload(params.Config, latestNonceHeightSentTxFor, uint64(timeoutHeight))
+			latestNonceHeightSentTxFor, err = params.ProcessPayload(ctx, params.Config, latestNonceHeightSentTxFor, uint64(timeoutHeight)) // nolint: gosec
 			if err != nil {
 				log.Error().
 					Err(err).
-					Uint64("topicId", uint64(params.Config.GetTopicId())).
+					Uint64("topicId", params.Config.GetTopicId()).
 					Str("actorType", params.ActorType).
 					Msg("Error processing payload - could not complete transaction")
 			}
@@ -346,7 +346,7 @@ func runActorProcess[T lib.TopicActor](ctx context.Context, suite *UseCaseSuite,
 			if err != nil {
 				log.Error().
 					Err(err).
-					Uint64("topicId", uint64(params.Config.GetTopicId())).
+					Uint64("topicId", params.Config.GetTopicId()).
 					Str("actorType", params.ActorType).
 					Int64("waitingTimeInSeconds", waitingTimeInSeconds).
 					Msg("Error calculating time distance to next epoch after sending tx - wait epochLength")
@@ -372,11 +372,11 @@ func runActorProcess[T lib.TopicActor](ctx context.Context, suite *UseCaseSuite,
 		// Check if block is within the submission window
 		if currentBlockHeight-epochLastEnded <= params.SubmissionWindowLength {
 			// Within the submission window, attempt to process payload
-			latestNonceHeightSentTxFor, err = params.ProcessPayload(ctx, params.Config, latestNonceHeightSentTxFor, uint64(timeoutHeight))
+			latestNonceHeightSentTxFor, err = params.ProcessPayload(ctx, params.Config, latestNonceHeightSentTxFor, uint64(timeoutHeight)) // nolint: gosec
 			if err != nil {
 				log.Error().
 					Err(err).
-					Uint64("topicId", uint64(params.Config.GetTopicId())).
+					Uint64("topicId", params.Config.GetTopicId()).
 					Str("actorType", params.ActorType).
 					Msg("Error processing payload - could not complete transaction")
 			}
@@ -384,7 +384,7 @@ func runActorProcess[T lib.TopicActor](ctx context.Context, suite *UseCaseSuite,
 			distanceUntilNextEpoch := epochEnd - currentBlockHeight
 			if distanceUntilNextEpoch < 0 {
 				log.Warn().
-					Uint64("topicId", uint64(params.Config.GetTopicId())).
+					Uint64("topicId", params.Config.GetTopicId()).
 					Str("actorType", params.ActorType).
 					Int64("distanceUntilNextEpoch", distanceUntilNextEpoch).
 					Int64("submissionWindowLength", params.SubmissionWindowLength).
@@ -400,14 +400,14 @@ func runActorProcess[T lib.TopicActor](ctx context.Context, suite *UseCaseSuite,
 			if err != nil {
 				log.Error().
 					Err(err).
-					Uint64("topicId", uint64(params.Config.GetTopicId())).
+					Uint64("topicId", params.Config.GetTopicId()).
 					Str("actorType", params.ActorType).
 					Msg("Error calculating time distance to next epoch after sending tx")
 				return
 			}
 
 			log.Info().
-				Uint64("topicId", uint64(params.Config.GetTopicId())).
+				Uint64("topicId", params.Config.GetTopicId()).
 				Str("actorType", params.ActorType).
 				Int64("currentBlockHeight", currentBlockHeight).
 				Int64("distanceUntilNextEpoch", distanceUntilNextEpoch).
@@ -423,13 +423,13 @@ func runActorProcess[T lib.TopicActor](ctx context.Context, suite *UseCaseSuite,
 			if err != nil {
 				log.Error().
 					Err(err).
-					Uint64("topicId", uint64(params.Config.GetTopicId())).
+					Uint64("topicId", params.Config.GetTopicId()).
 					Str("actorType", params.ActorType).
 					Msg("Error calculating time distance to next epoch after sending tx")
 				return
 			}
 			log.Warn().
-				Uint64("topicId", uint64(params.Config.GetTopicId())).
+				Uint64("topicId", params.Config.GetTopicId()).
 				Str("actorType", params.ActorType).
 				Int64("waitingTimeInSeconds", waitingTimeInSeconds).
 				Int64("currentBlockHeight", currentBlockHeight).
@@ -450,13 +450,13 @@ func runActorProcess[T lib.TopicActor](ctx context.Context, suite *UseCaseSuite,
 				if err != nil {
 					log.Error().
 						Err(err).
-						Uint64("topicId", uint64(params.Config.GetTopicId())).
+						Uint64("topicId", params.Config.GetTopicId()).
 						Str("actorType", params.ActorType).
 						Msg("Error calculating close distance to epochLength")
 					return
 				}
 				log.Info().
-					Uint64("topicId", uint64(params.Config.GetTopicId())).
+					Uint64("topicId", params.Config.GetTopicId()).
 					Str("actorType", params.ActorType).
 					Int64("SubmissionWindowLength", params.SubmissionWindowLength).
 					Int64("offset", offset).
@@ -475,13 +475,13 @@ func runActorProcess[T lib.TopicActor](ctx context.Context, suite *UseCaseSuite,
 				if err != nil {
 					log.Error().
 						Err(err).
-						Uint64("topicId", uint64(params.Config.GetTopicId())).
+						Uint64("topicId", params.Config.GetTopicId()).
 						Str("actorType", params.ActorType).
 						Msg("Error calculating far distance to epochLength")
 					return
 				}
 				log.Info().
-					Uint64("topicId", uint64(params.Config.GetTopicId())).
+					Uint64("topicId", params.Config.GetTopicId()).
 					Str("actorType", params.ActorType).
 					Int64("currentBlockHeight", currentBlockHeight).
 					Int64("distanceUntilNextEpoch", distanceUntilNextEpoch).
@@ -501,8 +501,6 @@ func queryTopicInfo[T lib.TopicActor](
 	ctx context.Context,
 	suite *UseCaseSuite,
 	config T,
-	actorType string,
-	infoMsg string,
 ) (*emissionstypes.Topic, error) {
 	topicInfo, err := suite.Node.GetTopicInfo(ctx, config.GetTopicId())
 	if err != nil {
