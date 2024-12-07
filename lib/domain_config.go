@@ -42,7 +42,7 @@ type WalletConfig struct {
 	GasPrices                     string                  // gas prices to use for the allora client - "auto" for auto-calculated fees
 	GasPriceUpdateInterval        int64                   // number of seconds to wait between updates to the gas price
 	MaxFees                       FlexibleCosmosIntAmount // max fees to pay for a single transaction (as string or number)
-	NodeRpc                       string                  // rpc node for allora chain
+	NodeRPCs                      []string                // rpc nodes for allora chain
 	MaxRetries                    int64                   // retry to get data from chain up to this many times per query or tx
 	RetryDelay                    int64                   // number of seconds to wait between retries (general case)
 	AccountSequenceRetryDelay     int64                   // number of seconds to wait between retries in case of account sequence error
