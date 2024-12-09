@@ -63,12 +63,13 @@ func NewRPCManager(userConfig lib.UserConfig) (*RPCManager, error) {
 		nodes = append(nodes, *nodeConfig)
 	}
 
-	return &RPCManager{
+	return &RPCManager{ // nolint: exhaustruct
 		nodes:      nodes,
 		currentIdx: 0,
-		stats: RPCStats{
+		stats: RPCStats{ // nolint: exhaustruct
 			nodeFailures: make(map[int]int),
 		},
+		// no need to init mu
 	}, nil
 }
 
@@ -93,47 +94,47 @@ func validateAndDeduplicateNodes(nodes []string) ([]string, error) {
 	return validated, nil
 }
 
-func (rm *RPCManager) GetCurrentNode() *lib.NodeConfig {
-	rm.mu.RLock()
-	defer rm.mu.RUnlock()
-	return &rm.nodes[rm.currentIdx]
+func (r *RPCManager) GetCurrentNode() *lib.NodeConfig {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return &r.nodes[r.currentIdx]
 }
 
-func (rm *RPCManager) SwitchToNextNode() *lib.NodeConfig {
-	rm.mu.Lock()
-	defer rm.mu.Unlock()
+func (r *RPCManager) SwitchToNextNode() *lib.NodeConfig {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	oldIndex := rm.currentIdx
-	rm.currentIdx = (rm.currentIdx + 1) % len(rm.nodes)
-	newNode := rm.nodes[rm.currentIdx]
+	oldIndex := r.currentIdx
+	r.currentIdx = (r.currentIdx + 1) % len(r.nodes)
+	newNode := r.nodes[r.currentIdx]
 
 	// Update stats
-	rm.stats.mu.Lock()
-	rm.stats.nodeFailures[oldIndex]++
-	rm.stats.nodeSwitches++
-	rm.stats.mu.Unlock()
+	r.stats.mu.Lock()
+	r.stats.nodeFailures[oldIndex]++
+	r.stats.nodeSwitches++
+	r.stats.mu.Unlock()
 
 	log.Warn().
 		Int("from_node", oldIndex).
-		Int("to_node", rm.currentIdx).
-		Int("total_switches", rm.stats.nodeSwitches).
-		Int("node_failures", rm.stats.nodeFailures[oldIndex]).
+		Int("to_node", r.currentIdx).
+		Int("total_switches", r.stats.nodeSwitches).
+		Int("node_failures", r.stats.nodeFailures[oldIndex]).
 		Msg("Switching to next RPC node")
 
 	return &newNode
 }
 
-func (rm *RPCManager) GetStats() (int, map[int]int) {
-	rm.stats.mu.RLock()
-	defer rm.stats.mu.RUnlock()
+func (r *RPCManager) GetStats() (int, map[int]int) {
+	r.stats.mu.RLock()
+	defer r.stats.mu.RUnlock()
 
 	// Create a copy of the stats to return
 	failuresCopy := make(map[int]int)
-	for k, v := range rm.stats.nodeFailures {
+	for k, v := range r.stats.nodeFailures {
 		failuresCopy[k] = v
 	}
 
-	return rm.stats.nodeSwitches, failuresCopy
+	return r.stats.nodeSwitches, failuresCopy
 }
 
 // SendDataWithNodeRetry attempts to send data to the chain, switching nodes if necessary

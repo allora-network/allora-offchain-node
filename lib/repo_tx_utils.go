@@ -23,7 +23,7 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 	// This value is updated by the fee price update routine - making copy for consistency within method
 	gasPrices := GetGasPrice()
 
-	excessFactorFees := float64(EXCESS_CORRECTION_IN_GAS) * gasPrices
+	excessFactorFees := float64(ExcessCorrectionInGas) * gasPrices
 	// Keep track of how many times fees need to be recalculated to avoid missing fee info between errors
 	recalculateFees := 1
 	// Use to keep track of expected sequence number between errors
@@ -49,7 +49,7 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 		txService, err := node.Chain.Client.CreateTxWithOptions(ctx, node.Chain.Account, txOptions, req)
 		if err != nil {
 			// Handle error on creation of tx, before broadcasting
-			if strings.Contains(err.Error(), ERROR_MESSAGE_ACCOUNT_SEQUENCE_MISMATCH) {
+			if strings.Contains(err.Error(), ErrorMessageAccountSequenceMismatch) {
 				log.Warn().Err(err).Str("msg", infoMsg).Msg("Account sequence mismatch detected, resetting sequence")
 				expectedSeqNum, currentSeqNum, err := parseSequenceFromAccountMismatchError(err.Error())
 				if err != nil {
@@ -75,9 +75,9 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 			} else {
 				errorResponse, err := ProcessErrorTx(ctx, err, infoMsg, retryCount, node)
 				switch errorResponse {
-				case ERROR_PROCESSING_OK:
+				case ErrorProcessingOk:
 					return txResp, nil
-				case ERROR_PROCESSING_ERROR:
+				case ErrorProcessingError:
 					// if error has not been handled, sleep and retry with regular delay
 					if err != nil {
 						log.Error().Err(err).Str("msg", infoMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, node.Wallet.MaxRetries)
@@ -87,15 +87,15 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 						}
 						continue
 					}
-				case ERROR_PROCESSING_CONTINUE:
+				case ErrorProcessingContinue:
 					// Error has not been handled, just continue next iteration
 					continue
-				case ERROR_PROCESSING_FEES:
+				case ErrorProcessingFees:
 					// Error has not been handled, just mark as recalculate fees on this iteration
 					log.Debug().Msg("Marking fee recalculation on tx creation")
-				case ERROR_PROCESSING_FAILURE:
+				case ErrorProcessingFailure:
 					return nil, errorsmod.Wrapf(err, "tx failed and not retried")
-				case ERROR_PROCESSING_SWITCHING_NODE:
+				case ErrorProcessingSwitchingNode:
 					return nil, err
 				default:
 					return nil, errorsmod.Wrapf(err, "failed to process error")
@@ -110,7 +110,7 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 
 			// Precalculate fees
 			estimatedGas := float64(txService.Gas()) * node.Wallet.GasAdjustment
-			feesFloat := float64(estimatedGas+EXCESS_CORRECTION_IN_GAS) * gasPrices
+			feesFloat := float64(estimatedGas+ExcessCorrectionInGas) * gasPrices
 			fees := cosmossdk_io_math.NewInt(int64(feesFloat))
 			// Add excess fees correction factor to increase with each fee-problematic retry
 			feeAdjustment := int64(float64(recalculateFees) * excessFactorFees)
@@ -143,9 +143,9 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 		// Handle error on broadcasting
 		errorResponse, err := ProcessErrorTx(ctx, err, infoMsg, retryCount, node)
 		switch errorResponse {
-		case ERROR_PROCESSING_OK:
+		case ErrorProcessingOk:
 			return txResp, nil
-		case ERROR_PROCESSING_ERROR:
+		case ErrorProcessingError:
 			// Error has not been handled, sleep and retry with regular delay
 			if err != nil {
 				log.Error().Err(err).Str("msg", infoMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, node.Wallet.MaxRetries)
@@ -155,17 +155,17 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 				}
 				continue
 			}
-		case ERROR_PROCESSING_CONTINUE:
+		case ErrorProcessingContinue:
 			// Error has not been handled, just continue next iteration
 			continue
-		case ERROR_PROCESSING_FEES:
+		case ErrorProcessingFees:
 			// Error has not been handled, just mark as recalculate fees on this iteration
 			log.Info().Msg("Insufficient fees, marking fee recalculation on tx broadcasting for retrial")
 			recalculateFees += 1
 			continue
-		case ERROR_PROCESSING_FAILURE:
+		case ErrorProcessingFailure:
 			return nil, errorsmod.Wrapf(err, "tx failed and not retried")
-		case ERROR_PROCESSING_SWITCHING_NODE:
+		case ErrorProcessingSwitchingNode:
 			return nil, err
 		default:
 			return nil, errorsmod.Wrapf(err, "failed to process error")

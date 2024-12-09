@@ -18,7 +18,10 @@ func (m *MockRPCManager) GetCurrentNode() *lib.NodeConfig {
 	if args.Get(0) == nil {
 		return nil
 	}
-	return args.Get(0).(*lib.NodeConfig)
+	if node, ok := args.Get(0).(*lib.NodeConfig); ok {
+		return node
+	}
+	return nil
 }
 
 func (m *MockRPCManager) SwitchToNextNode() *lib.NodeConfig {
@@ -26,12 +29,19 @@ func (m *MockRPCManager) SwitchToNextNode() *lib.NodeConfig {
 	if args.Get(0) == nil {
 		return nil
 	}
-	return args.Get(0).(*lib.NodeConfig)
+	if node, ok := args.Get(0).(*lib.NodeConfig); ok {
+		return node
+	}
+	return nil
 }
 
 func (m *MockRPCManager) GetStats() (int, map[int]int) {
 	args := m.Called()
-	return args.Int(0), args.Get(1).(map[int]int)
+	failures, ok := args.Get(1).(map[int]int)
+	if !ok {
+		return args.Int(0), make(map[int]int)
+	}
+	return args.Int(0), failures
 }
 
 func (m *MockRPCManager) GetNodes() ([]lib.NodeConfig, error) {
@@ -39,7 +49,10 @@ func (m *MockRPCManager) GetNodes() ([]lib.NodeConfig, error) {
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]lib.NodeConfig), args.Error(1)
+	if nodes, ok := args.Get(0).([]lib.NodeConfig); ok {
+		return nodes, args.Error(1)
+	}
+	return nil, args.Error(1)
 }
 
 func (m *MockRPCManager) SendDataWithNodeRetry(ctx context.Context, msg sdk.Msg, timeoutHeight uint64, operationName string) (*cosmosclient.Response, error) {
@@ -47,5 +60,8 @@ func (m *MockRPCManager) SendDataWithNodeRetry(ctx context.Context, msg sdk.Msg,
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*cosmosclient.Response), args.Error(1)
+	if response, ok := args.Get(0).(*cosmosclient.Response); ok {
+		return response, args.Error(1)
+	}
+	return nil, args.Error(1)
 }
