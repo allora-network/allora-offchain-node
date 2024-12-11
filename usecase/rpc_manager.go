@@ -60,14 +60,15 @@ func NewRPCManager(userConfig lib.UserConfig) (*RPCManager, error) {
 		return nil, fmt.Errorf("no RPC nodes provided")
 	}
 
-	validatedNodes, err := validateAndDeduplicateNodes(userConfig.Wallet.NodeRPCs)
+	// validate all urls are correct
+	err := validateNodes(userConfig.Wallet.NodeRPCs)
 	if err != nil {
 		return nil, err
 	}
 
 	// Load here the nodeconfigs
 	var nodes []lib.NodeConfig
-	for _, rpc := range validatedNodes {
+	for _, rpc := range userConfig.Wallet.NodeRPCs {
 		log.Info().Str("rpc", rpc).Msg("Initializing rpc")
 		nodeConfig, err := userConfig.GenerateNodeConfig(rpc)
 		if err != nil {
@@ -86,25 +87,15 @@ func NewRPCManager(userConfig lib.UserConfig) (*RPCManager, error) {
 	}, nil
 }
 
-func validateAndDeduplicateNodes(nodes []string) ([]string, error) {
-	seen := make(map[string]bool)
-	validated := make([]string, 0)
-
+func validateNodes(nodes []string) error {
 	for _, node := range nodes {
 		// Validate URL
 		_, err := url.ParseRequestURI(node)
 		if err != nil {
-			return nil, fmt.Errorf("invalid RPC URL %s: %w", node, err)
-		}
-
-		// Deduplicate
-		if !seen[node] {
-			seen[node] = true
-			validated = append(validated, node)
+			return fmt.Errorf("invalid RPC URL %s: %w", node, err)
 		}
 	}
-
-	return validated, nil
+	return nil
 }
 
 // SwitchToNextNode switches to the next node in the list.
@@ -159,12 +150,16 @@ func (r *RPCManager) SendDataWithNodeRetry(
 	totalNodes := len(r.nodes)
 
 	for attempts := 0; attempts < totalNodes; attempts++ {
-		log.Debug().Str("rpc", r.GetCurrentNode().Chain.Client.RPC.String()).Msg("Attempting with current node")
 		currentNode := r.GetCurrentNode()
-		currentIdx := r.currentIdx
+		currentIdx := r.GetCurrentIndex()
+		log.Debug().Str("rpc", r.GetCurrentNode().Wallet.NodeRPCs[currentIdx]).Msg("Attempting with current node")
 
 		// Skip if we've already tried this node
 		if triedNodes[currentIdx] {
+			log.Debug().Int("idx", currentIdx).
+				Str("rpc", r.GetCurrentNode().Wallet.NodeRPCs[currentIdx]).
+				Str("operation", operationName).
+				Msg("Already tried this node, switching to next")
 			r.SwitchToNextNode()
 			continue
 		}
@@ -182,6 +177,7 @@ func (r *RPCManager) SendDataWithNodeRetry(
 		if lib.IsErrorSwitchingNode(err) {
 			log.Warn().
 				Int("idx", currentIdx).
+				Str("rpc", r.GetCurrentNode().Wallet.NodeRPCs[currentIdx]).
 				Str("operation", operationName).
 				Msg("Switching to next node")
 			r.SwitchToNextNode()
