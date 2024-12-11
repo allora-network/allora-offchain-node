@@ -129,7 +129,7 @@ func (c *UserConfig) GenerateNodeConfig(rpc string) (*NodeConfig, error) {
 		c.Wallet.SubmitTx = false
 		log.Err(err).Msg("could not retrieve allora blockchain address, transactions will not be submitted to chain")
 	} else {
-		log.Info().Str("address", address).Msg("allora blockchain address loaded")
+		log.Debug().Str("rpc", rpc).Str("address", address).Msg("allora blockchain address loaded")
 	}
 
 	// Create query client
@@ -148,8 +148,7 @@ func (c *UserConfig) GenerateNodeConfig(rpc string) (*NodeConfig, error) {
 
 	c.Wallet.Address = address // Overwrite the address with the one from the keystore
 
-	log.Info().Msg("Allora client created successfully")
-	log.Info().Msg("Wallet address: " + address)
+	log.Info().Str("rpc", rpc).Str("address", address).Msg("Allora client created successfully")
 
 	alloraChain := ChainConfig{
 		Address:              address,

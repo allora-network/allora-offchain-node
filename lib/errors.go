@@ -24,6 +24,7 @@ var (
 	ErrNotEnoughBalance = errorsmod.Register(ErrorCodespace, 2, "not enough balance")
 	ErrNotRegistered    = errorsmod.Register(ErrorCodespace, 3, "not registered")
 	ErrStakeBelowMin    = errorsmod.Register(ErrorCodespace, 4, "stake below minimum")
+	ErrFullMempool      = errorsmod.Register(ErrorCodespace, 5, "full mempool")
 )
 
 const ErrorMessageAbciErrorCodeMarker = "error code:"
@@ -76,12 +77,8 @@ func ProcessErrorTx(ctx context.Context, err error, infoMsg string, retryCount i
 					log.Warn().
 						Err(err).
 						Str("msg", infoMsg).
-						Msg("Mempool is full, retrying with exponential backoff")
-					delay := calculateExponentialBackoffDelaySeconds(node.Wallet.RetryDelay, retryCount)
-					if DoneOrWait(ctx, delay) {
-						return ErrorProcessingError, ctx.Err()
-					}
-					return ErrorProcessingContinue, nil
+						Msg("Mempool is full, switching to next node")
+					return ErrorProcessingSwitchingNode, ErrFullMempool
 				case int(sdkerrors.ErrWrongSequence.ABCICode()), int(sdkerrors.ErrInvalidSequence.ABCICode()):
 					log.Warn().
 						Err(err).
@@ -189,10 +186,6 @@ func ProcessErrorTx(ctx context.Context, err error, infoMsg string, retryCount i
 	return ErrorProcessingError, errorsmod.Wrapf(err, "failed to process error")
 }
 
-// func ProcessErrorQuery(ctx context.Context, err error, infoMsg string, retryCount int64, node *NodeConfig) (string, error) {
-
-// }
-
 // ParseStatus parses a status code and message from a given text string.
 func ParseHTTPStatus(input string) (int, string, error) {
 	// Regular expression to match "Status: <code> <message>" or similar patterns in text
@@ -217,5 +210,5 @@ func ParseHTTPStatus(input string) (int, string, error) {
 
 // Returns true if the error is a switching-node error
 func IsErrorSwitchingNode(err error) bool {
-	return errors.Is(err, ErrTooManyRequests)
+	return errors.Is(err, ErrTooManyRequests) || errors.Is(err, ErrFullMempool)
 }

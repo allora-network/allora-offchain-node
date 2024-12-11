@@ -16,6 +16,7 @@ import (
 
 type RPCManagerInterface interface {
 	GetCurrentNode() *lib.NodeConfig
+	GetCurrentIndex() int
 	SwitchToNextNode() *lib.NodeConfig
 	GetStats() (int, map[int]int)
 	SendDataWithNodeRetry(ctx context.Context, msg sdk.Msg, timeoutHeight uint64, operationName string) (*cosmosclient.Response, error)
@@ -39,6 +40,18 @@ func (r *RPCManager) GetNodes() ([]lib.NodeConfig, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.nodes, nil
+}
+
+func (r *RPCManager) GetCurrentIndex() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.currentIdx
+}
+
+func (r *RPCManager) GetCurrentNode() *lib.NodeConfig {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return &r.nodes[r.currentIdx]
 }
 
 // newRPCManager is now private, used internally by InitRPCManager
@@ -94,13 +107,10 @@ func validateAndDeduplicateNodes(nodes []string) ([]string, error) {
 	return validated, nil
 }
 
-func (r *RPCManager) GetCurrentNode() *lib.NodeConfig {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return &r.nodes[r.currentIdx]
-}
-
+// SwitchToNextNode switches to the next node in the list.
+// Node change is persistent, so it will be used again in the next call
 func (r *RPCManager) SwitchToNextNode() *lib.NodeConfig {
+	log.Info().Msg("Switching to next RPC node")
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -145,21 +155,22 @@ func (r *RPCManager) SendDataWithNodeRetry(
 	operationName string,
 ) (*cosmosclient.Response, error) {
 	// Track which nodes we've tried
-	triedNodes := make(map[string]bool)
+	triedNodes := make(map[int]bool)
 	totalNodes := len(r.nodes)
 
 	for attempts := 0; attempts < totalNodes; attempts++ {
+		log.Debug().Str("rpc", r.GetCurrentNode().Chain.Client.RPC.String()).Msg("Attempting with current node")
 		currentNode := r.GetCurrentNode()
-		nodeKey := currentNode.Chain.Address
+		currentIdx := r.currentIdx
 
 		// Skip if we've already tried this node
-		if triedNodes[nodeKey] {
+		if triedNodes[currentIdx] {
 			r.SwitchToNextNode()
 			continue
 		}
 
 		// Mark this node as tried
-		triedNodes[nodeKey] = true
+		triedNodes[currentIdx] = true
 
 		// Attempt to send data using existing retry mechanism
 		res, err := currentNode.SendDataWithRetry(ctx, msg, operationName, timeoutHeight)
@@ -170,7 +181,7 @@ func (r *RPCManager) SendDataWithNodeRetry(
 		// If it's a node switching error, switch to next node and continue
 		if lib.IsErrorSwitchingNode(err) {
 			log.Warn().
-				Str("node", nodeKey).
+				Int("idx", currentIdx).
 				Str("operation", operationName).
 				Msg("Switching to next node")
 			r.SwitchToNextNode()
@@ -195,8 +206,8 @@ func RunWithNodeRetry[T any](
 ) (T, error) {
 	var zeroValue T
 
-	// Track which nodes we've tried
-	triedNodes := make(map[string]bool)
+	// Change to use indices instead of addresses
+	triedNodes := make(map[int]bool)
 	nodes, err := r.GetNodes()
 	if err != nil {
 		return zeroValue, errorsmod.Wrapf(err, "error getting nodes")
@@ -205,16 +216,16 @@ func RunWithNodeRetry[T any](
 
 	for attempts := 0; attempts < totalNodes; attempts++ {
 		currentNode := r.GetCurrentNode()
-		nodeKey := currentNode.Chain.Address
+		currentIdx := r.GetCurrentIndex() // We can use the attempt number as the index
 
 		// Skip if we've already tried this node
-		if triedNodes[nodeKey] {
+		if triedNodes[currentIdx] {
 			r.SwitchToNextNode()
 			continue
 		}
 
 		// Mark this node as tried
-		triedNodes[nodeKey] = true
+		triedNodes[currentIdx] = true
 
 		// Attempt operation on current node
 		result, err := operation(currentNode)
@@ -225,7 +236,7 @@ func RunWithNodeRetry[T any](
 		// If it's a node switching error, switch to next node and continue
 		if lib.IsErrorSwitchingNode(err) {
 			log.Warn().
-				Str("node", nodeKey).
+				Int("idx", currentIdx). // Changed from node address to index
 				Str("operation", operationName).
 				Msg("Switching to next node")
 			r.SwitchToNextNode()

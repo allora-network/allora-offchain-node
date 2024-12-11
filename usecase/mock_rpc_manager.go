@@ -65,3 +65,8 @@ func (m *MockRPCManager) SendDataWithNodeRetry(ctx context.Context, msg sdk.Msg,
 	}
 	return nil, args.Error(1)
 }
+
+func (m *MockRPCManager) GetCurrentIndex() int {
+	args := m.Called()
+	return args.Int(0)
+}
