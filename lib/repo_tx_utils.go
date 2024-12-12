@@ -2,7 +2,6 @@ package lib
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -31,7 +30,7 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 
 	// Create tx options with timeout height if specified
 	if timeoutHeight > 0 {
-		log.Debug().Uint64("timeoutHeight", timeoutHeight).Msg("Setting timeout height for tx")
+		log.Debug().Str("rpc", node.RPC).Uint64("timeoutHeight", timeoutHeight).Msg("Setting timeout height for tx")
 		node.Chain.Client.TxFactory = node.Chain.Client.TxFactory.WithTimeoutHeight(timeoutHeight)
 	}
 
@@ -41,6 +40,7 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 		txOptions := cosmosclient.TxOptions{} // nolint: exhaustruct
 		if globalExpectedSeqNum > 0 && node.Chain.Client.TxFactory.Sequence() != globalExpectedSeqNum {
 			log.Debug().
+				Str("rpc", node.RPC).
 				Uint64("expected", globalExpectedSeqNum).
 				Uint64("current", node.Chain.Client.TxFactory.Sequence()).
 				Msg("Resetting sequence to expected from previous sequence errors")
@@ -53,7 +53,7 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 				log.Warn().Err(err).Str("msg", infoMsg).Msg("Account sequence mismatch detected, resetting sequence")
 				expectedSeqNum, currentSeqNum, err := parseSequenceFromAccountMismatchError(err.Error())
 				if err != nil {
-					log.Error().Err(err).Str("msg", infoMsg).Msg("Failed to parse sequence from error - retrying with regular delay")
+					log.Error().Err(err).Str("rpc", node.RPC).Str("msg", infoMsg).Msg("Failed to parse sequence from error - retrying with regular delay")
 					if DoneOrWait(ctx, node.Wallet.RetryDelay) {
 						return nil, ctx.Err()
 					}
@@ -64,7 +64,7 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 				log.Info().Uint64("expected", expectedSeqNum).Uint64("current", currentSeqNum).Msg("Retrying resetting sequence from current to expected")
 				txService, err = node.Chain.Client.CreateTxWithOptions(ctx, node.Chain.Account, txOptions, req)
 				if err != nil {
-					log.Error().Err(err).Str("msg", infoMsg).Msg("Failed to reset sequence second time, retrying with regular delay")
+					log.Error().Err(err).Str("rpc", node.RPC).Str("msg", infoMsg).Msg("Failed to reset sequence second time, retrying with regular delay")
 					if DoneOrWait(ctx, node.Wallet.RetryDelay) {
 						return nil, ctx.Err()
 					}
@@ -73,14 +73,14 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 				// if creation is successful, make the expected sequence number persistent
 				globalExpectedSeqNum = expectedSeqNum
 			} else {
-				errorResponse, err := ProcessErrorTx(ctx, err, infoMsg, retryCount, node)
+				errorResponse, err := ProcessErrorTx(ctx, err, infoMsg, retryCount, node.Wallet.MaxRetries, node)
 				switch errorResponse {
 				case ErrorProcessingOk:
 					return txResp, nil
 				case ErrorProcessingError:
 					// if error has not been handled, sleep and retry with regular delay
 					if err != nil {
-						log.Error().Err(err).Str("msg", infoMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, node.Wallet.MaxRetries)
+						log.Error().Err(err).Str("rpc", node.RPC).Str("msg", infoMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, node.Wallet.MaxRetries)
 						// Wait for the uniform delay before retrying
 						if DoneOrWait(ctx, node.Wallet.RetryDelay) {
 							return nil, ctx.Err()
@@ -136,19 +136,19 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 		// Broadcast tx
 		txResponse, err := txService.Broadcast(ctx)
 		if err == nil {
-			log.Info().Str("msg", infoMsg).Str("txHash", txResponse.TxHash).Msg("Success")
+			log.Info().Str("rpc", node.RPC).Str("msg", infoMsg).Str("txHash", txResponse.TxHash).Msg("Success")
 			return txResp, nil
 		}
 
 		// Handle error on broadcasting
-		errorResponse, err := ProcessErrorTx(ctx, err, infoMsg, retryCount, node)
+		errorResponse, err := ProcessErrorTx(ctx, err, infoMsg, retryCount, node.Wallet.MaxRetries, node)
 		switch errorResponse {
 		case ErrorProcessingOk:
 			return txResp, nil
 		case ErrorProcessingError:
 			// Error has not been handled, sleep and retry with regular delay
 			if err != nil {
-				log.Error().Err(err).Str("msg", infoMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, node.Wallet.MaxRetries)
+				log.Error().Err(err).Str("rpc", node.RPC).Str("msg", infoMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, node.Wallet.MaxRetries)
 				// Wait for the uniform delay before retrying
 				if DoneOrWait(ctx, node.Wallet.RetryDelay) {
 					return nil, ctx.Err()
@@ -172,7 +172,7 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 		}
 	}
 
-	return nil, errors.New("Tx not able to complete after failing max retries")
+	return nil, errorsmod.Wrapf(ErrUnexpectedError, "Tx failed after max retries")
 }
 
 // Extract expected and current sequence numbers from the error message

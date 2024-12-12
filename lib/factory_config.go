@@ -37,7 +37,6 @@ func getAlloraClient(config *UserConfig, rpc string) (*cosmosclient.Client, erro
 		log.Info().Msg("Home directory does not exist, creating...")
 		err = os.MkdirAll(alloraClientHome, 0755)
 		if err != nil {
-			config.Wallet.SubmitTx = false
 			return nil, errorsmod.Wrap(err, "cannot create allora client home directory")
 		}
 		log.Info().Str("home", alloraClientHome).Msg("Allora client home directory created")
@@ -76,7 +75,6 @@ func getAlloraClient(config *UserConfig, rpc string) (*cosmosclient.Client, erro
 		cosmosclient.WithRPCClient(rpcClient),
 	)
 	if err != nil {
-		config.Wallet.SubmitTx = false
 		return nil, err
 	}
 	return &client, nil
@@ -85,7 +83,6 @@ func getAlloraClient(config *UserConfig, rpc string) (*cosmosclient.Client, erro
 func (c *UserConfig) GenerateNodeConfig(rpc string) (*NodeConfig, error) {
 	client, err := getAlloraClient(c, rpc)
 	if err != nil {
-		c.Wallet.SubmitTx = false
 		return nil, err
 	}
 	var account *cosmosaccount.Account
@@ -94,7 +91,6 @@ func (c *UserConfig) GenerateNodeConfig(rpc string) (*NodeConfig, error) {
 		// get account from the keyring
 		acc, err := client.Account(c.Wallet.AddressKeyName)
 		if err != nil {
-			c.Wallet.SubmitTx = false
 			log.Error().Err(err).Msg("could not retrieve account from keyring")
 		} else {
 			account = &acc
@@ -106,9 +102,7 @@ func (c *UserConfig) GenerateNodeConfig(rpc string) (*NodeConfig, error) {
 			if err.Error() == "account already exists" {
 				acc, err = client.Account(c.Wallet.AddressKeyName)
 			}
-
 			if err != nil {
-				c.Wallet.SubmitTx = false
 				log.Err(err).Msg("could not restore account from mnemonic")
 			} else {
 				account = &acc
@@ -126,10 +120,7 @@ func (c *UserConfig) GenerateNodeConfig(rpc string) (*NodeConfig, error) {
 
 	address, err := account.Address(ADDRESS_PREFIX)
 	if err != nil {
-		c.Wallet.SubmitTx = false
 		log.Err(err).Msg("could not retrieve allora blockchain address, transactions will not be submitted to chain")
-	} else {
-		log.Debug().Str("rpc", rpc).Str("address", address).Msg("allora blockchain address loaded")
 	}
 
 	// Create query client
@@ -162,6 +153,7 @@ func (c *UserConfig) GenerateNodeConfig(rpc string) (*NodeConfig, error) {
 	}
 
 	Node := NodeConfig{
+		RPC:     rpc,
 		Chain:   alloraChain,
 		Wallet:  c.Wallet,
 		Worker:  c.Worker,

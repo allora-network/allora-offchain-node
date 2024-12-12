@@ -70,3 +70,14 @@ func (m *MockRPCManager) GetCurrentIndex() int {
 	args := m.Called()
 	return args.Int(0)
 }
+
+func (m *MockRPCManager) SwitchToNode(index int) *lib.NodeConfig {
+	args := m.Called(index)
+	if args.Get(0) == nil {
+		return nil
+	}
+	if node, ok := args.Get(0).(*lib.NodeConfig); ok {
+		return node
+	}
+	return nil
+}

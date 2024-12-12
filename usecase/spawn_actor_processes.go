@@ -525,8 +525,6 @@ func runActorProcess[T lib.TopicActor](ctx context.Context, suite *UseCaseSuite,
 			distanceUntilNextEpoch := epochEnd - currentBlockHeight
 			if distanceUntilNextEpoch < 0 {
 				log.Warn().
-					Uint64("topicId", params.Config.GetTopicId()).
-					Str("actorType", params.ActorType).
 					Int64("distanceUntilNextEpoch", distanceUntilNextEpoch).
 					Int64("submissionWindowLength", params.SubmissionWindowLength).
 					Msg("Distance until next epoch is less than 0, setting to submissionWindowLength")

@@ -118,6 +118,7 @@ type UserConfig struct {
 }
 
 type NodeConfig struct {
+	RPC     string
 	Chain   ChainConfig
 	Wallet  WalletConfig
 	Worker  []WorkerConfig
@@ -222,8 +223,15 @@ func (c *UserConfig) ValidateWalletConfig() error {
 }
 
 func (reputerConfig *ReputerConfig) ValidateReputerConfig() error {
-	if reputerConfig.GroundTruthEntrypoint != nil && !reputerConfig.GroundTruthEntrypoint.CanSourceGroundTruthAndComputeLoss() {
-		return errors.New("invalid loss entrypoint")
+	if reputerConfig.GroundTruthEntrypointName == "" ||
+		reputerConfig.GroundTruthEntrypoint == nil ||
+		(reputerConfig.GroundTruthEntrypoint != nil &&
+			!reputerConfig.GroundTruthEntrypoint.CanSourceGroundTruthAndComputeLoss()) {
+		return errors.New("invalid ground truth entrypoint")
+	}
+	if reputerConfig.LossFunctionEntrypointName == "" ||
+		reputerConfig.LossFunctionEntrypoint == nil {
+		return errors.New("invalid loss function entrypoint")
 	}
 	return nil
 }

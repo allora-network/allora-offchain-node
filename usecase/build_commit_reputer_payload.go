@@ -69,6 +69,7 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 	} else {
 		log.Debug().Msgf("Sending InsertReputerPayload to chain %s", string(reqJSON))
 	}
+
 	if suite.RPCManager.GetCurrentNode().Wallet.SubmitTx {
 		_, err = suite.RPCManager.SendDataWithNodeRetry(ctx, req, timeoutHeight, "Send Reputer Data to chain")
 		if err != nil {

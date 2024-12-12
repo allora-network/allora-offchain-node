@@ -18,7 +18,7 @@ type RPCManagerInterface interface {
 	GetCurrentNode() *lib.NodeConfig
 	GetCurrentIndex() int
 	SwitchToNextNode() *lib.NodeConfig
-	GetStats() (int, map[int]int)
+	SwitchToNode(index int) *lib.NodeConfig
 	SendDataWithNodeRetry(ctx context.Context, msg sdk.Msg, timeoutHeight uint64, operationName string) (*cosmosclient.Response, error)
 	GetNodes() ([]lib.NodeConfig, error)
 }
@@ -27,13 +27,6 @@ type RPCManager struct {
 	nodes      []lib.NodeConfig
 	currentIdx int
 	mu         sync.RWMutex
-	stats      RPCStats
-}
-
-type RPCStats struct {
-	nodeFailures map[int]int
-	nodeSwitches int
-	mu           sync.RWMutex
 }
 
 func (r *RPCManager) GetNodes() ([]lib.NodeConfig, error) {
@@ -72,7 +65,8 @@ func NewRPCManager(userConfig lib.UserConfig) (*RPCManager, error) {
 		log.Info().Str("rpc", rpc).Msg("Initializing rpc")
 		nodeConfig, err := userConfig.GenerateNodeConfig(rpc)
 		if err != nil {
-			return nil, err
+			log.Error().Err(err).Str("rpc", rpc).Msg("Error generating node config, skipping RPC node")
+			continue
 		}
 		nodes = append(nodes, *nodeConfig)
 	}
@@ -80,9 +74,6 @@ func NewRPCManager(userConfig lib.UserConfig) (*RPCManager, error) {
 	return &RPCManager{ // nolint: exhaustruct
 		nodes:      nodes,
 		currentIdx: 0,
-		stats: RPCStats{ // nolint: exhaustruct
-			nodeFailures: make(map[int]int),
-		},
 		// no need to init mu
 	}, nil
 }
@@ -98,99 +89,45 @@ func validateNodes(nodes []string) error {
 	return nil
 }
 
+// internal function, switches to a node assuming a lock has been acquired
+func (r *RPCManager) switchToNodeLocked(index int) *lib.NodeConfig {
+	oldIndex := r.currentIdx
+	r.currentIdx = index
+
+	log.Debug().
+		Str("from", r.nodes[oldIndex].RPC).
+		Str("to", r.nodes[index].RPC).
+		Msg("Switch to next RPC node")
+
+	return &r.nodes[index]
+}
+
 // SwitchToNextNode switches to the next node in the list.
 // Node change is persistent, so it will be used again in the next call
 func (r *RPCManager) SwitchToNextNode() *lib.NodeConfig {
-	log.Info().Msg("Switching to next RPC node")
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
-	oldIndex := r.currentIdx
-	r.currentIdx = (r.currentIdx + 1) % len(r.nodes)
-	newNode := r.nodes[r.currentIdx]
-
-	// Update stats
-	r.stats.mu.Lock()
-	r.stats.nodeFailures[oldIndex]++
-	r.stats.nodeSwitches++
-	r.stats.mu.Unlock()
-
-	log.Warn().
-		Int("from_node", oldIndex).
-		Int("to_node", r.currentIdx).
-		Int("total_switches", r.stats.nodeSwitches).
-		Int("node_failures", r.stats.nodeFailures[oldIndex]).
-		Msg("Switching to next RPC node")
-
-	return &newNode
+	// Get next node index, wrap around if necessary
+	nextNode := (r.currentIdx + 1) % len(r.nodes)
+	return r.switchToNodeLocked(nextNode)
 }
 
-func (r *RPCManager) GetStats() (int, map[int]int) {
-	r.stats.mu.RLock()
-	defer r.stats.mu.RUnlock()
-
-	// Create a copy of the stats to return
-	failuresCopy := make(map[int]int)
-	for k, v := range r.stats.nodeFailures {
-		failuresCopy[k] = v
-	}
-
-	return r.stats.nodeSwitches, failuresCopy
+// Switches to a specific node, acquiring a lock
+func (r *RPCManager) SwitchToNode(index int) *lib.NodeConfig {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.switchToNodeLocked(index)
 }
 
-// SendDataWithNodeRetry attempts to send data to the chain, switching nodes if necessary
 func (r *RPCManager) SendDataWithNodeRetry(
 	ctx context.Context,
 	msg sdk.Msg,
 	timeoutHeight uint64,
 	operationName string,
 ) (*cosmosclient.Response, error) {
-	// Track which nodes we've tried
-	triedNodes := make(map[int]bool)
-	totalNodes := len(r.nodes)
-
-	for attempts := 0; attempts < totalNodes; attempts++ {
-		currentNode := r.GetCurrentNode()
-		currentIdx := r.GetCurrentIndex()
-		log.Debug().Str("rpc", r.GetCurrentNode().Wallet.NodeRPCs[currentIdx]).Msg("Attempting with current node")
-
-		// Skip if we've already tried this node
-		if triedNodes[currentIdx] {
-			log.Debug().Int("idx", currentIdx).
-				Str("rpc", r.GetCurrentNode().Wallet.NodeRPCs[currentIdx]).
-				Str("operation", operationName).
-				Msg("Already tried this node, switching to next")
-			r.SwitchToNextNode()
-			continue
-		}
-
-		// Mark this node as tried
-		triedNodes[currentIdx] = true
-
-		// Attempt to send data using existing retry mechanism
-		res, err := currentNode.SendDataWithRetry(ctx, msg, operationName, timeoutHeight)
-		if err == nil {
-			return res, nil
-		}
-
-		// If it's a node switching error, switch to next node and continue
-		if lib.IsErrorSwitchingNode(err) {
-			log.Warn().
-				Int("idx", currentIdx).
-				Str("rpc", r.GetCurrentNode().Wallet.NodeRPCs[currentIdx]).
-				Str("operation", operationName).
-				Msg("Switching to next node")
-			r.SwitchToNextNode()
-			continue
-		}
-
-		// For any other error, return it immediately
-		return nil, errorsmod.Wrapf(err, "error during %s", operationName)
-	}
-
-	// If we've tried all nodes and none worked
-	return nil, errorsmod.Wrapf(ErrAllNodesExhausted,
-		"tried %d nodes during %s", totalNodes, operationName)
+	return RunWithNodeRetry(ctx, r, func(node *lib.NodeConfig) (*cosmosclient.Response, error) {
+		return node.SendDataWithRetry(ctx, msg, operationName, timeoutHeight)
+	}, operationName)
 }
 
 // RunWithNodeRetry executes an operation that returns (T, error) on nodes until success or all nodes are exhausted
@@ -202,13 +139,14 @@ func RunWithNodeRetry[T any](
 ) (T, error) {
 	var zeroValue T
 
-	// Change to use indices instead of addresses
 	triedNodes := make(map[int]bool)
 	nodes, err := r.GetNodes()
 	if err != nil {
 		return zeroValue, errorsmod.Wrapf(err, "error getting nodes")
 	}
 	totalNodes := len(nodes)
+	// Force change of initial node
+	r.SwitchToNextNode()
 
 	for attempts := 0; attempts < totalNodes; attempts++ {
 		currentNode := r.GetCurrentNode()
@@ -223,7 +161,7 @@ func RunWithNodeRetry[T any](
 		// Mark this node as tried
 		triedNodes[currentIdx] = true
 
-		// Attempt operation on current node
+		// Attempt operation on current node - if no error, return result
 		result, err := operation(currentNode)
 		if err == nil {
 			return result, nil
@@ -232,18 +170,19 @@ func RunWithNodeRetry[T any](
 		// If it's a node switching error, switch to next node and continue
 		if lib.IsErrorSwitchingNode(err) {
 			log.Warn().
+				Err(err).
+				Str("rpc", currentNode.RPC).
 				Int("idx", currentIdx). // Changed from node address to index
 				Str("operation", operationName).
-				Msg("Switching to next node")
+				Msg("Error - Switching to next node")
 			r.SwitchToNextNode()
 			continue
 		}
 
-		// For any other error, return it immediately
+		// For any other error, return it immediately without switching to next node
 		return zeroValue, errorsmod.Wrapf(err, "error during %s", operationName)
 	}
 
-	// If we've tried all nodes and none worked
 	return zeroValue, errorsmod.Wrapf(ErrAllNodesExhausted,
 		"tried %d nodes during %s", totalNodes, operationName)
 }
