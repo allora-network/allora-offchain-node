@@ -148,6 +148,14 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(ctx context.Context,
 	}
 
 	minStake := config.MinStake.Number
+	if minStake.IsNil() {
+		log.Info().Msg("No minimum stake configured in reputer, skipping adding stake.")
+		return true, nil
+	}
+	if minStake.IsZero() {
+		log.Info().Msg("No minimum stake requested, skipping adding stake.")
+		return true, nil
+	}
 	if minStake.LTE(stake) {
 		log.Info().Interface("stake", stake).Interface("minStake", minStake).Msg("Stake above minimum requested stake, skipping adding stake.")
 		return true, nil
