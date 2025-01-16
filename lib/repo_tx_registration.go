@@ -6,7 +6,6 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	cosmossdk_io_math "cosmossdk.io/math"
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
 )
 
@@ -149,7 +148,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(ctx context.Context,
 		return false, err
 	}
 
-	minStake := cosmossdk_io_math.NewInt(config.MinStake)
+	minStake := config.MinStake
 	if minStake.LTE(stake) {
 		log.Info().Msg("Stake above minimum requested stake, skipping adding stake.")
 		return true, nil

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	cosmossdk_io_math "cosmossdk.io/math"
 	emissions "github.com/allora-network/allora-chain/x/emissions/types"
 	bank "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/ignite/cli/v28/ignite/pkg/cosmosaccount"
@@ -36,23 +37,23 @@ type WalletConfig struct {
 	Address                       string // will be overwritten by the keystore. This is the 1 value that is auto-generated in this struct
 	AddressKeyName                string // load a address by key from the keystore
 	AddressRestoreMnemonic        string
-	AlloraHomeDir                 string  // home directory for the allora keystore
-	Gas                           string  // gas to use for the allora client
-	GasAdjustment                 float64 // gas adjustment to use for the allora client
-	GasPrices                     string  // gas prices to use for the allora client - "auto" for auto-calculated fees
-	GasPriceUpdateInterval        int64   // number of seconds to wait between updates to the gas price
-	MaxFees                       uint64  // max fees to pay for a single transaction
-	NodeRpc                       string  // rpc node for allora chain
-	MaxRetries                    int64   // retry to get data from chain up to this many times per query or tx
-	RetryDelay                    int64   // number of seconds to wait between retries (general case)
-	AccountSequenceRetryDelay     int64   // number of seconds to wait between retries in case of account sequence error
-	SubmitTx                      bool    // useful for dev/testing. set to false to run in dry-run processes without committing to the chain
-	BlockDurationEstimated        float64 // estimated average block duration in seconds
-	WindowCorrectionFactor        float64 // correction factor for the time estimation, suggested range 0.7-0.9.
-	TimeoutRPCSecondsQuery        int64   // timeout for rpc queries in seconds, including retries
-	TimeoutRPCSecondsTx           int64   // timeout for rpc data send in seconds, including retries
-	TimeoutRPCSecondsRegistration int64   // timeout for rpc registration in seconds, including retries
-	TimeoutHTTPConnection         int64   // timeout for http connection in seconds
+	AlloraHomeDir                 string                // home directory for the allora keystore
+	Gas                           string                // gas to use for the allora client
+	GasAdjustment                 float64               // gas adjustment to use for the allora client
+	GasPrices                     string                // gas prices to use for the allora client - "auto" for auto-calculated fees
+	GasPriceUpdateInterval        int64                 // number of seconds to wait between updates to the gas price
+	MaxFees                       cosmossdk_io_math.Int // max fees to pay for a single transaction
+	NodeRpc                       string                // rpc node for allora chain
+	MaxRetries                    int64                 // retry to get data from chain up to this many times per query or tx
+	RetryDelay                    int64                 // number of seconds to wait between retries (general case)
+	AccountSequenceRetryDelay     int64                 // number of seconds to wait between retries in case of account sequence error
+	SubmitTx                      bool                  // useful for dev/testing. set to false to run in dry-run processes without committing to the chain
+	BlockDurationEstimated        float64               // estimated average block duration in seconds
+	WindowCorrectionFactor        float64               // correction factor for the time estimation, suggested range 0.7-0.9.
+	TimeoutRPCSecondsQuery        int64                 // timeout for rpc queries in seconds, including retries
+	TimeoutRPCSecondsTx           int64                 // timeout for rpc data send in seconds, including retries
+	TimeoutRPCSecondsRegistration int64                 // timeout for rpc registration in seconds, including retries
+	TimeoutHTTPConnection         int64                 // timeout for http connection in seconds
 }
 
 // Properties auto-generated based on what the user has provided in WalletConfig fields of UserConfig
@@ -95,7 +96,7 @@ type ReputerConfig struct {
 	// Will not repute if current stake is less than this, after trying to add any necessary stake.
 	// This is idempotent in that it will not add more stake than specified here.
 	// Set to 0 to effectively disable this feature and use whatever stake has already been added.
-	MinStake               int64
+	MinStake               cosmossdk_io_math.Int
 	GroundTruthParameters  map[string]string      // Map for variable configuration values
 	LossFunctionParameters LossFunctionParameters // Map for variable configuration values
 }
