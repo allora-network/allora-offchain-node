@@ -258,12 +258,12 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 			feeAdjustment := int64(float64(recalculateFees) * excessFactorFees)
 			fees = fees.Add(cosmossdk_io_math.NewInt(feeAdjustment))
 			// Limit fees to maxFees
-			if fees.GT(node.Wallet.MaxFees) {
+			if fees.GT(node.Wallet.MaxFees.Number) {
 				log.Warn().Uint64("gas", txService.Gas()).Interface("limit", node.Wallet.MaxFees).Msg("Gas limit exceeded, using maxFees instead")
-				fees = node.Wallet.MaxFees
+				fees = node.Wallet.MaxFees.Number
 			}
 			txOptions := cosmosclient.TxOptions{ // nolint: exhaustruct
-				Fees: fmt.Sprintf("%duallo", fees),
+				Fees: fmt.Sprintf("%suallo", fees.String()),
 			}
 			log.Info().Str("fees", txOptions.Fees).Msg("Attempting tx with calculated fees")
 			txService, err = node.Chain.Client.CreateTxWithOptions(ctx, node.Chain.Account, txOptions, req)
