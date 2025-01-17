@@ -45,6 +45,7 @@ const ErrorMessageReadFlatPanic = "{ReadFlat}: panic"
 const ErrorMessageReadPerBytePanic = "{ReadPerByte}: panic"
 const ErrorMessageConnectionRefused = "connection refused"
 const ErrorMessageNoInferencesFoundForTopic = "no inferences found for topic"
+const ErrorContextDeadlineExceeded = "context deadline exceeded"
 
 // Excess correction in gas for txs that are not successful
 const ExcessCorrectionInGas = 20000
@@ -199,6 +200,9 @@ func triageStringMatchingError(ctx context.Context, err error, infoMsg string, n
 			return ErrorProcessingError, ctx.Err()
 		}
 		return ErrorProcessingContinue, nil
+	} else if strings.Contains(err.Error(), ErrorContextDeadlineExceeded) {
+		log.Warn().Err(err).Str("rpc", node.RPC).Str("msg", infoMsg).Msg("Context deadline exceeded, switching to next node")
+		return ErrorProcessingSwitchingNode, err
 	} else if strings.Contains(err.Error(), ErrorMessageWaitingForNextBlock) {
 		log.Warn().Err(err).Str("rpc", node.RPC).Str("msg", infoMsg).Msg("Tx accepted in mempool, it will be included in the following block(s) - not retrying")
 		return ErrorProcessingOk, nil
