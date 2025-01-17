@@ -101,11 +101,7 @@ func ProcessErrorTx(ctx context.Context, err error, infoMsg string, retryCount, 
 		return processingType, err
 	}
 
-	if processingType, err := triageStringMatchingError(ctx, err, infoMsg, node); err != nil {
-		return processingType, err
-	} else {
-		return processingType, nil
-	}
+	return triageStringMatchingError(ctx, err, infoMsg, node)
 }
 
 // triageABCIErrorCode handles specific ABCI error codes and returns appropriate processing instructions
