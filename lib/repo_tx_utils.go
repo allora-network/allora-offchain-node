@@ -17,7 +17,6 @@ import (
 // SendDataWithRetry attempts to send data, handling retries, with fee awareness.
 // Custom handling for different errors.
 func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg, infoMsg string, timeoutHeight uint64) (*cosmosclient.Response, error) {
-	var txResp *cosmosclient.Response
 	// Excess fees correction factor translated to fees using configured gas prices
 	// This value is updated by the fee price update routine - making copy for consistency within method
 	gasPrices := GetGasPrice()
@@ -76,7 +75,7 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 				errorResponse, err := ProcessErrorTx(ctx, err, infoMsg, retryCount, node.Wallet.MaxRetries, node)
 				switch errorResponse {
 				case ErrorProcessingOk:
-					return txResp, nil
+					return nil, nil
 				case ErrorProcessingError:
 					// if error has not been handled, sleep and retry with regular delay
 					if err != nil {
@@ -137,14 +136,14 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 		txResponse, err := txService.Broadcast(ctx)
 		if err == nil {
 			log.Info().Str("rpc", node.RPC).Str("msg", infoMsg).Str("txHash", txResponse.TxHash).Msg("Success")
-			return txResp, nil
+			return &txResponse, nil
 		}
 
 		// Handle error on broadcasting
 		errorResponse, err := ProcessErrorTx(ctx, err, infoMsg, retryCount, node.Wallet.MaxRetries, node)
 		switch errorResponse {
 		case ErrorProcessingOk:
-			return txResp, nil
+			return &txResponse, nil
 		case ErrorProcessingError:
 			// Error has not been handled, sleep and retry with regular delay
 			if err != nil {
