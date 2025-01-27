@@ -92,7 +92,7 @@ func ProcessErrorTx(ctx context.Context, err error, infoMsg string, retryCount, 
 				if errorCode > math.MaxUint32 {
 					log.Error().Str("rpc", node.RPC).Str("msg", infoMsg).Msg("Parsed ABCI error code exceeds uint32 bounds, skipping ABCI error code triage")
 				} else {
-					return triageABCIErrorCode(ctx, uint32(errorCode), err, infoMsg, retryCount, retryMax, node)
+					return triageABCIErrorCode(ctx, uint32(errorCode), err, infoMsg, retryCount, retryMax, node) //nolint:gosec // Safe conversion - we check bounds above
 				}
 			}
 		} else {
