@@ -29,25 +29,6 @@ type RPCManager struct {
 	mu         sync.RWMutex
 }
 
-func (r *RPCManager) GetNodes() ([]lib.NodeConfig, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.nodes, nil
-}
-
-func (r *RPCManager) GetCurrentIndex() int {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.currentIdx
-}
-
-func (r *RPCManager) GetCurrentNode() *lib.NodeConfig {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return &r.nodes[r.currentIdx]
-}
-
-// newRPCManager is now private, used internally by InitRPCManager
 func NewRPCManager(userConfig lib.UserConfig) (*RPCManager, error) {
 	if len(userConfig.Wallet.NodeRPCs) == 0 {
 		return nil, fmt.Errorf("no RPC nodes provided")
@@ -78,15 +59,22 @@ func NewRPCManager(userConfig lib.UserConfig) (*RPCManager, error) {
 	}, nil
 }
 
-func validateNodes(nodes []string) error {
-	for _, node := range nodes {
-		// Validate URL
-		_, err := url.ParseRequestURI(node)
-		if err != nil {
-			return fmt.Errorf("invalid RPC URL %s: %w", node, err)
-		}
-	}
-	return nil
+func (r *RPCManager) GetNodes() ([]lib.NodeConfig, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.nodes, nil
+}
+
+func (r *RPCManager) GetCurrentIndex() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.currentIdx
+}
+
+func (r *RPCManager) GetCurrentNode() *lib.NodeConfig {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return &r.nodes[r.currentIdx]
 }
 
 // internal function, switches to a node assuming a lock has been acquired
@@ -185,4 +173,15 @@ func RunWithNodeRetry[T any](
 
 	return zeroValue, errorsmod.Wrapf(ErrAllNodesExhausted,
 		"tried %d nodes during %s", totalNodes, operationName)
+}
+
+func validateNodes(nodes []string) error {
+	for _, node := range nodes {
+		// Validate URL
+		_, err := url.ParseRequestURI(node)
+		if err != nil {
+			return fmt.Errorf("invalid RPC URL %s: %w", node, err)
+		}
+	}
+	return nil
 }
