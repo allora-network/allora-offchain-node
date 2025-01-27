@@ -75,7 +75,7 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 				errorResponse, err := ProcessErrorTx(ctx, err, infoMsg, retryCount, node.Wallet.MaxRetries, node)
 				switch errorResponse {
 				case ErrorProcessingOk:
-					return nil, nil
+					return &cosmosclient.Response{}, nil // nolint: exhaustruct
 				case ErrorProcessingError:
 					// if error has not been handled, sleep and retry with regular delay
 					if err != nil {

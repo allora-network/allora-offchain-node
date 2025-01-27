@@ -20,7 +20,7 @@ import (
 const ErrorCodespace = "allora-offchain-lib"
 
 var (
-	HTTPError            = errorsmod.Register(ErrorCodespace, 1, "http error")
+	ErrHTTP              = errorsmod.Register(ErrorCodespace, 1, "http error")
 	ErrNotEnoughBalance  = errorsmod.Register(ErrorCodespace, 2, "not enough balance")
 	ErrNotRegistered     = errorsmod.Register(ErrorCodespace, 3, "not registered")
 	ErrStakeBelowMin     = errorsmod.Register(ErrorCodespace, 4, "stake below minimum")
@@ -87,11 +87,13 @@ func ProcessErrorTx(ctx context.Context, err error, infoMsg string, retryCount, 
 		if len(matches) == 2 {
 			errorCode, parseErr := strconv.ParseUint(matches[1], 10, 32)
 			if parseErr != nil {
-				log.Error().Err(parseErr).Str("rpc", node.RPC).Str("msg", infoMsg).Msg("Failed to parse ABCI error code")
-			} else if errorCode > math.MaxUint32 {
-				log.Error().Str("rpc", node.RPC).Str("msg", infoMsg).Msg("Parsed ABCI error code exceeds uint32 bounds")
+				log.Error().Err(parseErr).Str("rpc", node.RPC).Str("msg", infoMsg).Msg("Failed to parse ABCI error code, skipping ABCI error code triage")
 			} else {
-				return triageABCIErrorCode(ctx, uint32(errorCode), err, infoMsg, retryCount, retryMax, node)
+				if errorCode > math.MaxUint32 {
+					log.Error().Str("rpc", node.RPC).Str("msg", infoMsg).Msg("Parsed ABCI error code exceeds uint32 bounds, skipping ABCI error code triage")
+				} else {
+					return triageABCIErrorCode(ctx, uint32(errorCode), err, infoMsg, retryCount, retryMax, node)
+				}
 			}
 		} else {
 			log.Warn().Str("msg", infoMsg).Msg("Unmatched error format, cannot classify as ABCI error")
@@ -248,7 +250,7 @@ func triageHTTPStatusError(err error, node *NodeConfig, infoMsg string) (string,
 				Str("statusMessage", statusMessage).
 				Str("msg", infoMsg).
 				Msg("HTTP status error code detected, switching to next node")
-			return ErrorProcessingSwitchingNode, HTTPError
+			return ErrorProcessingSwitchingNode, ErrHTTP
 		}
 	}
 	return "", nil
@@ -278,7 +280,7 @@ func ParseHTTPStatus(input string) (int, string, error) {
 
 // Returns true if the error is a switching-node error
 func IsErrorSwitchingNode(err error) bool {
-	return errors.Is(err, HTTPError) ||
+	return errors.Is(err, ErrHTTP) ||
 		errors.Is(err, ErrFullMempool) ||
 		errors.Is(err, ErrReadPanic) ||
 		errors.Is(err, ErrConnectionRefused) ||
