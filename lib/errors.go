@@ -85,11 +85,13 @@ func ProcessErrorTx(ctx context.Context, err error, infoMsg string, retryCount, 
 		re := regexp.MustCompile(`error code: '(\d+)'`)
 		matches := re.FindStringSubmatch(err.Error())
 		if len(matches) == 2 {
-			errorCode, parseErr := strconv.Atoi(matches[1])
+			errorCode, parseErr := strconv.ParseUint(matches[1], 10, 32)
 			if parseErr != nil {
 				log.Error().Err(parseErr).Str("rpc", node.RPC).Str("msg", infoMsg).Msg("Failed to parse ABCI error code")
+			} else if errorCode > math.MaxUint32 {
+				log.Error().Str("rpc", node.RPC).Str("msg", infoMsg).Msg("Parsed ABCI error code exceeds uint32 bounds")
 			} else {
-				return triageABCIErrorCode(ctx, errorCode, err, infoMsg, retryCount, retryMax, node)
+				return triageABCIErrorCode(ctx, uint32(errorCode), err, infoMsg, retryCount, retryMax, node)
 			}
 		} else {
 			log.Warn().Str("msg", infoMsg).Msg("Unmatched error format, cannot classify as ABCI error")
@@ -105,13 +107,8 @@ func ProcessErrorTx(ctx context.Context, err error, infoMsg string, retryCount, 
 }
 
 // triageABCIErrorCode handles specific ABCI error codes and returns appropriate processing instructions
-func triageABCIErrorCode(ctx context.Context, errorCode int, err error, infoMsg string, retryCount, retryMax int64, node *NodeConfig) (string, error) {
-	// parse error code into int32 for ABCI error code comparison
-	if errorCode < 0 || errorCode > math.MaxUint32 {
-		return ErrorProcessingFailure, errorsmod.Wrapf(err, "error code %d out of valid uint32 range", errorCode)
-	}
-	errorCodeInt32 := uint32(errorCode)
-	switch errorCodeInt32 {
+func triageABCIErrorCode(ctx context.Context, errorCode uint32, err error, infoMsg string, retryCount, retryMax int64, node *NodeConfig) (string, error) {
+	switch errorCode {
 	case sdkerrors.ErrMempoolIsFull.ABCICode():
 		// Exhaust retries before switching to next node
 		if retryCount >= retryMax {
@@ -183,7 +180,7 @@ func triageABCIErrorCode(ctx context.Context, errorCode int, err error, infoMsg 
 		}
 		return ErrorProcessingContinue, nil
 	default:
-		log.Info().Uint32("errorCode", errorCodeInt32).Str("msg", infoMsg).Msg("ABCI error, but not special case - regular retry")
+		log.Info().Uint32("errorCode", errorCode).Str("msg", infoMsg).Msg("ABCI error, but not special case - regular retry")
 		return ErrorProcessingError, err
 	}
 }
