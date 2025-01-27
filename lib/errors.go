@@ -106,8 +106,10 @@ func ProcessErrorTx(ctx context.Context, err error, infoMsg string, retryCount, 
 
 // triageABCIErrorCode handles specific ABCI error codes and returns appropriate processing instructions
 func triageABCIErrorCode(ctx context.Context, errorCode int, err error, infoMsg string, retryCount, retryMax int64, node *NodeConfig) (string, error) {
-	switch errorCode {
-	case int(sdkerrors.ErrMempoolIsFull.ABCICode()):
+	// parse error code into int32 for ABCI error code comparison
+	errorCodeInt32 := uint32(errorCode)
+	switch errorCodeInt32 {
+	case sdkerrors.ErrMempoolIsFull.ABCICode():
 		// Exhaust retries before switching to next node
 		if retryCount >= retryMax {
 			log.Info().
@@ -126,7 +128,7 @@ func triageABCIErrorCode(ctx context.Context, errorCode int, err error, infoMsg 
 				Msg("Mempool is full, retrying with exponential backoff")
 			return ErrorProcessingContinue, nil
 		}
-	case int(sdkerrors.ErrWrongSequence.ABCICode()), int(sdkerrors.ErrInvalidSequence.ABCICode()):
+	case sdkerrors.ErrWrongSequence.ABCICode(), sdkerrors.ErrInvalidSequence.ABCICode():
 		log.Warn().
 			Err(err).
 			Str("msg", infoMsg).
@@ -137,27 +139,27 @@ func triageABCIErrorCode(ctx context.Context, errorCode int, err error, infoMsg 
 			return ErrorProcessingError, ctx.Err()
 		}
 		return ErrorProcessingContinue, nil
-	case int(sdkerrors.ErrInsufficientFee.ABCICode()):
+	case sdkerrors.ErrInsufficientFee.ABCICode():
 		log.Info().
 			Err(err).
 			Str("msg", infoMsg).
 			Msg("Insufficient fees")
 		return ErrorProcessingFees, nil
-	case int(feemarkettypes.ErrNoFeeCoins.ABCICode()):
+	case feemarkettypes.ErrNoFeeCoins.ABCICode():
 		log.Info().
 			Err(err).
 			Str("msg", infoMsg).
 			Msg("No fee coins")
 		return ErrorProcessingFees, nil
-	case int(sdkerrors.ErrTxTooLarge.ABCICode()):
+	case sdkerrors.ErrTxTooLarge.ABCICode():
 		return ErrorProcessingError, errorsmod.Wrapf(err, "tx too large")
-	case int(sdkerrors.ErrTxInMempoolCache.ABCICode()):
+	case sdkerrors.ErrTxInMempoolCache.ABCICode():
 		return ErrorProcessingError, errorsmod.Wrapf(err, "tx already in mempool cache")
-	case int(sdkerrors.ErrInvalidChainID.ABCICode()):
+	case sdkerrors.ErrInvalidChainID.ABCICode():
 		return ErrorProcessingError, errorsmod.Wrapf(err, "invalid chain-id")
-	case int(sdkerrors.ErrTxTimeoutHeight.ABCICode()):
+	case sdkerrors.ErrTxTimeoutHeight.ABCICode():
 		return ErrorProcessingFailure, errorsmod.Wrapf(err, "tx timeout height")
-	case int(emissions.ErrWorkerNonceWindowNotAvailable.ABCICode()):
+	case emissions.ErrWorkerNonceWindowNotAvailable.ABCICode():
 		log.Warn().
 			Err(err).
 			Str("msg", infoMsg).
@@ -167,7 +169,7 @@ func triageABCIErrorCode(ctx context.Context, errorCode int, err error, infoMsg 
 			return ErrorProcessingError, ctx.Err()
 		}
 		return ErrorProcessingContinue, nil
-	case int(emissions.ErrReputerNonceWindowNotAvailable.ABCICode()):
+	case emissions.ErrReputerNonceWindowNotAvailable.ABCICode():
 		log.Warn().
 			Err(err).
 			Str("msg", infoMsg).
@@ -178,7 +180,7 @@ func triageABCIErrorCode(ctx context.Context, errorCode int, err error, infoMsg 
 		}
 		return ErrorProcessingContinue, nil
 	default:
-		log.Info().Int("errorCode", errorCode).Str("msg", infoMsg).Msg("ABCI error, but not special case - regular retry")
+		log.Info().Uint32("errorCode", errorCodeInt32).Str("msg", infoMsg).Msg("ABCI error, but not special case - regular retry")
 		return ErrorProcessingError, err
 	}
 }
