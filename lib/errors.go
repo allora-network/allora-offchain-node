@@ -107,6 +107,9 @@ func ProcessErrorTx(ctx context.Context, err error, infoMsg string, retryCount, 
 // triageABCIErrorCode handles specific ABCI error codes and returns appropriate processing instructions
 func triageABCIErrorCode(ctx context.Context, errorCode int, err error, infoMsg string, retryCount, retryMax int64, node *NodeConfig) (string, error) {
 	// parse error code into int32 for ABCI error code comparison
+	if errorCode < 0 || errorCode > math.MaxUint32 {
+		return ErrorProcessingFailure, errorsmod.Wrapf(err, "error code %d out of valid uint32 range", errorCode)
+	}
 	errorCodeInt32 := uint32(errorCode)
 	switch errorCodeInt32 {
 	case sdkerrors.ErrMempoolIsFull.ABCICode():
