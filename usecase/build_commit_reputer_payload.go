@@ -1,7 +1,7 @@
 package usecase
 
 import (
-	"allora_offchain_node/lib"
+	lib "allora_offchain_node/lib"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -21,14 +21,14 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 	log := log.With().Uint64("topicId", reputer.TopicId).Str("actorType", "reputer").Logger()
 	log.Info().Msg("Building reputer payload")
 
-	valueBundle, err := RunWithNodeRetry(
+	valueBundle, err := lib.RunWithNodeRetry(
 		ctx,
 		suite.RPCManager,
 		func(node *lib.NodeConfig) (*emissionstypes.ValueBundle, error) {
 			return node.GetReputerValuesAtBlock(ctx, reputer.TopicId, nonce)
 		},
 		"get reputer values",
-		GRPC_MODE,
+		lib.GRPC_MODE,
 	)
 	if err != nil {
 		return errorsmod.Wrapf(err, "error getting reputer values, topic: %d, blockHeight: %d", reputer.TopicId, nonce)

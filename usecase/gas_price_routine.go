@@ -17,7 +17,7 @@ func (suite *UseCaseSuite) UpdateGasPriceRoutine(ctx context.Context) {
 			log.Info().Msg("Updating fee price routine: terminating.")
 			return
 		default:
-			price, err := RunWithNodeRetry(
+			price, err := lib.RunWithNodeRetry(
 				ctx,
 				suite.RPCManager,
 				func(node *lib.NodeConfig) (float64, error) {
@@ -28,7 +28,7 @@ func (suite *UseCaseSuite) UpdateGasPriceRoutine(ctx context.Context) {
 						})
 				},
 				"get base fee",
-				GRPC_MODE,
+				lib.GRPC_MODE,
 			)
 			if err != nil {
 				log.Error().Err(err).Msg("Error updating gas prices")

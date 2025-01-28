@@ -148,6 +148,7 @@ type NodeConfig struct {
 	Wallet        WalletConfig
 	Worker        []WorkerConfig
 	Reputer       []ReputerConfig
+	RPCManager    *RPCManager // Link to the RPCManager that created this node
 }
 
 type WorkerResponse struct {

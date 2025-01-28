@@ -130,7 +130,7 @@ func main() {
 	// Check and set defaults for the user config if any values are not set
 	finalUserConfig.CheckAndSetDefaults()
 
-	rpcManager, err := usecase.NewRPCManager(ctx, finalUserConfig)
+	rpcManager, err := lib.NewRPCManager(ctx, finalUserConfig)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to initialize RPCManager, exiting")
 		return

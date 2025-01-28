@@ -11,19 +11,26 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg, infoMsg string, timeoutHeight uint64) (*coretypes.ResultBroadcastTx, error) {
+func (rpcManager *RPCManager) SendDataWithRetry(ctx context.Context, req sdktypes.Msg, infoMsg string, timeoutHeight uint64) (*coretypes.ResultBroadcastTx, error) {
 	// Excess fees correction factor translated to fees using configured gas prices
 	// This value is updated by the fee price update routine - making copy for consistency within method
 	gasPrice := GetGasPrice()
-
+	walletConfig, err := rpcManager.GetWalletConfig()
+	if err != nil {
+		return nil, err
+	}
+	wallet, err := rpcManager.GetWallet()
+	if err != nil {
+		return nil, err
+	}
 	txParams := &types.TransactionParams{
-		ChainID:       node.Wallet.ChainId,
+		ChainID:       walletConfig.ChainId,
 		Denom:         DEFAULT_BOND_DENOM,
 		Prefix:        ADDRESS_PREFIX,
-		Sequence:      node.Chain.Sequence,
-		AccNum:        node.Chain.AccNum,
-		PrivKey:       node.Chain.PrivKey,
-		PubKey:        node.Chain.PubKey,
+		Sequence:      wallet.GetSequence(),
+		AccNum:        wallet.AccountNumber,
+		PrivKey:       wallet.PrivKey,
+		PubKey:        wallet.PubKey,
 		TimeoutHeight: timeoutHeight,
 		GasEstimationConfig: types.GasEstimationConfig{
 			BaseGas:     200000,
@@ -32,11 +39,13 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 		},
 	}
 
-	for retryCount := int64(0); retryCount <= node.Wallet.MaxRetries; retryCount++ {
-		log.Debug().Msgf("SendDataWithRetry iteration started (%d/%d)", retryCount, node.Wallet.MaxRetries)
+	txNode := rpcManager.GetCurrentTxNode()
+
+	for retryCount := int64(0); retryCount <= walletConfig.MaxRetries; retryCount++ {
+		log.Debug().Msgf("SendDataWithRetry iteration started (%d/%d)", retryCount, walletConfig.MaxRetries)
 
 		// Create tx without fees to simulate tx creation and get estimated gas and seq number
-		txResp, _, err := transaction.SendTransactionViaRPC(ctx, node.ServerAddress, txParams, node.Chain.Sequence, false, req)
+		txResp, _, err := transaction.SendTransactionViaRPC(ctx, txNode.ServerAddress, txParams, wallet.GetSequence(), false, req)
 		if err == nil {
 			if txResp != nil {
 				log.Printf("Transaction sent successfully: %v\n", txResp.Hash.String())
@@ -44,21 +53,21 @@ func (node *NodeConfig) SendDataWithRetry(ctx context.Context, req sdktypes.Msg,
 				log.Error().Msg("Transaction sent successfully but response is nil")
 			}
 			// TODO lock this in the overall wallet, not just the chain object inside each node
-			node.Chain.Sequence = node.Chain.Sequence + 1
+			wallet.SetSequence(wallet.GetSequence() + 1)
 			return txResp, nil
 		}
 
 		// Handle error on broadcasting
-		errorResponse, err := ProcessErrorTx(ctx, err, infoMsg, retryCount, node.Wallet.MaxRetries, node)
+		errorResponse, err := ProcessErrorTx(ctx, err, infoMsg, retryCount, walletConfig.MaxRetries, txNode)
 		switch errorResponse {
 		case ErrorProcessingOk:
 			return txResp, nil
 		case ErrorProcessingError:
 			// Error has not been handled, sleep and retry with regular delay
 			if err != nil {
-				log.Error().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, node.Wallet.MaxRetries)
+				log.Error().Err(err).Str("rpc", txNode.ServerAddress).Str("msg", infoMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, walletConfig.MaxRetries)
 				// Wait for the uniform delay before retrying
-				if DoneOrWait(ctx, node.Wallet.RetryDelay) {
+				if DoneOrWait(ctx, walletConfig.RetryDelay) {
 					return nil, ctx.Err()
 				}
 				continue

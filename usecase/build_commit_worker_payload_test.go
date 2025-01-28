@@ -122,8 +122,8 @@ func TestComputeWorkerBundle(t *testing.T) {
 			tt.workerConfig.ForecastEntrypoint = mockAdapter
 
 			// Replace RPCManager creation with mock
-			mockRPCManager := &MockRPCManager{} //nolint:exhaustruct
-			mockNodeConfig := &lib.NodeConfig{  //nolint:exhaustruct
+			mockRPCManager := &lib.MockRPCManager{} //nolint:exhaustruct
+			mockNodeConfig := &lib.NodeConfig{      //nolint:exhaustruct
 				Wallet: lib.WalletConfig{ //nolint:exhaustruct
 					Address: tt.address,
 				},

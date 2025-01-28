@@ -51,14 +51,14 @@ func (suite *UseCaseSuite) Spawn(ctx context.Context) {
 		log.Info().Msg("auto gas prices. Updating fee price routine: starting.")
 		price, err := WithTimeoutResult(ctx, time.Duration(suite.RPCManager.GetCurrentQueryNode().Wallet.TimeoutRPCSecondsQuery)*time.Second,
 			func(ctx context.Context) (float64, error) {
-				return RunWithNodeRetry(
+				return lib.RunWithNodeRetry(
 					ctx,
 					suite.RPCManager,
 					func(node *lib.NodeConfig) (float64, error) {
 						return node.GetBaseFee(ctx)
 					},
 					"get base fee",
-					GRPC_MODE,
+					lib.GRPC_MODE,
 				)
 			})
 
@@ -193,7 +193,7 @@ func (suite *UseCaseSuite) processReputerPayload(ctx context.Context, reputer li
 	log.Info().Msg("Processing reputer payload")
 	// Get nonce with RPC timeout
 
-	nonce, err := RunWithNodeRetry(
+	nonce, err := lib.RunWithNodeRetry(
 		ctx,
 		suite.RPCManager,
 		func(node *lib.NodeConfig) (*emissionstypes.Nonce, error) {
@@ -204,7 +204,7 @@ func (suite *UseCaseSuite) processReputerPayload(ctx context.Context, reputer li
 				})
 		},
 		"get oldest reputer nonce",
-		GRPC_MODE,
+		lib.GRPC_MODE,
 	)
 	if err != nil {
 		log.Warn().Err(err).Msg("Error getting latest open reputer nonce on topic - node availability issue?")
@@ -213,7 +213,7 @@ func (suite *UseCaseSuite) processReputerPayload(ctx context.Context, reputer li
 
 	if nonce.BlockHeight > latestNonceHeightActedUpon {
 		// Check if reputer can submit
-		isWhitelisted, err := RunWithNodeRetry(
+		isWhitelisted, err := lib.RunWithNodeRetry(
 			ctx,
 			suite.RPCManager,
 			func(node *lib.NodeConfig) (bool, error) {
@@ -224,7 +224,7 @@ func (suite *UseCaseSuite) processReputerPayload(ctx context.Context, reputer li
 					})
 			},
 			"check reputer whitelist",
-			GRPC_MODE,
+			lib.GRPC_MODE,
 		)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to check if reputer is whitelisted")
@@ -286,17 +286,17 @@ func (suite *UseCaseSuite) runWorkerProcess(ctx context.Context, worker lib.Work
 	log.Info().Msg("Running worker process for topic")
 
 	// Handle registration
-	registered, err := RunWithNodeRetry(
+	registered, err := lib.RunWithNodeRetry(
 		ctx,
 		suite.RPCManager,
 		func(node *lib.NodeConfig) (bool, error) {
 			return WithTimeoutResult(ctx, time.Duration(suite.RPCManager.GetCurrentQueryNode().Wallet.TimeoutRPCSecondsRegistration)*time.Second,
 				func(ctx context.Context) (bool, error) {
-					return node.RegisterWorkerIdempotently(ctx, worker)
+					return suite.RegisterWorkerIdempotently(ctx, worker)
 				})
 		},
 		"RegisterWorkerIdempotently",
-		RPC_MODE,
+		lib.RPC_MODE,
 	)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to register for topic, exiting")
@@ -317,14 +317,14 @@ func (suite *UseCaseSuite) runWorkerProcess(ctx context.Context, worker lib.Work
 	}
 
 	getNonce := func(ctx context.Context, topicId emissionstypes.TopicId) (*emissionstypes.Nonce, error) {
-		return RunWithNodeRetry(
+		return lib.RunWithNodeRetry(
 			ctx,
 			suite.RPCManager,
 			func(node *lib.NodeConfig) (*emissionstypes.Nonce, error) {
 				return node.GetLatestOpenWorkerNonceByTopicId(ctx, topicId)
 			},
 			"get latest open worker nonce",
-			GRPC_MODE,
+			lib.GRPC_MODE,
 		)
 	}
 	params := ActorProcessParams[lib.WorkerConfig]{
@@ -337,7 +337,7 @@ func (suite *UseCaseSuite) runWorkerProcess(ctx context.Context, worker lib.Work
 	}
 
 	// Check if worker is isWhitelisted
-	isWhitelisted, err := RunWithNodeRetry(
+	isWhitelisted, err := lib.RunWithNodeRetry(
 		ctx,
 		suite.RPCManager,
 		func(node *lib.NodeConfig) (bool, error) {
@@ -347,7 +347,7 @@ func (suite *UseCaseSuite) runWorkerProcess(ctx context.Context, worker lib.Work
 				})
 		},
 		"check worker whitelist",
-		GRPC_MODE,
+		lib.GRPC_MODE,
 	)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to check if worker is whitelisted")
@@ -369,25 +369,25 @@ func (suite *UseCaseSuite) runReputerProcess(ctx context.Context, reputer lib.Re
 	log.Debug().Msg("Running reputer process for topic")
 
 	// Handle registration and staking
-	registeredAndStaked, err := RunWithNodeRetry(
+	registeredAndStaked, err := lib.RunWithNodeRetry(
 		ctx,
 		suite.RPCManager,
 		func(node *lib.NodeConfig) (bool, error) {
 			return WithTimeoutResult(ctx,
 				time.Duration(suite.RPCManager.GetCurrentQueryNode().Wallet.TimeoutRPCSecondsRegistration)*time.Second,
 				func(ctx context.Context) (bool, error) {
-					return node.RegisterAndStakeReputerIdempotently(ctx, reputer)
+					return suite.RegisterAndStakeReputerIdempotently(ctx, reputer)
 				})
 		},
 		"RegisterAndStakeReputerIdempotently",
-		RPC_MODE,
+		lib.RPC_MODE,
 	)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to register or sufficiently stake for topic")
+		log.Error().Err(err).Msg("Error: Failed to register or sufficiently stake for topic")
 		return
 	}
 	if !registeredAndStaked {
-		log.Error().Msg("Failed to register or sufficiently stake for topic")
+		log.Error().Msg("Could not register or sufficiently stake for topic")
 		return
 	}
 	log.Debug().Msg("Reputer registered and staked")
@@ -400,14 +400,14 @@ func (suite *UseCaseSuite) runReputerProcess(ctx context.Context, reputer lib.Re
 	}
 
 	getNonce := func(ctx context.Context, topicId emissionstypes.TopicId) (*emissionstypes.Nonce, error) {
-		return RunWithNodeRetry(
+		return lib.RunWithNodeRetry(
 			ctx,
 			suite.RPCManager,
 			func(node *lib.NodeConfig) (*emissionstypes.Nonce, error) {
 				return node.GetOldestReputerNonceByTopicId(ctx, topicId)
 			},
 			"get oldest reputer nonce",
-			GRPC_MODE,
+			lib.GRPC_MODE,
 		)
 	}
 	params := ActorProcessParams[lib.ReputerConfig]{
@@ -420,7 +420,7 @@ func (suite *UseCaseSuite) runReputerProcess(ctx context.Context, reputer lib.Re
 	}
 
 	// Check if reputer is isWhitelisted
-	isWhitelisted, err := RunWithNodeRetry(
+	isWhitelisted, err := lib.RunWithNodeRetry(
 		ctx,
 		suite.RPCManager,
 		func(node *lib.NodeConfig) (bool, error) {
@@ -431,7 +431,7 @@ func (suite *UseCaseSuite) runReputerProcess(ctx context.Context, reputer lib.Re
 				})
 		},
 		"check reputer whitelist",
-		GRPC_MODE,
+		lib.GRPC_MODE,
 	)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to check if reputer is whitelisted")

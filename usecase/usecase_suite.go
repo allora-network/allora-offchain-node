@@ -7,12 +7,12 @@ import (
 
 type UseCaseSuite struct {
 	UserConfig lib.UserConfig
-	RPCManager RPCManagerInterface
+	RPCManager lib.RPCManagerInterface
 	Metrics    lib.Metrics
 }
 
 // Static method to create a new UseCaseSuite
-func NewUseCaseSuite(ctx context.Context, userConfig lib.UserConfig, rpcManager RPCManagerInterface) (*UseCaseSuite, error) {
+func NewUseCaseSuite(ctx context.Context, userConfig lib.UserConfig, rpcManager lib.RPCManagerInterface) (*UseCaseSuite, error) {
 	err := userConfig.ValidateConfigAdapters()
 	if err != nil {
 		return nil, err

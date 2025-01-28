@@ -1,7 +1,6 @@
-package usecase
+package lib
 
 import (
-	"allora_offchain_node/lib"
 	"context"
 	"errors"
 	"fmt"
@@ -16,17 +15,20 @@ import (
 )
 
 type RPCManagerInterface interface {
-	GetCurrentQueryNode() *lib.NodeConfig
-	GetCurrentTxNode() *lib.NodeConfig
+	GetCurrentQueryNode() *NodeConfig
+	GetCurrentTxNode() *NodeConfig
 	GetCurrentQueryIndex() int
 	GetCurrentTxIndex() int
-	SwitchToNextQueryNode() *lib.NodeConfig
-	SwitchToNextTxNode() *lib.NodeConfig
-	SwitchToQueryNode(index int) *lib.NodeConfig
-	SwitchToTxNode(index int) *lib.NodeConfig
+	SwitchToNextQueryNode() *NodeConfig
+	SwitchToNextTxNode() *NodeConfig
+	SwitchToQueryNode(index int) *NodeConfig
+	SwitchToTxNode(index int) *NodeConfig
 	SendDataWithNodeRetry(ctx context.Context, msg sdk.Msg, timeoutHeight uint64, operationName string) (*coretypes.ResultBroadcastTx, error)
-	GetQueryNodes() ([]lib.NodeConfig, error)
-	GetTxNodes() ([]lib.NodeConfig, error)
+	SendDataWithRetry(ctx context.Context, req sdk.Msg, infoMsg string, timeoutHeight uint64) (*coretypes.ResultBroadcastTx, error)
+	GetQueryNodes() ([]NodeConfig, error)
+	GetTxNodes() ([]NodeConfig, error)
+	GetWallet() (*Wallet, error)
+	GetWalletConfig() (*WalletConfig, error)
 	Close() error
 }
 
@@ -36,20 +38,23 @@ const (
 )
 
 type RPCManager struct {
-	queryNodes []lib.NodeConfig
-	txNodes    []lib.NodeConfig
-	currentIdx int
-	mu         sync.RWMutex
-	wallet     *lib.Wallet
-	walletInit sync.Once
+	queryNodes   []NodeConfig
+	txNodes      []NodeConfig
+	queryIdx     int
+	txIdx        int
+	queryMu      sync.RWMutex
+	txMu         sync.RWMutex
+	wallet       *Wallet
+	walletInit   sync.Once
+	walletConfig *WalletConfig
 }
 
-func NewRPCManager(ctx context.Context, userConfig lib.UserConfig) (*RPCManager, error) {
+func NewRPCManager(ctx context.Context, userConfig UserConfig) (*RPCManager, error) {
 	if len(userConfig.Wallet.NodeRPCs) == 0 {
 		return nil, fmt.Errorf("no GRPC/RPC nodes provided")
 	}
 
-	wallet, err := lib.NewWalletFromConfig(ctx, userConfig.Wallet)
+	wallet, err := NewWalletFromConfig(ctx, userConfig.Wallet)
 	if err != nil {
 		return nil, err
 	}
@@ -66,8 +71,14 @@ func NewRPCManager(ctx context.Context, userConfig lib.UserConfig) (*RPCManager,
 		return nil, err
 	}
 
+	// Create a new RPCManager with the wallet and wallet config, will be
+	var rpcManager = &RPCManager{
+		wallet:       wallet,
+		walletConfig: &userConfig.Wallet,
+	}
+
 	// Load here the nodeconfigs
-	var queryNodes []lib.NodeConfig
+	var queryNodes []NodeConfig
 	for _, grpc := range userConfig.Wallet.NodeGRPCs {
 		log.Info().Str("grpc", grpc).Msg("Initializing grpc query nodes")
 		nodeConfig, err := userConfig.GenerateNodeConfig(ctx, wallet, "", grpc)
@@ -75,10 +86,11 @@ func NewRPCManager(ctx context.Context, userConfig lib.UserConfig) (*RPCManager,
 			log.Error().Err(err).Str("grpc", grpc).Msg("Error generating node config, skipping GRPC node")
 			continue
 		}
+		nodeConfig.RPCManager = rpcManager
 		queryNodes = append(queryNodes, *nodeConfig)
 	}
 
-	var txNodes []lib.NodeConfig
+	var txNodes []NodeConfig
 
 	for _, rpc := range userConfig.Wallet.NodeRPCs {
 		log.Info().Str("rpc", rpc).Msg("Initializing rpc tx nodes")
@@ -87,20 +99,21 @@ func NewRPCManager(ctx context.Context, userConfig lib.UserConfig) (*RPCManager,
 			log.Error().Err(err).Str("rpc", rpc).Msg("Error generating node config, skipping RPC node")
 			continue
 		}
+		nodeConfig.RPCManager = rpcManager
 		txNodes = append(txNodes, *nodeConfig)
 	}
-	return &RPCManager{ // nolint: exhaustruct
-		queryNodes: queryNodes,
-		txNodes:    txNodes,
-		currentIdx: 0,
-		// no need to init mu
-	}, nil
+
+	rpcManager.queryNodes = queryNodes
+	rpcManager.txNodes = txNodes
+	rpcManager.queryIdx = 0
+	rpcManager.txIdx = 0
+	return rpcManager, nil
 }
 
-func (r *RPCManager) InitializeWallet(ctx context.Context, walletConfig lib.WalletConfig) error {
+func (r *RPCManager) InitializeWallet(ctx context.Context, walletConfig WalletConfig) error {
 	var initErr error
 	r.walletInit.Do(func() {
-		wallet, err := lib.NewWalletFromConfig(ctx, walletConfig)
+		wallet, err := NewWalletFromConfig(ctx, walletConfig)
 		if err != nil {
 			initErr = fmt.Errorf("failed to initialize wallet: %w", err)
 			return
@@ -111,56 +124,72 @@ func (r *RPCManager) InitializeWallet(ctx context.Context, walletConfig lib.Wall
 }
 
 // GetWallet returns the wallet instance, returns error if wallet is not initialized
-func (r *RPCManager) GetWallet() (*lib.Wallet, error) {
+func (r *RPCManager) GetWallet() (*Wallet, error) {
 	if r.wallet == nil {
 		return nil, fmt.Errorf("wallet not initialized")
 	}
 	return r.wallet, nil
 }
 
-func (r *RPCManager) GetQueryNodes() ([]lib.NodeConfig, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+func (r *RPCManager) GetWalletConfig() (*WalletConfig, error) {
+	if r.walletConfig == nil {
+		return nil, fmt.Errorf("wallet config not initialized")
+	}
+	return r.walletConfig, nil
+}
+
+func (r *RPCManager) GetQueryNodes() ([]NodeConfig, error) {
+	r.queryMu.RLock()
+	defer r.queryMu.RUnlock()
 	return r.queryNodes, nil
 }
 
-func (r *RPCManager) GetTxNodes() ([]lib.NodeConfig, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+func (r *RPCManager) GetTxNodes() ([]NodeConfig, error) {
+	r.txMu.RLock()
+	defer r.txMu.RUnlock()
 	return r.txNodes, nil
 }
 
 func (r *RPCManager) GetCurrentQueryIndex() int {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.currentIdx
+	r.queryMu.RLock()
+	defer r.queryMu.RUnlock()
+	return r.queryIdx
 }
 
 func (r *RPCManager) GetCurrentTxIndex() int {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.currentIdx
+	r.txMu.RLock()
+	defer r.txMu.RUnlock()
+	return r.txIdx
 }
 
-func (r *RPCManager) GetCurrentQueryNode() *lib.NodeConfig {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return &r.queryNodes[r.currentIdx]
+func (r *RPCManager) GetCurrentQueryNode() *NodeConfig {
+	r.queryMu.RLock()
+	defer r.queryMu.RUnlock()
+	return &r.queryNodes[r.queryIdx]
 }
 
-func (r *RPCManager) GetCurrentTxNode() *lib.NodeConfig {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return &r.txNodes[r.currentIdx]
+func (r *RPCManager) GetCurrentTxNode() *NodeConfig {
+	r.txMu.RLock()
+	defer r.txMu.RUnlock()
+	return &r.txNodes[r.txIdx]
 }
 
 // internal function, switches to a node assuming a lock has been acquired
-func (r *RPCManager) switchToNodeLocked(index int, nodes []lib.NodeConfig) *lib.NodeConfig {
+func (r *RPCManager) switchToNodeLocked(mode, index int, nodes []NodeConfig) *NodeConfig {
 	if len(nodes) == 1 {
 		return &nodes[0]
 	}
-	oldIndex := r.currentIdx
-	r.currentIdx = index
+	var oldIndex int
+	if mode == GRPC_MODE {
+		oldIndex = r.queryIdx
+		r.queryIdx = index
+	} else if mode == RPC_MODE {
+		oldIndex = r.txIdx
+		r.txIdx = index
+	} else {
+		log.Error().Int("mode", mode).Msg("Invalid mode, not switching")
+		return nil
+	}
 
 	log.Debug().
 		Str("from", nodes[oldIndex].ServerAddress).
@@ -172,148 +201,33 @@ func (r *RPCManager) switchToNodeLocked(index int, nodes []lib.NodeConfig) *lib.
 
 // SwitchToNextNode switches to the next node in the list.
 // Node change is persistent, so it will be used again in the next call
-func (r *RPCManager) SwitchToNextQueryNode() *lib.NodeConfig {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *RPCManager) SwitchToNextQueryNode() *NodeConfig {
+	r.queryMu.Lock()
+	defer r.queryMu.Unlock()
 	// Get next node index, wrap around if necessary
-	nextNode := (r.currentIdx + 1) % len(r.queryNodes)
-	return r.switchToNodeLocked(nextNode, r.queryNodes)
+	nextNode := (r.queryIdx + 1) % len(r.queryNodes)
+	return r.switchToNodeLocked(GRPC_MODE, nextNode, r.queryNodes)
 }
 
-func (r *RPCManager) SwitchToNextTxNode() *lib.NodeConfig {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *RPCManager) SwitchToNextTxNode() *NodeConfig {
+	r.txMu.Lock()
+	defer r.txMu.Unlock()
 	// Get next node index, wrap around if necessary
-	nextNode := (r.currentIdx + 1) % len(r.txNodes)
-	return r.switchToNodeLocked(nextNode, r.txNodes)
+	nextNode := (r.txIdx + 1) % len(r.txNodes)
+	return r.switchToNodeLocked(RPC_MODE, nextNode, r.txNodes)
 }
 
 // Switches to a specific node, acquiring a lock
-func (r *RPCManager) SwitchToQueryNode(index int) *lib.NodeConfig {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.switchToNodeLocked(index, r.queryNodes)
+func (r *RPCManager) SwitchToQueryNode(index int) *NodeConfig {
+	r.queryMu.Lock()
+	defer r.queryMu.Unlock()
+	return r.switchToNodeLocked(GRPC_MODE, index, r.queryNodes)
 }
 
-func (r *RPCManager) SwitchToTxNode(index int) *lib.NodeConfig {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.switchToNodeLocked(index, r.txNodes)
-}
-
-func (r *RPCManager) SendDataWithNodeRetry(
-	ctx context.Context,
-	msg sdk.Msg,
-	timeoutHeight uint64,
-	operationName string,
-) (*coretypes.ResultBroadcastTx, error) {
-	return RunWithNodeRetry(ctx, r, func(node *lib.NodeConfig) (*coretypes.ResultBroadcastTx, error) {
-		return node.SendDataWithRetry(ctx, msg, operationName, timeoutHeight)
-	}, operationName, RPC_MODE)
-}
-
-// RunWithNodeRetry executes an operation that returns (T, error) on nodes until success or all nodes are exhausted
-func RunWithNodeRetry[T any](
-	ctx context.Context,
-	r RPCManagerInterface,
-	operation func(*lib.NodeConfig) (T, error),
-	operationName string,
-	mode int,
-) (T, error) {
-	var zeroValue T
-	var err error
-
-	triedNodes := make(map[int]bool)
-	nodes := []lib.NodeConfig{}
-	if mode == GRPC_MODE {
-		nodes, err = r.GetQueryNodes()
-		if err != nil {
-			return zeroValue, errorsmod.Wrapf(err, "error getting nodes")
-		}
-	} else if mode == RPC_MODE {
-		nodes, err = r.GetTxNodes()
-		if err != nil {
-			return zeroValue, errorsmod.Wrapf(err, "error getting nodes")
-		}
-	} else {
-		return zeroValue, errorsmod.Wrapf(errors.New("invalid server mode"), "invalid mode: %d, can be GRPC_MODE: %d or RPC_MODE: %d", mode, GRPC_MODE, RPC_MODE)
-	}
-
-	totalNodes := len(nodes)
-	// Force change of initial node
-	if mode == GRPC_MODE {
-		r.SwitchToNextQueryNode()
-	} else if mode == RPC_MODE {
-		r.SwitchToNextTxNode()
-	}
-
-	for attempts := 0; attempts < totalNodes; attempts++ {
-		var currentNode *lib.NodeConfig
-		var currentIdx int
-		if mode == GRPC_MODE {
-			currentNode = r.GetCurrentQueryNode()
-			currentIdx = r.GetCurrentQueryIndex() // We can use the attempt number as the index
-		} else if mode == RPC_MODE {
-			currentNode = r.GetCurrentTxNode()
-			currentIdx = r.GetCurrentTxIndex() // We can use the attempt number as the index
-		} else {
-			return zeroValue, errorsmod.Wrapf(errors.New("invalid server mode"), "invalid mode: %d, can be GRPC_MODE: %d or RPC_MODE: %d", mode, GRPC_MODE, RPC_MODE)
-		}
-
-		// Skip if we've already tried this node
-		if triedNodes[currentIdx] {
-			if mode == RPC_MODE {
-				r.SwitchToNextQueryNode()
-			} else {
-				r.SwitchToNextTxNode()
-			}
-			continue
-		}
-
-		// Mark this node as tried
-		triedNodes[currentIdx] = true
-
-		// Attempt operation on current node - if no error, return result
-		result, err := operation(currentNode)
-		if err == nil {
-			return result, nil
-		}
-
-		// If it's a node switching error, switch to next node and continue
-		if lib.IsErrorSwitchingNode(err) {
-			log.Warn().
-				Err(err).
-				Str("rpc", currentNode.ServerAddress).
-				Int("idx", currentIdx). // Changed from node address to index
-				Str("operation", operationName).
-				Msg("Error - Switching to next node")
-			if mode == GRPC_MODE {
-				r.SwitchToNextQueryNode()
-			} else {
-				r.SwitchToNextTxNode()
-			}
-			continue
-		}
-
-		// For any other error, return it immediately without switching to next node
-		return zeroValue, errorsmod.Wrapf(err, "error during %s", operationName)
-	}
-
-	return zeroValue, errorsmod.Wrapf(ErrAllNodesExhausted,
-		"tried %d nodes during %s", totalNodes, operationName)
-}
-
-func validateNodeURIs(nodes []string) error {
-	for _, node := range nodes {
-		// Validate URI
-		if node != "" {
-			_, err := url.ParseRequestURI(node)
-			if err != nil {
-				return fmt.Errorf("invalid RPC URL %s: %w", node, err)
-			}
-		}
-	}
-	return nil
+func (r *RPCManager) SwitchToTxNode(index int) *NodeConfig {
+	r.txMu.Lock()
+	defer r.txMu.Unlock()
+	return r.switchToNodeLocked(RPC_MODE, index, r.txNodes)
 }
 
 func (r *RPCManager) Close() error {
@@ -345,6 +259,121 @@ func (r *RPCManager) Close() error {
 			err := node.Chain.Client.RPCClient.Stop()
 			if err != nil {
 				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (r *RPCManager) SendDataWithNodeRetry(
+	ctx context.Context,
+	msg sdk.Msg,
+	timeoutHeight uint64,
+	operationName string,
+) (*coretypes.ResultBroadcastTx, error) {
+	return RunWithNodeRetry(ctx, r, func(node *NodeConfig) (*coretypes.ResultBroadcastTx, error) {
+		return r.SendDataWithRetry(ctx, msg, operationName, timeoutHeight)
+	}, operationName, RPC_MODE)
+}
+
+// RunWithNodeRetry executes an operation that returns (T, error) on nodes until success or all nodes are exhausted
+func RunWithNodeRetry[T any](
+	ctx context.Context,
+	r RPCManagerInterface,
+	operation func(*NodeConfig) (T, error),
+	operationName string,
+	mode int,
+) (T, error) {
+	var zeroValue T
+	var err error
+
+	triedNodes := make(map[int]bool)
+	nodes := []NodeConfig{}
+	if mode == GRPC_MODE {
+		nodes, err = r.GetQueryNodes()
+		if err != nil {
+			return zeroValue, errorsmod.Wrapf(err, "error getting nodes")
+		}
+	} else if mode == RPC_MODE {
+		nodes, err = r.GetTxNodes()
+		if err != nil {
+			return zeroValue, errorsmod.Wrapf(err, "error getting nodes")
+		}
+	} else {
+		return zeroValue, errorsmod.Wrapf(errors.New("invalid server mode"), "invalid mode: %d, can be GRPC_MODE: %d or RPC_MODE: %d", mode, GRPC_MODE, RPC_MODE)
+	}
+
+	totalNodes := len(nodes)
+	// Force change of initial node
+	if mode == GRPC_MODE {
+		r.SwitchToNextQueryNode()
+	} else if mode == RPC_MODE {
+		r.SwitchToNextTxNode()
+	}
+
+	for attempts := 0; attempts < totalNodes; attempts++ {
+		var currentNode *NodeConfig
+		var currentIdx int
+		if mode == GRPC_MODE {
+			currentNode = r.GetCurrentQueryNode()
+			currentIdx = r.GetCurrentQueryIndex() // We can use the attempt number as the index
+		} else if mode == RPC_MODE {
+			currentNode = r.GetCurrentTxNode()
+			currentIdx = r.GetCurrentTxIndex() // We can use the attempt number as the index
+		} else {
+			return zeroValue, errorsmod.Wrapf(errors.New("invalid server mode"), "invalid mode: %d, can be GRPC_MODE: %d or RPC_MODE: %d", mode, GRPC_MODE, RPC_MODE)
+		}
+
+		// Skip if we've already tried this node
+		if triedNodes[currentIdx] {
+			if mode == RPC_MODE {
+				r.SwitchToNextQueryNode()
+			} else {
+				r.SwitchToNextTxNode()
+			}
+			continue
+		}
+
+		// Mark this node as tried
+		triedNodes[currentIdx] = true
+
+		// Attempt operation on current node - if no error, return result
+		result, err := operation(currentNode)
+		if err == nil {
+			return result, nil
+		}
+
+		// If it's a node switching error, switch to next node and continue
+		if IsErrorSwitchingNode(err) {
+			log.Warn().
+				Err(err).
+				Str("rpc", currentNode.ServerAddress).
+				Int("idx", currentIdx). // Changed from node address to index
+				Str("operation", operationName).
+				Msg("Error - Switching to next node")
+			if mode == GRPC_MODE {
+				r.SwitchToNextQueryNode()
+			} else {
+				r.SwitchToNextTxNode()
+			}
+			continue
+		}
+
+		// For any other error, return it immediately without switching to next node
+		return zeroValue, errorsmod.Wrapf(err, "error during %s", operationName)
+	}
+
+	return zeroValue, errorsmod.Wrapf(ErrAllNodesExhausted,
+		"tried %d nodes during %s", totalNodes, operationName)
+}
+
+func validateNodeURIs(nodes []string) error {
+	for _, node := range nodes {
+		// Validate URI
+		if node != "" {
+			_, err := url.ParseRequestURI(node)
+			if err != nil {
+				return fmt.Errorf("invalid RPC URL %s: %w", node, err)
 			}
 		}
 	}
