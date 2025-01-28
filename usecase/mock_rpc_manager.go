@@ -4,8 +4,8 @@ import (
 	"allora_offchain_node/lib"
 	"context"
 
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/ignite/cli/v28/ignite/pkg/cosmosclient"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -13,7 +13,7 @@ type MockRPCManager struct {
 	mock.Mock
 }
 
-func (m *MockRPCManager) GetCurrentNode() *lib.NodeConfig {
+func (m *MockRPCManager) GetCurrentQueryNode() *lib.NodeConfig {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil
@@ -24,7 +24,29 @@ func (m *MockRPCManager) GetCurrentNode() *lib.NodeConfig {
 	return nil
 }
 
-func (m *MockRPCManager) SwitchToNextNode() *lib.NodeConfig {
+func (m *MockRPCManager) GetCurrentTxNode() *lib.NodeConfig {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
+	if node, ok := args.Get(0).(*lib.NodeConfig); ok {
+		return node
+	}
+	return nil
+}
+
+func (m *MockRPCManager) SwitchToNextQueryNode() *lib.NodeConfig {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
+	if node, ok := args.Get(0).(*lib.NodeConfig); ok {
+		return node
+	}
+	return nil
+}
+
+func (m *MockRPCManager) SwitchToNextTxNode() *lib.NodeConfig {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil
@@ -44,7 +66,7 @@ func (m *MockRPCManager) GetStats() (int, map[int]int) {
 	return args.Int(0), failures
 }
 
-func (m *MockRPCManager) GetNodes() ([]lib.NodeConfig, error) {
+func (m *MockRPCManager) GetQueryNodes() ([]lib.NodeConfig, error) {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -55,23 +77,39 @@ func (m *MockRPCManager) GetNodes() ([]lib.NodeConfig, error) {
 	return nil, args.Error(1)
 }
 
-func (m *MockRPCManager) SendDataWithNodeRetry(ctx context.Context, msg sdk.Msg, timeoutHeight uint64, operationName string) (*cosmosclient.Response, error) {
+func (m *MockRPCManager) GetTxNodes() ([]lib.NodeConfig, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	if nodes, ok := args.Get(0).([]lib.NodeConfig); ok {
+		return nodes, args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+
+func (m *MockRPCManager) SendDataWithNodeRetry(ctx context.Context, msg sdk.Msg, timeoutHeight uint64, operationName string) (*coretypes.ResultBroadcastTx, error) {
 	args := m.Called(ctx, msg, timeoutHeight, operationName)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	if response, ok := args.Get(0).(*cosmosclient.Response); ok {
+	if response, ok := args.Get(0).(*coretypes.ResultBroadcastTx); ok {
 		return response, args.Error(1)
 	}
 	return nil, args.Error(1)
 }
 
-func (m *MockRPCManager) GetCurrentIndex() int {
+func (m *MockRPCManager) GetCurrentQueryIndex() int {
 	args := m.Called()
 	return args.Int(0)
 }
 
-func (m *MockRPCManager) SwitchToNode(index int) *lib.NodeConfig {
+func (m *MockRPCManager) GetCurrentTxIndex() int {
+	args := m.Called()
+	return args.Int(0)
+}
+
+func (m *MockRPCManager) SwitchToQueryNode(index int) *lib.NodeConfig {
 	args := m.Called(index)
 	if args.Get(0) == nil {
 		return nil
@@ -79,5 +117,20 @@ func (m *MockRPCManager) SwitchToNode(index int) *lib.NodeConfig {
 	if node, ok := args.Get(0).(*lib.NodeConfig); ok {
 		return node
 	}
+	return nil
+}
+
+func (m *MockRPCManager) SwitchToTxNode(index int) *lib.NodeConfig {
+	args := m.Called(index)
+	if args.Get(0) == nil {
+		return nil
+	}
+	if node, ok := args.Get(0).(*lib.NodeConfig); ok {
+		return node
+	}
+	return nil
+}
+
+func (m *MockRPCManager) Close() error {
 	return nil
 }

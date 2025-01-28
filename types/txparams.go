@@ -1,0 +1,24 @@
+package types
+
+import (
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+)
+
+type TransactionParams struct {
+	ChainID             string
+	Denom               string
+	Prefix              string
+	Sequence            uint64
+	AccNum              uint64
+	PrivKey             cryptotypes.PrivKey
+	PubKey              cryptotypes.PubKey
+	TimeoutHeight       uint64
+	GasEstimationConfig GasEstimationConfig
+}
+
+// GasEstimationConfig holds the parameters used for gas estimation.
+type GasEstimationConfig struct {
+	BaseGas     uint64  // Base gas cost for any transaction
+	GasPerByte  uint64  // Gas cost per byte of transaction size
+	MinGasPrice float64 // Minimum gas price in the smallest denomination
+}

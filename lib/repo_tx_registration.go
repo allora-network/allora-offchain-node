@@ -15,7 +15,7 @@ func (node *NodeConfig) RegisterWorkerIdempotently(ctx context.Context, config W
 
 	isRegistered, err := node.IsWorkerRegistered(ctx, config.TopicId)
 	if err != nil {
-		log.Error().Err(err).Str("rpc", node.RPC).Msg("Could not check if the node is already registered for topic as worker, skipping")
+		log.Error().Err(err).Str("rpc", node.ServerAddress).Msg("Could not check if the node is already registered for topic as worker, skipping")
 		return false, err
 	}
 	if isRegistered {
@@ -50,22 +50,22 @@ func (node *NodeConfig) RegisterWorkerIdempotently(ctx context.Context, config W
 	res, err := node.SendDataWithRetry(ctx, msg, "Register node", 0)
 	if err != nil {
 		if IsErrorSwitchingNode(err) {
-			log.Warn().Err(err).Str("rpc", node.RPC).Msg("Error on worker registration process, switching to next node")
+			log.Warn().Err(err).Str("rpc", node.ServerAddress).Msg("Error on worker registration process, switching to next node")
 			return false, err
 		}
 
 		txHash := ""
 		if res != nil {
-			txHash = res.TxHash
+			txHash = res.Hash.String()
 		}
 		log.Error().Err(err).Str("txHash", txHash).Msg("Could not register the node with the Allora blockchain")
 		return false, err
 	}
 
 	// Give time for the tx to be included in a block
-	log.Debug().Int64("delay", node.Wallet.RetryDelay).Msg("Waiting to check registration status to be included in a block...")
-	if DoneOrWait(ctx, node.Wallet.RetryDelay) {
-		log.Error().Err(ctx.Err()).Str("rpc", node.RPC).Msg("Waiting to check registration status failed")
+	log.Debug().Int64("delay", int64(node.Wallet.BlockDurationEstimated)*2).Msg("Waiting to check registration status to be included in a block...")
+	if DoneOrWait(ctx, int64(node.Wallet.BlockDurationEstimated)*2) {
+		log.Error().Err(ctx.Err()).Str("rpc", node.ServerAddress).Msg("Waiting to check registration status failed")
 		return false, ctx.Err()
 	}
 	isRegistered, err = node.IsWorkerRegistered(ctx, config.TopicId)
@@ -86,7 +86,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(ctx context.Context,
 
 	isRegistered, err := node.IsReputerRegistered(ctx, config.TopicId)
 	if err != nil {
-		log.Error().Err(err).Str("rpc", node.RPC).Msg("Could not check if the node is already registered for topic as reputer, skipping")
+		log.Error().Err(err).Str("rpc", node.ServerAddress).Msg("Could not check if the node is already registered for topic as reputer, skipping")
 		return false, err
 	}
 
@@ -102,7 +102,7 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(ctx context.Context,
 		}
 		moduleParams, err := node.Chain.EmissionsQueryClient.GetParams(ctx, &emissionstypes.GetParamsRequest{})
 		if err != nil {
-			log.Error().Err(err).Str("rpc", node.RPC).Msg("Could not get chain params for reputer")
+			log.Error().Err(err).Str("rpc", node.ServerAddress).Msg("Could not get chain params for reputer")
 			return false, err
 		}
 		if !balance.GTE(moduleParams.Params.RegistrationFee) {
@@ -119,21 +119,21 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(ctx context.Context,
 		res, err := node.SendDataWithRetry(ctx, msgRegister, "Register node", 0)
 		if err != nil {
 			if IsErrorSwitchingNode(err) {
-				log.Warn().Err(err).Str("rpc", node.RPC).Msg("Error on reputer registration process, switching to next node")
+				log.Warn().Err(err).Str("rpc", node.ServerAddress).Msg("Error on reputer registration process, switching to next node")
 				return false, err
 			}
 			txHash := ""
 			if res != nil {
-				txHash = res.TxHash
+				txHash = res.Hash.String()
 			}
 			log.Error().Err(err).Str("txHash", txHash).Msg("Could not register the node with the Allora blockchain")
 			return false, err
 		}
 
 		// Give time for the tx to be included in a block
-		log.Debug().Int64("delay", node.Wallet.RetryDelay).Msg("Waiting to check registration status to be included in a block...")
-		if DoneOrWait(ctx, node.Wallet.RetryDelay) {
-			log.Error().Err(ctx.Err()).Str("rpc", node.RPC).Msg("Waiting to check registration status failed")
+		log.Debug().Int64("delay", int64(node.Wallet.BlockDurationEstimated)*2).Msg("Waiting to check registration status to be included in a block...")
+		if DoneOrWait(ctx, int64(node.Wallet.BlockDurationEstimated)*2) {
+			log.Error().Err(ctx.Err()).Str("rpc", node.ServerAddress).Msg("Waiting to check registration status failed")
 			return false, ctx.Err()
 		}
 		isRegistered, err = node.IsReputerRegistered(ctx, config.TopicId)
@@ -178,22 +178,22 @@ func (node *NodeConfig) RegisterAndStakeReputerIdempotently(ctx context.Context,
 	if err != nil {
 		// Necessary to switch to next node if we get a 429 error handling control to caller
 		if IsErrorSwitchingNode(err) {
-			log.Warn().Err(err).Str("rpc", node.RPC).Msg("Error adding stake, switching to next node")
+			log.Warn().Err(err).Str("rpc", node.ServerAddress).Msg("Error adding stake, switching to next node")
 			return false, err
 		}
 
 		txHash := ""
 		if res != nil {
-			txHash = res.TxHash
+			txHash = res.Hash.String()
 		}
 		log.Error().Err(err).Str("txHash", txHash).Msg("Could not stake the node with the Allora blockchain in specified topic")
 		return false, err
 	}
 
 	// Give time for the tx to be included in a block
-	log.Debug().Int64("delay", node.Wallet.RetryDelay).Msg("Waiting to check stake status to be included in a block...")
-	if DoneOrWait(ctx, node.Wallet.RetryDelay) {
-		log.Error().Err(ctx.Err()).Str("rpc", node.RPC).Msg("Waiting to check stake status failed")
+	log.Debug().Int64("delay", int64(node.Wallet.BlockDurationEstimated)*2).Msg("Waiting to check stake status to be included in a block...")
+	if DoneOrWait(ctx, int64(node.Wallet.BlockDurationEstimated)*2) {
+		log.Error().Err(ctx.Err()).Str("rpc", node.ServerAddress).Msg("Waiting to check stake status failed")
 		return false, ctx.Err()
 	}
 	stake, err = node.GetReputerStakeInTopic(ctx, config.TopicId, node.Chain.Address)

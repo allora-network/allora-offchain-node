@@ -128,10 +128,11 @@ func TestComputeWorkerBundle(t *testing.T) {
 					Address: tt.address,
 				},
 			}
-			mockRPCManager.On("GetCurrentNode").Return(mockNodeConfig)
+			mockRPCManager.On("GetCurrentQueryNode").Return(mockNodeConfig)
+			mockRPCManager.On("GetCurrentTxNode").Return(mockNodeConfig)
 			suite := &UseCaseSuite{RPCManager: mockRPCManager} // nolint: exhaustruct
 
-			suite.RPCManager.GetCurrentNode().Wallet.Address = tt.address
+			suite.RPCManager.GetCurrentQueryNode().Wallet.Address = tt.address
 			response, err := suite.BuildWorkerPayload(tt.workerConfig, 1)
 			if tt.expectError {
 				require.Error(t, err)

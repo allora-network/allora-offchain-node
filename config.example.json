@@ -9,6 +9,7 @@
       "gasPriceUpdateInterval": 60,
       "maxFees": 500000,
       "nodeRpcs": ["https://allora-rpc.testnet.allora.network"],
+      "nodegRpcs": ["allora-grpc.testnet.allora.network:443"],
       "maxRetries": 5,
       "retryDelay": 3,
       "accountSequenceRetryDelay": 5,

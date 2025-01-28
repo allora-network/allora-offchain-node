@@ -47,6 +47,6 @@ func (node *NodeConfig) GetBaseFee(ctx context.Context) (float64, error) {
 		return 0, fmt.Errorf("failed to parse base fee: %w", err)
 	}
 
-	log.Trace().Str("rpc", node.RPC).Float64("baseFee", baseFee).Msg("Retrieved base fee from chain")
+	log.Trace().Str("rpc", node.ServerAddress).Float64("baseFee", baseFee).Msg("Retrieved base fee from chain")
 	return baseFee, nil
 }

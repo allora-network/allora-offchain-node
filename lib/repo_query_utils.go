@@ -39,7 +39,7 @@ func QueryDataWithRetry[T any](
 		case ErrorProcessingError:
 			// if error has not been handled, sleep and retry with regular delay
 			if err != nil {
-				log.Error().Err(err).Str("rpc", node.RPC).Str("msg", infoMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, node.Wallet.MaxRetries)
+				log.Error().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msgf("Failed, retrying... (Retry %d/%d)", retryCount, node.Wallet.MaxRetries)
 				// Wait for the uniform delay before retrying
 				if DoneOrWait(ctx, node.Wallet.RetryDelay) {
 					return result, ctx.Err()

@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog/log"
 )
@@ -61,17 +62,33 @@ func ConvertEntrypointsToInstances(userConfig lib.UserConfig) error {
 }
 
 func main() {
+	// Context tree:
+	// root context (ctx)
+	// ├── NewUseCaseSuite initialization
+	// └── signal context (sigCtx)
+	// 	   └── Spawn process
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Initialize logger
 	initLogger()
 	if dotErr := godotenv.Load(); dotErr != nil {
 		log.Info().Msg("Unable to load .env file")
 	}
 
+	// Set and lock sdk config
+	config := sdktypes.GetConfig()
+	config.SetBech32PrefixForAccount(lib.ADDRESS_PREFIX, lib.ADDRESS_PREFIX)
+	config.Seal()
+
 	log.Info().Msg("Starting allora offchain node...")
 
+	// Metrics
 	metrics := lib.NewMetrics(lib.CounterData)
 	metrics.RegisterMetricsCounters()
 	metrics.StartMetricsServer(":2112")
 
+	// Load config and do modifications if needed
 	finalUserConfig := lib.UserConfig{} // nolint: exhaustruct
 	alloraJsonConfig := os.Getenv(lib.ALLORA_OFFCHAIN_NODE_CONFIG_JSON)
 	if alloraJsonConfig != "" {
@@ -110,7 +127,18 @@ func main() {
 		return
 	}
 
-	spawner, err := usecase.NewUseCaseSuite(finalUserConfig)
+	// Check and set defaults for the user config if any values are not set
+	finalUserConfig.CheckAndSetDefaults()
+
+	rpcManager, err := usecase.NewRPCManager(ctx, finalUserConfig)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to initialize RPCManager, exiting")
+		return
+	}
+	// Close the RPCManager when the program exits
+	defer rpcManager.Close()
+
+	spawner, err := usecase.NewUseCaseSuite(ctx, finalUserConfig, rpcManager)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize use case, exiting")
 		return
@@ -118,12 +146,10 @@ func main() {
 
 	spawner.Metrics = *metrics
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	sigCtx, sigCancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer sigCancel()
 
+	log.Info().Msg("Starting spawning processes...")
 	go func() {
 		spawner.Spawn(sigCtx)
 		cancel()
