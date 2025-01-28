@@ -20,6 +20,14 @@ import (
 func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, reputer lib.ReputerConfig, nonce lib.BlockHeight, timeoutHeight uint64) error {
 	log := log.With().Uint64("topicId", reputer.TopicId).Str("actorType", "reputer").Logger()
 	log.Info().Msg("Building reputer payload")
+	wallet, err := suite.RPCManager.GetWallet()
+	if err != nil {
+		return errorsmod.Wrapf(err, "Error getting wallet")
+	}
+	walletConfig, err := suite.RPCManager.GetWalletConfig()
+	if err != nil {
+		return errorsmod.Wrapf(err, "Error getting wallet config")
+	}
 
 	valueBundle, err := lib.RunWithNodeRetry(
 		ctx,
@@ -36,19 +44,19 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 	valueBundle.ReputerRequestNonce = &emissionstypes.ReputerRequestNonce{
 		ReputerNonce: &emissionstypes.Nonce{BlockHeight: nonce},
 	}
-	valueBundle.Reputer = suite.RPCManager.GetCurrentQueryNode().Wallet.Address
+	valueBundle.Reputer = wallet.Address
 
 	sourceTruth, err := reputer.GroundTruthEntrypoint.GroundTruth(reputer, nonce)
 	if err != nil {
 		return errorsmod.Wrapf(err, "error getting source truth from reputer, topicId: %d, blockHeight: %d", reputer.TopicId, nonce)
 	}
-	suite.Metrics.IncrementMetricsCounter(lib.TruthRequestCount, suite.RPCManager.GetCurrentQueryNode().Chain.Address, reputer.TopicId)
+	suite.Metrics.IncrementMetricsCounter(lib.TruthRequestCount, wallet.Address, reputer.TopicId)
 
 	lossBundle, err := suite.ComputeLossBundle(sourceTruth, valueBundle, reputer)
 	if err != nil {
 		return errorsmod.Wrapf(err, "error computing loss bundle, topic: %d, blockHeight: %d", reputer.TopicId, nonce)
 	}
-	suite.Metrics.IncrementMetricsCounter(lib.ReputerDataBuildCount, suite.RPCManager.GetCurrentQueryNode().Chain.Address, reputer.TopicId)
+	suite.Metrics.IncrementMetricsCounter(lib.ReputerDataBuildCount, wallet.Address, reputer.TopicId)
 
 	signedValueBundle, err := suite.SignReputerValueBundle(&lossBundle)
 	if err != nil {
@@ -60,7 +68,7 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 	}
 
 	req := &emissionstypes.InsertReputerPayloadRequest{
-		Sender:             suite.RPCManager.GetCurrentQueryNode().Wallet.Address,
+		Sender:             wallet.Address,
 		ReputerValueBundle: signedValueBundle,
 	}
 	reqJSON, err := json.Marshal(req)
@@ -70,12 +78,12 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 		log.Debug().Msgf("Sending InsertReputerPayload to chain %s", string(reqJSON))
 	}
 
-	if suite.RPCManager.GetCurrentQueryNode().Wallet.SubmitTx {
+	if walletConfig.SubmitTx {
 		_, err = suite.RPCManager.SendDataWithNodeRetry(ctx, req, timeoutHeight, "Send Reputer Data to chain")
 		if err != nil {
 			return errorsmod.Wrapf(err, "error sending Reputer Data to chain, topic: %d, blockHeight: %d", reputer.TopicId, nonce)
 		}
-		suite.Metrics.IncrementMetricsCounter(lib.ReputerChainSubmissionCount, suite.RPCManager.GetCurrentQueryNode().Chain.Address, reputer.TopicId)
+		suite.Metrics.IncrementMetricsCounter(lib.ReputerChainSubmissionCount, wallet.Address, reputer.TopicId)
 	} else {
 		log.Info().Msg("SubmitTx=false; Skipping sending Reputer Data to chain")
 	}
@@ -212,9 +220,11 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 }
 
 func (suite *UseCaseSuite) SignReputerValueBundle(valueBundle *emissionstypes.ValueBundle) (*emissionstypes.ReputerValueBundle, error) {
-	sig, pk, err := lib.MarshallAndSignByPrivKey(valueBundle,
-		suite.RPCManager.GetCurrentQueryNode().Chain.PrivKey,
-		suite.RPCManager.GetCurrentQueryNode().Chain.AddressSDK)
+	wallet, err := suite.RPCManager.GetWallet()
+	if err != nil {
+		return &emissionstypes.ReputerValueBundle{}, errorsmod.Wrapf(err, "error getting wallet") // nolint: exhaustruct
+	}
+	sig, pk, err := lib.MarshallAndSignByPrivKey(valueBundle, wallet.PrivKey, wallet.AddressSDK)
 	if err != nil {
 		return &emissionstypes.ReputerValueBundle{}, errorsmod.Wrapf(err, "error signing the InferenceForecastsBundle message") // nolint: exhaustruct
 	}

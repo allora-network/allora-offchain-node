@@ -135,7 +135,7 @@ func (chain *ChainConfig) InitializeGRPCClient(grpcEndpoint string) (grpcConnect
 		return nil, fmt.Errorf("failed to connect to %s: %w", grpcEndpoint, err)
 	}
 
-	// spin up goroutine for monitoring and reconnect purposes
+	// spin up goroutine for monitoring and reconnect purposes - TODO test and configure
 	// go func() {
 	// 	for {
 	// 		state := chain.Client.GRPCClient.GetState()
@@ -155,45 +155,16 @@ func (chain *ChainConfig) InitializeGRPCClient(grpcEndpoint string) (grpcConnect
 }
 
 func (c *UserConfig) GenerateNodeConfig(ctx context.Context, wallet *Wallet, rpc string, grpc string) (nodeConfig *NodeConfig, err error) {
-
-	// // Get keyring
-	// keyring, err := GetKeyring(c.Wallet.AlloraHomeDir)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to get keyring: %w", err)
-	// }
-
-	// // Store address information
-	// var privKey cryptotypes.PrivKey
-	// var pubKey cryptotypes.PubKey
-	// var address string
-
-	// privKey, pubKey, address, addressSDK, err := GetAddressAndKeys(c.Wallet.AddressRestoreMnemonic, c.Wallet.AddressKeyName)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to get address and keys: %w", err)
-	// }
-
-	c.Wallet.Address = wallet.Address // Overwrite the address with the one from the keystore
-
 	log.Info().Str("rpc", rpc).Str("address", wallet.Address).Msg("Allora client created successfully")
 
 	// TODO: This is a temporary solution to get the chain config working, will be removed after refactor
 	alloraChain := ChainConfig{ // nolint: exhaustruct
-		Keyring:          wallet.Keyring,
-		Address:          wallet.Address,
-		AddressSDK:       wallet.AddressSDK,
-		PrivKey:          wallet.PrivKey,
-		PubKey:           wallet.PubKey,
-		AddressPrefix:    ADDRESS_PREFIX,
-		DefaultBondDenom: DEFAULT_BOND_DENOM,
-		Client:           &Client{}, // nolint: exhaustruct
+		Client: &Client{}, // nolint: exhaustruct
 	}
 
 	Node := NodeConfig{
 		ServerAddress: rpc,
 		Chain:         alloraChain,
-		Wallet:        c.Wallet,
-		Worker:        c.Worker,
-		Reputer:       c.Reputer,
 	}
 
 	// Get RPC allora client
@@ -205,7 +176,7 @@ func (c *UserConfig) GenerateNodeConfig(ctx context.Context, wallet *Wallet, rpc
 		}
 		Node.Chain.Client.RPCClient = rpcClient
 		Node.ServerAddress = rpc
-		log.Info().Msgf("RPC Node initialized successfully, with account (sequence: %d, accNum: %d)", wallet.GetSequence(), wallet.AccountNumber)
+		log.Info().Msgf("RPC Node initialized successfully %s", rpc)
 	}
 
 	// Get GRPC allora client
@@ -224,22 +195,7 @@ func (c *UserConfig) GenerateNodeConfig(ctx context.Context, wallet *Wallet, rpc
 		Node.Chain.CometQueryClient = cmtservice.NewServiceClient(grpcConn)
 		Node.Chain.Client.GRPCClient = grpcConn
 		Node.ServerAddress = grpc
-
-		if wallet.GetSequence() == 0 {
-			_, sequence, accNum, err := Node.GetAccountInfo(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get account info: %w", err)
-			}
-			wallet.SetSequence(sequence)
-			wallet.AccountNumber = accNum
-			log.Info().Msgf("GRPC Node initialized successfully, with account (sequence: %d, accNum: %d)", sequence, accNum)
-		} else {
-			log.Info().Msgf("GRPC Node initialized successfully, with account (sequence: %d, accNum: %d)", wallet.GetSequence(), wallet.AccountNumber)
-		}
-
+		log.Info().Msgf("GRPC Node initialized successfully %s", grpc)
 	}
-	// TODO Remove Legacy "Chain" object
-	Node.Chain.AccNum = wallet.AccountNumber
-	Node.Chain.Sequence = wallet.GetSequence()
 	return &Node, nil
 }

@@ -4,6 +4,7 @@ import (
 	lib "allora_offchain_node/lib"
 	"context"
 
+	errorsmod "cosmossdk.io/errors"
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
 	"github.com/rs/zerolog/log"
 )
@@ -14,8 +15,18 @@ func (suite *UseCaseSuite) RegisterWorkerIdempotently(ctx context.Context, confi
 	log := log.With().Uint64("topicId", config.TopicId).Str("actorType", "worker").Logger()
 	log.Info().Msg("Registering worker")
 
+	walletConfig, err := suite.RPCManager.GetWalletConfig()
+	if err != nil {
+		return false, errorsmod.Wrapf(err, "Error getting wallet config")
+	}
 	rpcManager := suite.RPCManager
 	queryNode := rpcManager.GetCurrentQueryNode()
+	wallet, err := rpcManager.GetWallet()
+	if err != nil {
+		log.Error().Err(err).Msg("Could not get wallet")
+		return false, err
+	}
+
 	isRegistered, err := queryNode.IsWorkerRegistered(ctx, config.TopicId)
 	if err != nil {
 		log.Error().Err(err).Str("rpc", queryNode.ServerAddress).Msg("Could not check if the node is already registered for topic as worker, skipping")
@@ -37,7 +48,8 @@ func (suite *UseCaseSuite) RegisterWorkerIdempotently(ctx context.Context, confi
 
 	// Switch to spread the load
 	queryNode = rpcManager.SwitchToNextQueryNode()
-	balance, err := queryNode.GetBalance(ctx)
+
+	balance, err := queryNode.GetBalance(ctx, wallet.Address, wallet.DefaultBondDenom)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not check if the node has enough balance to register, skipping")
 		return false, err
@@ -47,11 +59,6 @@ func (suite *UseCaseSuite) RegisterWorkerIdempotently(ctx context.Context, confi
 		return false, lib.ErrNotEnoughBalance
 	}
 
-	wallet, err := rpcManager.GetWallet()
-	if err != nil {
-		log.Error().Err(err).Msg("Could not get wallet")
-		return false, err
-	}
 	msg := &emissionstypes.RegisterRequest{
 		Sender:    wallet.Address,
 		TopicId:   config.TopicId,
@@ -74,8 +81,8 @@ func (suite *UseCaseSuite) RegisterWorkerIdempotently(ctx context.Context, confi
 	}
 
 	// Give time for the tx to be included in a block
-	log.Debug().Int64("delay", int64(queryNode.Wallet.BlockDurationEstimated)*2).Msg("Waiting to check registration status to be included in a block...")
-	if lib.DoneOrWait(ctx, int64(queryNode.Wallet.BlockDurationEstimated)*2) {
+	log.Debug().Int64("delay", int64(walletConfig.BlockDurationEstimated)*2).Msg("Waiting to check registration status to be included in a block...")
+	if lib.DoneOrWait(ctx, int64(walletConfig.BlockDurationEstimated)*2) {
 		log.Error().Err(ctx.Err()).Str("rpc", queryNode.ServerAddress).Msg("Waiting to check registration status failed")
 		return false, ctx.Err()
 	}
@@ -95,7 +102,10 @@ func (suite *UseCaseSuite) RegisterAndStakeReputerIdempotently(ctx context.Conte
 	log := log.With().Uint64("topicId", config.TopicId).Str("actorType", "reputer").Logger()
 	log.Info().Msg("Registering reputer")
 
-	// Initialize variables to be used throughout the function
+	walletConfig, err := suite.RPCManager.GetWalletConfig()
+	if err != nil {
+		return false, errorsmod.Wrapf(err, "Error getting wallet config")
+	}
 	rpcManager := suite.RPCManager
 	queryNode := rpcManager.GetCurrentQueryNode()
 	wallet, err := rpcManager.GetWallet()
@@ -115,7 +125,7 @@ func (suite *UseCaseSuite) RegisterAndStakeReputerIdempotently(ctx context.Conte
 	} else {
 		log.Info().Msg("Node not yet registered. Attempting registration...")
 
-		balance, err := queryNode.GetBalance(ctx)
+		balance, err := queryNode.GetBalance(ctx, wallet.Address, wallet.DefaultBondDenom)
 		if err != nil {
 			log.Error().Err(err).Msg("Could not check if the node has enough balance to register, skipping")
 			return false, err
@@ -151,8 +161,8 @@ func (suite *UseCaseSuite) RegisterAndStakeReputerIdempotently(ctx context.Conte
 		}
 
 		// Give time for the tx to be included in a block
-		log.Debug().Int64("delay", int64(queryNode.Wallet.BlockDurationEstimated)*2).Msg("Waiting to check registration status to be included in a block...")
-		if lib.DoneOrWait(ctx, int64(queryNode.Wallet.BlockDurationEstimated)*2) {
+		log.Debug().Int64("delay", int64(walletConfig.BlockDurationEstimated)*2).Msg("Waiting to check registration status to be included in a block...")
+		if lib.DoneOrWait(ctx, int64(walletConfig.BlockDurationEstimated)*2) {
 			log.Error().Err(ctx.Err()).Str("rpc", queryNode.ServerAddress).Msg("Waiting to check registration status failed")
 			return false, ctx.Err()
 		}
@@ -211,8 +221,8 @@ func (suite *UseCaseSuite) RegisterAndStakeReputerIdempotently(ctx context.Conte
 	}
 
 	// Give time for the tx to be included in a block
-	log.Debug().Int64("delay", int64(queryNode.Wallet.BlockDurationEstimated)*2).Msg("Waiting to check stake status to be included in a block...")
-	if lib.DoneOrWait(ctx, int64(queryNode.Wallet.BlockDurationEstimated)*2) {
+	log.Debug().Int64("delay", int64(walletConfig.BlockDurationEstimated)*2).Msg("Waiting to check stake status to be included in a block...")
+	if lib.DoneOrWait(ctx, int64(walletConfig.BlockDurationEstimated)*2) {
 		log.Error().Err(ctx.Err()).Str("rpc", queryNode.ServerAddress).Msg("Waiting to check stake status failed")
 		return false, ctx.Err()
 	}

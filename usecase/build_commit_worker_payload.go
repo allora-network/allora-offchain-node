@@ -18,6 +18,15 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 	log := log.With().Uint64("topicId", worker.TopicId).Str("actorType", "worker").Logger()
 	log.Info().Msg("Building worker payload")
 
+	wallet, err := suite.RPCManager.GetWallet()
+	if err != nil {
+		return errorsmod.Wrapf(err, "Error getting wallet")
+	}
+	walletConfig, err := suite.RPCManager.GetWalletConfig()
+	if err != nil {
+		return errorsmod.Wrapf(err, "Error getting wallet config")
+	}
+
 	if worker.InferenceEntrypoint == nil && worker.ForecastEntrypoint == nil {
 		return errors.New("Worker has no valid Inference or Forecast entrypoints")
 	}
@@ -32,7 +41,7 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 			return errorsmod.Wrapf(err, "Error computing inference for worker, topicId: %d, blockHeight: %d", worker.TopicId, nonce.BlockHeight)
 		}
 		workerResponse.InfererValue = inference
-		suite.Metrics.IncrementMetricsCounter(lib.InferenceRequestCount, suite.RPCManager.GetCurrentQueryNode().Chain.Address, worker.TopicId)
+		suite.Metrics.IncrementMetricsCounter(lib.InferenceRequestCount, wallet.Address, worker.TopicId)
 	}
 
 	if worker.ForecastEntrypoint != nil {
@@ -41,14 +50,14 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 			return errorsmod.Wrapf(err, "Error computing forecast for worker, topicId: %d, blockHeight: %d", worker.TopicId, nonce.BlockHeight)
 		}
 		workerResponse.ForecasterValues = forecasts
-		suite.Metrics.IncrementMetricsCounter(lib.ForecastRequestCount, suite.RPCManager.GetCurrentQueryNode().Chain.Address, worker.TopicId)
+		suite.Metrics.IncrementMetricsCounter(lib.ForecastRequestCount, wallet.Address, worker.TopicId)
 	}
 
 	workerPayload, err := suite.BuildWorkerPayload(workerResponse, nonce.BlockHeight)
 	if err != nil {
 		return errorsmod.Wrapf(err, "Error building worker payload, topicId: %d, blockHeight: %d", worker.TopicId, nonce.BlockHeight)
 	}
-	suite.Metrics.IncrementMetricsCounter(lib.WorkerDataBuildCount, suite.RPCManager.GetCurrentQueryNode().Chain.Address, worker.TopicId)
+	suite.Metrics.IncrementMetricsCounter(lib.WorkerDataBuildCount, wallet.Address, worker.TopicId)
 
 	workerDataBundle, err := suite.SignWorkerPayload(&workerPayload)
 	if err != nil {
@@ -62,7 +71,7 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 	}
 
 	req := &emissionstypes.InsertWorkerPayloadRequest{
-		Sender:           suite.RPCManager.GetCurrentQueryNode().Wallet.Address,
+		Sender:           wallet.Address,
 		WorkerDataBundle: workerDataBundle,
 	}
 	reqJSON, err := json.Marshal(req)
@@ -72,12 +81,12 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 		log.Info().Str("req", string(reqJSON)).Msg("Sending InsertWorkerPayload to chain")
 	}
 
-	if suite.RPCManager.GetCurrentQueryNode().Wallet.SubmitTx {
+	if walletConfig.SubmitTx {
 		_, err = suite.RPCManager.SendDataWithNodeRetry(ctx, req, timeoutHeight, "Send Worker Data to chain")
 		if err != nil {
 			return errorsmod.Wrapf(err, "Error sending Worker Data to chain, topicId: %d, blockHeight: %d", worker.TopicId, nonce.BlockHeight)
 		}
-		suite.Metrics.IncrementMetricsCounter(lib.WorkerChainSubmissionCount, suite.RPCManager.GetCurrentQueryNode().Chain.Address, worker.TopicId)
+		suite.Metrics.IncrementMetricsCounter(lib.WorkerChainSubmissionCount, wallet.Address, worker.TopicId)
 	} else {
 		log.Info().Msg("SubmitTx=false; Skipping sending Worker Data to chain")
 	}
@@ -85,6 +94,10 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 }
 
 func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse, nonce emissionstypes.BlockHeight) (emissionstypes.InferenceForecastBundle, error) {
+	wallet, err := suite.RPCManager.GetWallet()
+	if err != nil {
+		return emissionstypes.InferenceForecastBundle{}, errorsmod.Wrapf(err, "error getting wallet") // nolint: exhaustruct
+	}
 
 	inferenceForecastsBundle := emissionstypes.InferenceForecastBundle{} // nolint: exhaustruct
 
@@ -95,7 +108,7 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 		}
 		builtInference := &emissionstypes.Inference{ // nolint: exhaustruct
 			TopicId:     workerResponse.TopicId,
-			Inferer:     suite.RPCManager.GetCurrentQueryNode().Wallet.Address,
+			Inferer:     wallet.Address,
 			Value:       infererValue,
 			BlockHeight: nonce,
 		}
@@ -119,7 +132,7 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 			forecasterValues := &emissionstypes.Forecast{ // nolint: exhaustruct
 				TopicId:          workerResponse.TopicId,
 				BlockHeight:      nonce,
-				Forecaster:       suite.RPCManager.GetCurrentQueryNode().Wallet.Address,
+				Forecaster:       wallet.Address,
 				ForecastElements: forecasterElements,
 			}
 			inferenceForecastsBundle.Forecast = forecasterValues
@@ -130,14 +143,18 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 
 func (suite *UseCaseSuite) SignWorkerPayload(workerPayload *emissionstypes.InferenceForecastBundle) (*emissionstypes.WorkerDataBundle, error) {
 	// Marshall and sign the bundle
-	sig, pk, err := lib.MarshallAndSignByPrivKey(workerPayload, suite.RPCManager.GetCurrentQueryNode().Chain.PrivKey, suite.RPCManager.GetCurrentQueryNode().Chain.AddressSDK)
+	wallet, err := suite.RPCManager.GetWallet()
+	if err != nil {
+		return &emissionstypes.WorkerDataBundle{}, errorsmod.Wrapf(err, "error getting wallet") // nolint: exhaustruct
+	}
+	sig, pk, err := lib.MarshallAndSignByPrivKey(workerPayload, wallet.PrivKey, wallet.AddressSDK)
 	if err != nil {
 		return &emissionstypes.WorkerDataBundle{}, errorsmod.Wrapf(err, "error signing the InferenceForecastsBundle message") // nolint: exhaustruct
 	}
 	pkStr := hex.EncodeToString(pk)
 	// Create workerDataBundle with signature
 	workerDataBundle := &emissionstypes.WorkerDataBundle{ // nolint: exhaustruct
-		Worker:                             suite.RPCManager.GetCurrentQueryNode().Wallet.Address,
+		Worker:                             wallet.Address,
 		InferenceForecastsBundle:           workerPayload,
 		InferencesForecastsBundleSignature: sig,
 		Pubkey:                             pkStr,

@@ -82,17 +82,16 @@ func calculateExponentialBackoffDelaySeconds(baseDelay int64, retryCount int64) 
 
 // processError handles the error messages.
 func ProcessErrorTx(ctx context.Context, err error, infoMsg string, retryCount, retryMax int64, node *NodeConfig) (string, error) {
-	rpcManager := node.RPCManager
 	if strings.Contains(err.Error(), ErrorMessageAbciErrorCodeMarker) {
 		re := regexp.MustCompile(`error code: '(\d+)'`)
 		matches := re.FindStringSubmatch(err.Error())
 		if len(matches) == 2 {
 			errorCode, parseErr := strconv.ParseUint(matches[1], 10, 32)
 			if parseErr != nil {
-				log.Error().Err(parseErr).Str("rpc", rpcManager.GetCurrentTxNode().ServerAddress).Str("msg", infoMsg).Msg("Failed to parse ABCI error code, skipping ABCI error code triage")
+				log.Error().Err(parseErr).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Failed to parse ABCI error code, skipping ABCI error code triage")
 			} else {
 				if errorCode > math.MaxUint32 {
-					log.Error().Str("rpc", rpcManager.GetCurrentTxNode().ServerAddress).Str("msg", infoMsg).Msg("Parsed ABCI error code exceeds uint32 bounds, skipping ABCI error code triage")
+					log.Error().Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Parsed ABCI error code exceeds uint32 bounds, skipping ABCI error code triage")
 				} else {
 					return triageABCIErrorCode(ctx, uint32(errorCode), err, infoMsg, retryCount, retryMax, node) //nolint:gosec // Safe conversion - we check bounds above
 				}
@@ -113,9 +112,10 @@ func ProcessErrorTx(ctx context.Context, err error, infoMsg string, retryCount, 
 // triageABCIErrorCode handles specific ABCI error codes and returns appropriate processing instructions
 func triageABCIErrorCode(ctx context.Context, errorCode uint32, err error, infoMsg string, retryCount, retryMax int64, node *NodeConfig) (string, error) {
 	rpcManager := node.RPCManager
-	walletConfig, err := rpcManager.GetWalletConfig()
-	if err != nil {
-		return "", err
+	// Beware: this error must not overwrite the "err" error
+	walletConfig, errorWalletConfig := rpcManager.GetWalletConfig()
+	if errorWalletConfig != nil {
+		return "", errorWalletConfig
 	}
 	switch errorCode {
 	case sdkerrors.ErrMempoolIsFull.ABCICode():
@@ -197,15 +197,15 @@ func triageABCIErrorCode(ctx context.Context, errorCode uint32, err error, infoM
 // Triages error by string matching
 func triageStringMatchingError(ctx context.Context, err error, infoMsg string, node *NodeConfig) (string, error) {
 	rpcManager := node.RPCManager
-	walletConfig, err := rpcManager.GetWalletConfig()
-	if err != nil {
-		return "", err
+	walletConfig, errorWalletConfig := rpcManager.GetWalletConfig()
+	if errorWalletConfig != nil {
+		return "", errorWalletConfig
 	}
 
 	if strings.Contains(err.Error(), ErrorMessageAccountSequenceMismatch) {
 		log.Warn().
 			Err(err).
-			Str("rpc", rpcManager.GetCurrentTxNode().ServerAddress).
+			Str("rpc", node.ServerAddress).
 			Str("msg", infoMsg).
 			Int64("delay", walletConfig.AccountSequenceRetryDelay).
 			Msg("Account sequence mismatch detected, re-fetching sequence")
@@ -213,7 +213,8 @@ func triageStringMatchingError(ctx context.Context, err error, infoMsg string, n
 		expectedSeqNum, currentSeqNum, err := parseSequenceFromAccountMismatchError(err.Error())
 		if err != nil {
 			log.Error().Err(err).
-				Str("rpc", rpcManager.GetCurrentTxNode().ServerAddress).Str("msg", infoMsg).
+				Str("rpc", node.ServerAddress).
+				Str("msg", infoMsg).
 				Msg("Failed to parse sequence from error - retrying with regular delay")
 			if DoneOrWait(ctx, walletConfig.RetryDelay) {
 				return ErrorProcessingError, ctx.Err()
@@ -234,40 +235,39 @@ func triageStringMatchingError(ctx context.Context, err error, infoMsg string, n
 		}
 		return ErrorProcessingContinue, nil
 	} else if strings.Contains(err.Error(), ErrorContextDeadlineExceeded) {
-		log.Warn().Err(err).Str("rpc", rpcManager.GetCurrentTxNode().ServerAddress).Str("msg", infoMsg).Msg("Context deadline exceeded, switching to next node")
+		log.Warn().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Context deadline exceeded, switching to next node")
 		return ErrorProcessingSwitchingNode, err
 	} else if strings.Contains(err.Error(), ErrorMessageWaitingForNextBlock) {
-		log.Warn().Err(err).Str("rpc", rpcManager.GetCurrentTxNode().ServerAddress).Str("msg", infoMsg).Msg("Tx accepted in mempool, it will be included in the following block(s) - not retrying")
+		log.Warn().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Tx accepted in mempool, it will be included in the following block(s) - not retrying")
 		return ErrorProcessingOk, nil
 	} else if strings.Contains(err.Error(), ErrorMessageDataAlreadySubmitted) || strings.Contains(err.Error(), ErrorMessageCannotUpdateEma) {
-		log.Warn().Err(err).Str("rpc", rpcManager.GetCurrentTxNode().ServerAddress).Str("msg", infoMsg).Msg("Already submitted data for this epoch.")
+		log.Warn().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Already submitted data for this epoch.")
 		return ErrorProcessingOk, nil
 	} else if strings.Contains(err.Error(), ErrorMessageTimeoutHeight) {
-		log.Warn().Err(err).Str("rpc", rpcManager.GetCurrentTxNode().ServerAddress).Str("msg", infoMsg).Msg("Tx failed because of timeout height")
+		log.Warn().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Tx failed because of timeout height")
 		return ErrorProcessingFailure, err
 	} else if strings.Contains(err.Error(), ErrorMessageNotPermittedToSubmitPayload) {
-		log.Warn().Err(err).Str("rpc", rpcManager.GetCurrentTxNode().ServerAddress).Str("msg", infoMsg).Msg("Actor is not permitted to submit payload")
+		log.Warn().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Actor is not permitted to submit payload")
 		return ErrorProcessingFailure, err
 	} else if strings.Contains(err.Error(), ErrorMessageNoInferencesFoundForTopic) {
-		log.Warn().Err(err).Str("rpc", rpcManager.GetCurrentTxNode().ServerAddress).Str("msg", infoMsg).Msg("No inferences found for topic")
+		log.Warn().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("No inferences found for topic")
 		return ErrorProcessingFailure, err
 	} else if strings.Contains(err.Error(), ErrorMessageNotPermittedToAddStake) {
-		log.Warn().Err(err).Str("rpc", rpcManager.GetCurrentTxNode().ServerAddress).Str("msg", infoMsg).Msg("Actor is not permitted to add stake")
+		log.Warn().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Actor is not permitted to add stake")
 		return ErrorProcessingFailure, err
 	} else if strings.Contains(err.Error(), ErrorMessageReadFlatPanic) || strings.Contains(err.Error(), ErrorMessageReadPerBytePanic) {
-		log.Warn().Err(err).Str("rpc", rpcManager.GetCurrentTxNode().ServerAddress).Str("msg", infoMsg).Msg("Read panic, switching to next node")
+		log.Warn().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Read panic, switching to next node")
 		return ErrorProcessingSwitchingNode, ErrReadPanic
 	} else if strings.Contains(err.Error(), ErrorMessageConnectionRefused) {
-		log.Warn().Err(err).Str("rpc", rpcManager.GetCurrentTxNode().ServerAddress).Str("msg", infoMsg).Msg("Connection refused, switching to next node")
+		log.Warn().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Connection refused, switching to next node")
 		return ErrorProcessingSwitchingNode, ErrConnectionRefused
 	}
-	log.Info().Err(err).Str("rpc", rpcManager.GetCurrentTxNode().ServerAddress).Str("msg", infoMsg).Msg("Unknown error")
+	log.Info().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Unknown error")
 	return ErrorProcessingError, errorsmod.Wrap(ErrUnexpectedError, err.Error())
 }
 
 // triageHTTPStatusError checks if the error contains an HTTP status code and determines if node switching is needed
 func triageHTTPStatusError(err error, node *NodeConfig, infoMsg string) (string, error) {
-	rpcManager := node.RPCManager
 	statusCode, statusMessage, parseErr := ParseHTTPStatus(err.Error())
 	if parseErr == nil {
 		log.Warn().
@@ -279,7 +279,7 @@ func triageHTTPStatusError(err error, node *NodeConfig, infoMsg string) (string,
 		// When status code is in the list of codes that trigger node switching, switch to next node without retries
 		if HTTPStatusCodeCodesSwitchingNode[statusCode] {
 			log.Warn().
-				Str("rpc", rpcManager.GetCurrentTxNode().ServerAddress).
+				Str("rpc", node.ServerAddress).
 				Int("statusCode", statusCode).
 				Str("statusMessage", statusMessage).
 				Str("msg", infoMsg).

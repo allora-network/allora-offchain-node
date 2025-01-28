@@ -4,20 +4,25 @@ import (
 	"context"
 	"fmt"
 
+	errorsmod "cosmossdk.io/errors"
 	"github.com/cosmos/cosmos-sdk/types/query"
 	auth "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/rs/zerolog/log"
 )
 
 // GetBaseFee queries the current base fee from the feemarket module
-func (node *NodeConfig) GetAccountInfo(ctx context.Context) (address string, sequence uint64, accNum uint64, err error) {
-	log.Info().Msgf("Getting account info for %s", node.Chain.Address)
+func (node *NodeConfig) GetAccountInfo(ctx context.Context, inAddress string) (address string, sequence uint64, accNum uint64, err error) {
+	walletConfig, err := node.RPCManager.GetWalletConfig()
+	if err != nil {
+		return "", 0, 0, errorsmod.Wrapf(err, "Error getting wallet config")
+	}
+	log.Info().Msgf("Getting account info for %s", inAddress)
 	resp, err := QueryDataWithRetry(
 		ctx,
-		node.Wallet.MaxRetries,
-		node.Wallet.RetryDelay,
+		walletConfig.MaxRetries,
+		walletConfig.RetryDelay,
 		func(ctx context.Context, req query.PageRequest) (*auth.QueryAccountInfoResponse, error) {
-			return node.Chain.AuthQueryClient.AccountInfo(ctx, &auth.QueryAccountInfoRequest{Address: node.Chain.Address})
+			return node.Chain.AuthQueryClient.AccountInfo(ctx, &auth.QueryAccountInfoRequest{Address: inAddress})
 		},
 		query.PageRequest{}, // nolint:exhaustruct
 		"get account info",

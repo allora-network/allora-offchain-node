@@ -107,6 +107,16 @@ func NewRPCManager(ctx context.Context, userConfig UserConfig) (*RPCManager, err
 	rpcManager.txNodes = txNodes
 	rpcManager.queryIdx = 0
 	rpcManager.txIdx = 0
+
+	// Initialize the wallet with the account info
+	_, sequence, accNum, err := rpcManager.GetCurrentQueryNode().GetAccountInfo(ctx, wallet.Address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get account info: %w", err)
+	}
+	wallet.SetSequence(sequence)
+	wallet.AccountNumber = accNum
+	log.Info().Msgf("Wallet initialized successfully, with account (sequence: %d, accNum: %d)", sequence, accNum)
+
 	return rpcManager, nil
 }
 

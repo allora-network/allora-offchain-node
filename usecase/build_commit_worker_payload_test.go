@@ -121,18 +121,23 @@ func TestComputeWorkerBundle(t *testing.T) {
 			tt.workerConfig.InferenceEntrypoint = mockAdapter
 			tt.workerConfig.ForecastEntrypoint = mockAdapter
 
+			// Create mock wallet
+			mockWallet := &lib.Wallet{ // nolint:exhaustruct
+				Address: tt.address,
+				// Other wallet fields are not required for this test
+			}
+
 			// Replace RPCManager creation with mock
 			mockRPCManager := &lib.MockRPCManager{} //nolint:exhaustruct
-			mockNodeConfig := &lib.NodeConfig{      //nolint:exhaustruct
-				Wallet: lib.WalletConfig{ //nolint:exhaustruct
-					Address: tt.address,
-				},
-			}
+			mockNodeConfig := &lib.NodeConfig{}     //nolint:exhaustruct
+
+			// Add mock expectations
 			mockRPCManager.On("GetCurrentQueryNode").Return(mockNodeConfig)
 			mockRPCManager.On("GetCurrentTxNode").Return(mockNodeConfig)
-			suite := &UseCaseSuite{RPCManager: mockRPCManager} // nolint: exhaustruct
+			mockRPCManager.On("GetWallet").Return(mockWallet, nil)
 
-			suite.RPCManager.GetCurrentQueryNode().Wallet.Address = tt.address
+			suite := &UseCaseSuite{RPCManager: mockRPCManager} //nolint:exhaustruct
+
 			response, err := suite.BuildWorkerPayload(tt.workerConfig, 1)
 			if tt.expectError {
 				require.Error(t, err)

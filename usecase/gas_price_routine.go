@@ -11,6 +11,16 @@ import (
 
 // UpdateGasPriceRoutine continuously updates the gas price at a specified interval
 func (suite *UseCaseSuite) UpdateGasPriceRoutine(ctx context.Context) {
+	wallet, err := suite.RPCManager.GetWallet()
+	if err != nil {
+		log.Error().Err(err).Msg("Error getting wallet")
+		return
+	}
+	walletConfig, err := suite.RPCManager.GetWalletConfig()
+	if err != nil {
+		log.Error().Err(err).Msg("Error getting wallet config")
+		return
+	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -22,9 +32,9 @@ func (suite *UseCaseSuite) UpdateGasPriceRoutine(ctx context.Context) {
 				suite.RPCManager,
 				func(node *lib.NodeConfig) (float64, error) {
 					return WithTimeoutResult(ctx,
-						time.Duration(suite.RPCManager.GetCurrentQueryNode().Wallet.TimeoutRPCSecondsQuery)*time.Second,
+						time.Duration(walletConfig.TimeoutRPCSecondsQuery)*time.Second,
 						func(ctx context.Context) (float64, error) {
-							return suite.RPCManager.GetCurrentQueryNode().GetBaseFee(ctx)
+							return suite.RPCManager.GetCurrentQueryNode().GetBaseFee(ctx, wallet.DefaultBondDenom)
 						})
 				},
 				"get base fee",
@@ -35,7 +45,7 @@ func (suite *UseCaseSuite) UpdateGasPriceRoutine(ctx context.Context) {
 			}
 			lib.SetGasPrice(price)
 			log.Debug().Float64("gasPrice", lib.GetGasPrice()).Msg("Updating fee price routine: updating value.")
-			time.Sleep(time.Duration(suite.RPCManager.GetCurrentQueryNode().Wallet.GasPriceUpdateInterval) * time.Second)
+			time.Sleep(time.Duration(walletConfig.GasPriceUpdateInterval) * time.Second)
 		}
 	}
 }
