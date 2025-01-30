@@ -84,8 +84,8 @@ func main() {
 	log.Info().Msg("Starting allora offchain node...")
 
 	// Metrics
-	metrics := lib.NewMetrics(lib.CounterData)
-	metrics.RegisterMetricsCounters()
+	lib.InitMetrics(lib.CounterData)
+	metrics := lib.GetMetrics()
 	metrics.StartMetricsServer(":2112")
 
 	// Load config and do modifications if needed
@@ -131,7 +131,7 @@ func main() {
 	finalUserConfig.CheckAndSetDefaults()
 
 	// Creates the RPCManagerand initialises the NodeConfigs
-	rpcManager, err := lib.NewRPCManager(ctx, finalUserConfig)
+	rpcManager, err := lib.NewConnectionManager(ctx, finalUserConfig)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to initialize RPCManager, exiting")
 		return
@@ -161,6 +161,7 @@ func main() {
 
 	<-sigCtx.Done()
 
+	metrics.IncrementMetricsCounter(lib.ApplicationFinishedCount, "", 0)
 	log.Info().Msg("Stopping...")
 
 	<-ctx.Done()

@@ -13,6 +13,9 @@ const (
 	ReputerDataBuildCount       string = "allora_reputer_data_build_count"
 	WorkerChainSubmissionCount  string = "allora_worker_chain_submission_count"
 	ReputerChainSubmissionCount string = "allora_reputer_chain_submission_count"
+	WorkerProcessFinishedCount  string = "allora_worker_process_finished_count"
+	ReputerProcessFinishedCount string = "allora_reputer_process_finished_count"
+	ApplicationFinishedCount    string = "allora_application_finished_count"
 )
 
 // A struct that holds the name and help text for a prometheus counter
@@ -24,4 +27,7 @@ var CounterData = []MetricsCounter{
 	{ReputerDataBuildCount, "The total number of times worker built data successfully"},
 	{WorkerChainSubmissionCount, "The total number of worker commits to the chain"},
 	{ReputerChainSubmissionCount, "The total number of reputer commits to the chain"},
+	{WorkerProcessFinishedCount, "The total number of worker processes finished"},
+	{ReputerProcessFinishedCount, "The total number of reputer processes finished"},
+	{ApplicationFinishedCount, "The total number of application runs finished"},
 }

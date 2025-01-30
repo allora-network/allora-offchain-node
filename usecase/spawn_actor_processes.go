@@ -111,7 +111,7 @@ func (suite *UseCaseSuite) Spawn(ctx context.Context) error {
 
 		if lib.DoneOrWait(ctx, walletConfig.LaunchRoutineDelay) {
 			log.Error().Msg("Worker process finished")
-			// TODO send metric
+			suite.Metrics.IncrementMetricsCounter(lib.WorkerProcessFinishedCount, wallet.Address, worker.TopicId)
 		}
 	}
 
@@ -133,7 +133,7 @@ func (suite *UseCaseSuite) Spawn(ctx context.Context) error {
 
 		if lib.DoneOrWait(ctx, walletConfig.LaunchRoutineDelay) {
 			log.Error().Msg("Reputer process finished")
-			// TODO send metric
+			suite.Metrics.IncrementMetricsCounter(lib.ReputerProcessFinishedCount, wallet.Address, reputer.TopicId)
 		}
 	}
 
