@@ -1,11 +1,11 @@
 package lib
 
 import (
+	"allora_offchain_node/client"
 	"errors"
 	"fmt"
 
 	emissions "github.com/allora-network/allora-chain/x/emissions/types"
-	cometrpc "github.com/cometbft/cometbft/rpc/client/http"
 	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	auth "github.com/cosmos/cosmos-sdk/x/auth/types"
 	bank "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -63,14 +63,10 @@ type WalletConfig struct {
 	ChainId                       string                  // chain id
 }
 
-type Client struct {
-	RPCClient  *cometrpc.HTTP
-	GRPCClient *grpc.ClientConn
-}
-
 // Communication with the chain
 type ChainConfig struct {
-	Client               *Client
+	RPCClient            *client.AlloraRPCClient // A custom wrapper around the cometrpc.HTTP client
+	GRPCClient           *grpc.ClientConn        // Basic type to be used to init module-based clients
 	EmissionsQueryClient emissions.QueryServiceClient
 	BankQueryClient      bank.QueryClient
 	AuthQueryClient      auth.QueryClient
@@ -130,9 +126,9 @@ type UserConfig struct {
 
 // NodeConfig is the configuration for a node
 type NodeConfig struct {
-	ServerAddress string      // Server endpoint address URI
-	Chain         ChainConfig // Configuration for the chain
-	RPCManager    *RPCManager // Link to the RPCManager that created this node
+	ServerAddress string             // Server endpoint address URI
+	Chain         ChainConfig        // Configuration for the chain
+	RPCManager    *ConnectionManager // Link to the RPCManager that created this node
 }
 
 type WorkerResponse struct {

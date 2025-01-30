@@ -152,8 +152,11 @@ func main() {
 
 	log.Info().Msg("Starting spawning processes...")
 	go func() {
-		spawner.Spawn(sigCtx)
-		cancel()
+		err := spawner.Spawn(sigCtx)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to spawn processes, exiting")
+			cancel()
+		}
 	}()
 
 	<-sigCtx.Done()

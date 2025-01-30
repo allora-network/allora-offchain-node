@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (rpcManager *RPCManager) SendDataWithRetry(ctx context.Context, req sdktypes.Msg, infoMsg string, timeoutHeight uint64) (*coretypes.ResultBroadcastTx, error) {
+func (rpcManager *ConnectionManager) SendDataWithRetry(ctx context.Context, req sdktypes.Msg, infoMsg string, timeoutHeight uint64) (*coretypes.ResultBroadcastTx, error) {
 	// Excess fees correction factor translated to fees using configured gas prices
 	// This value is updated by the fee price update routine - making copy for consistency within method
 	gasPrice := GetGasPrice()
@@ -45,15 +45,14 @@ func (rpcManager *RPCManager) SendDataWithRetry(ctx context.Context, req sdktype
 		log.Debug().Msgf("SendDataWithRetry iteration started (%d/%d)", retryCount, walletConfig.MaxRetries)
 
 		// Create tx without fees to simulate tx creation and get estimated gas and seq number
-		txResp, _, err := transaction.SendTransactionViaRPC(ctx, txNode.ServerAddress, txParams, wallet.GetSequence(), false, req)
+		txResp, _, err := transaction.SendTransactionViaRPC(ctx, txNode.Chain.RPCClient, txNode.ServerAddress, txParams, wallet.GetSequence(), false, req)
 		if err == nil {
 			if txResp != nil {
 				log.Printf("Transaction sent successfully: %v\n", txResp.Hash.String())
 			} else {
 				log.Error().Msg("Transaction sent successfully but response is nil")
 			}
-			// TODO lock this in the overall wallet, not just the chain object inside each node
-			wallet.SetSequence(wallet.GetSequence() + 1)
+			wallet.IncrementSequence()
 			return txResp, nil
 		}
 

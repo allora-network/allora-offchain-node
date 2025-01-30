@@ -3,16 +3,11 @@ package lib
 import (
 	"context"
 
-	errorsmod "cosmossdk.io/errors"
 	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	"github.com/cosmos/cosmos-sdk/types/query"
 )
 
-func (node *NodeConfig) GetBlockHeight(ctx context.Context) (BlockHeight, error) {
-	walletConfig, err := node.RPCManager.GetWalletConfig()
-	if err != nil {
-		return 0, errorsmod.Wrapf(err, "Error getting wallet config")
-	}
+func (node *NodeConfig) GetBlockHeight(ctx context.Context, walletConfig *WalletConfig) (BlockHeight, error) {
 	resp, err := QueryDataWithRetry(
 		ctx,
 		walletConfig.MaxRetries,

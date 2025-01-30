@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	cometrpc "github.com/cometbft/cometbft/rpc/client/http"
@@ -13,47 +12,11 @@ import (
 	tmtypes "github.com/cometbft/cometbft/types"
 )
 
-type Client struct {
+type AlloraRPCClient struct {
 	Client *cometrpc.HTTP
 }
 
-var (
-	clients    = make(map[string]*Client)
-	clientsMux sync.RWMutex
-)
-
-func GetClient(rpcEndpoint string) (*Client, error) {
-	clientsMux.RLock()
-	if client, exists := clients[rpcEndpoint]; exists {
-		clientsMux.RUnlock()
-		return client, nil
-	}
-	clientsMux.RUnlock()
-
-	// If client doesn't exist, acquire write lock and create it
-	clientsMux.Lock()
-	defer clientsMux.Unlock()
-
-	// Double-check after acquiring write lock
-	if client, exists := clients[rpcEndpoint]; exists {
-		return client, nil
-	}
-
-	// Create new client
-	cmtCli, err := cometrpc.New(rpcEndpoint, "/websocket")
-	if err != nil {
-		return nil, err
-	}
-
-	client := &Client{
-		Client: cmtCli,
-	}
-
-	clients[rpcEndpoint] = client
-	return client, nil
-}
-
-func (c *Client) BroadcastTx(ctx context.Context, txBytes []byte, waitForTx bool) (*coretypes.ResultBroadcastTx, error) {
+func (c *AlloraRPCClient) BroadcastTx(ctx context.Context, txBytes []byte, waitForTx bool) (*coretypes.ResultBroadcastTx, error) {
 
 	t := tmtypes.Tx(txBytes)
 	res, err := c.Client.BroadcastTxSync(ctx, t)
@@ -77,7 +40,7 @@ func (c *Client) BroadcastTx(ctx context.Context, txBytes []byte, waitForTx bool
 
 // WaitForTx requests the tx from hash, if not found, waits for next block and
 // tries again. Returns an error if ctx is canceled.
-func (c Client) WaitForTx(ctx context.Context, hash string) (*coretypes.ResultTx, error) {
+func (c AlloraRPCClient) WaitForTx(ctx context.Context, hash string) (*coretypes.ResultTx, error) {
 	bz, err := hex.DecodeString(hash)
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode tx hash '%s': %w", hash, err)
@@ -103,13 +66,13 @@ func (c Client) WaitForTx(ctx context.Context, hash string) (*coretypes.ResultTx
 // WaitForNextBlock waits until next block is committed.
 // It reads the current block height and then waits for another block to be
 // committed, or returns an error if ctx is canceled.
-func (c Client) WaitForNextBlock(ctx context.Context) error {
+func (c AlloraRPCClient) WaitForNextBlock(ctx context.Context) error {
 	return c.WaitForNBlocks(ctx, 1)
 }
 
 // WaitForNBlocks reads the current block height and then waits for another n
 // blocks to be committed, or returns an error if ctx is canceled.
-func (c Client) WaitForNBlocks(ctx context.Context, n int64) error {
+func (c AlloraRPCClient) WaitForNBlocks(ctx context.Context, n int64) error {
 	start, err := c.LatestBlockHeight(ctx)
 	if err != nil {
 		return err
@@ -118,7 +81,7 @@ func (c Client) WaitForNBlocks(ctx context.Context, n int64) error {
 }
 
 // LatestBlockHeight returns the latest block height of the app.
-func (c Client) LatestBlockHeight(ctx context.Context) (int64, error) {
+func (c AlloraRPCClient) LatestBlockHeight(ctx context.Context) (int64, error) {
 	resp, err := c.Client.Status(ctx)
 	if err != nil {
 		return 0, err
@@ -128,7 +91,7 @@ func (c Client) LatestBlockHeight(ctx context.Context) (int64, error) {
 
 // WaitForBlockHeight waits until block height h is committed, or returns an
 // error if ctx is canceled.
-func (c Client) WaitForBlockHeight(ctx context.Context, h int64) error {
+func (c AlloraRPCClient) WaitForBlockHeight(ctx context.Context, h int64) error {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 

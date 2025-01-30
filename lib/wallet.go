@@ -131,7 +131,7 @@ func GetKeyring(walletConfig WalletConfig) (kr keyring.Keyring, err error) { // 
 		keyring.BackendTest,
 		alloraClientHome,
 		os.Stdin,
-		getKeyringCodec(),
+		GetKeyringCodec(),
 	)
 
 	if err != nil {

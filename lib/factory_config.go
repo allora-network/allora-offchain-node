@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"allora_offchain_node/client"
 	"context"
 	"fmt"
 	"time"
@@ -25,13 +26,13 @@ import (
 // Used
 // var cdc = codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 
-func getAlloraRPCClient(config *UserConfig, rpc string) (rpcClient *cometrpc.HTTP, err error) {
+func getAlloraRPCClient(config *UserConfig, rpc string) (rpcClient *client.AlloraRPCClient, err error) {
 	cmtCli, err := cometrpc.New(rpc, "/websocket")
 	if err != nil {
 		return nil, err
 	}
 
-	return cmtCli, nil
+	return &client.AlloraRPCClient{Client: cmtCli}, nil
 	// create a allora client instance
 	// ctx := context.Background()
 	// userHomeDir, _ := os.UserHomeDir()
@@ -116,8 +117,8 @@ func (chain *ChainConfig) InitializeGRPCClient(grpcEndpoint string) (grpcConnect
 	dialOptions = append(dialOptions, grpc.WithKeepaliveParams(kaOpts))
 	dialOptions = append(dialOptions,
 		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(128*1024*1024),
-			grpc.MaxCallSendMsgSize(128*1024*1024),
+			grpc.MaxCallRecvMsgSize(8*1024*1024),
+			grpc.MaxCallSendMsgSize(8*1024*1024),
 			grpc.ForceCodec(customCodec),
 		),
 	)
@@ -135,6 +136,7 @@ func (chain *ChainConfig) InitializeGRPCClient(grpcEndpoint string) (grpcConnect
 		return nil, fmt.Errorf("failed to connect to %s: %w", grpcEndpoint, err)
 	}
 
+	// TODO: Investigate and ecide if we want to keep this
 	// spin up goroutine for monitoring and reconnect purposes - TODO test and configure
 	// go func() {
 	// 	for {
@@ -154,38 +156,33 @@ func (chain *ChainConfig) InitializeGRPCClient(grpcEndpoint string) (grpcConnect
 	return grpcConnection, nil
 }
 
-func (c *UserConfig) GenerateNodeConfig(ctx context.Context, wallet *Wallet, rpc string, grpc string) (nodeConfig *NodeConfig, err error) {
-	log.Info().Str("rpc", rpc).Str("address", wallet.Address).Msg("Allora client created successfully")
+func (c *UserConfig) GenerateNodeConfig(ctx context.Context, wallet *Wallet, mode int, endpoint string) (nodeConfig *NodeConfig, err error) {
+	log.Info().Str("endpoint", endpoint).Str("address", wallet.Address).Msg("Allora client created successfully")
 
-	// TODO: This is a temporary solution to get the chain config working, will be removed after refactor
-	alloraChain := ChainConfig{ // nolint: exhaustruct
-		Client: &Client{}, // nolint: exhaustruct
-	}
-
-	Node := NodeConfig{
-		ServerAddress: rpc,
-		Chain:         alloraChain,
+	Node := NodeConfig{ // nolint: exhaustruct
+		ServerAddress: endpoint,
+		Chain:         ChainConfig{}, // nolint: exhaustruct
 	}
 
 	// Get RPC allora client
-	var rpcClient *cometrpc.HTTP
-	if rpc != "" {
-		rpcClient, err = getAlloraRPCClient(c, rpc)
+	var rpcClient *client.AlloraRPCClient
+	if mode == RPC_MODE {
+		rpcClient, err = getAlloraRPCClient(c, endpoint)
 		if err != nil {
 			return nil, err
 		}
-		Node.Chain.Client.RPCClient = rpcClient
-		Node.ServerAddress = rpc
-		log.Info().Msgf("RPC Node initialized successfully %s", rpc)
+		Node.Chain.RPCClient = rpcClient
+		Node.ServerAddress = endpoint
+		log.Info().Msgf("RPC Node initialized successfully %s", endpoint)
 	}
 
 	// Get GRPC allora client
-	if grpc != "" {
-		grpcConn, err := alloraChain.InitializeGRPCClient(grpc)
+	if mode == GRPC_MODE {
+		grpcConn, err := Node.Chain.InitializeGRPCClient(endpoint)
 		if err != nil {
 			return nil, errorsmod.Wrap(err, "failed to initialize gRPC client")
 		}
-		Node.Chain.Client.GRPCClient = grpcConn
+		Node.Chain.GRPCClient = grpcConn
 		// Create query client
 		Node.Chain.EmissionsQueryClient = emissionstypes.NewQueryServiceClient(grpcConn)
 
@@ -193,9 +190,7 @@ func (c *UserConfig) GenerateNodeConfig(ctx context.Context, wallet *Wallet, rpc
 		Node.Chain.AuthQueryClient = authtypes.NewQueryClient(grpcConn)
 		Node.Chain.FeeMarketQueryClient = feemarkettypes.NewQueryClient(grpcConn)
 		Node.Chain.CometQueryClient = cmtservice.NewServiceClient(grpcConn)
-		Node.Chain.Client.GRPCClient = grpcConn
-		Node.ServerAddress = grpc
-		log.Info().Msgf("GRPC Node initialized successfully %s", grpc)
+		log.Info().Msgf("GRPC Node initialized successfully %s", endpoint)
 	}
 	return &Node, nil
 }

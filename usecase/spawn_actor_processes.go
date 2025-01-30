@@ -46,16 +46,16 @@ type ActorProcessParams[T lib.TopicActor] struct {
 }
 
 // Spawns the actor processes and any associated non-essential routines
-func (suite *UseCaseSuite) Spawn(ctx context.Context) {
+func (suite *UseCaseSuite) Spawn(ctx context.Context) error {
 	wallet, err := suite.RPCManager.GetWallet()
 	if err != nil {
 		log.Error().Err(err).Msg("Error getting wallet")
-		return
+		return err
 	}
 	walletConfig, err := suite.RPCManager.GetWalletConfig()
 	if err != nil {
 		log.Error().Err(err).Msg("Error getting wallet config")
-		return
+		return err
 	}
 	if walletConfig.GasPrices == lib.AutoGasPrices {
 		log.Info().Msg("auto gas prices. Updating fee price routine: starting.")
@@ -74,7 +74,7 @@ func (suite *UseCaseSuite) Spawn(ctx context.Context) {
 
 		if err != nil {
 			log.Error().Err(err).Msg("Error updating gas prices in auto mode - RPC availability issue?")
-			return
+			return err
 		}
 		lib.SetGasPrice(price)
 		// After intialization, start auto-update routine
@@ -83,7 +83,7 @@ func (suite *UseCaseSuite) Spawn(ctx context.Context) {
 		price, err := strconv.ParseFloat(walletConfig.GasPrices, 64)
 		if err != nil {
 			log.Error().Err(err).Msg("Invalid gas prices format")
-			return
+			return err
 		} else {
 			log.Debug().Float64("gasPrice", price).Msg("Setting gas prices manually")
 			lib.SetGasPrice(price)
@@ -111,7 +111,7 @@ func (suite *UseCaseSuite) Spawn(ctx context.Context) {
 
 		if lib.DoneOrWait(ctx, walletConfig.LaunchRoutineDelay) {
 			log.Error().Msg("Worker process finished")
-			return
+			// TODO send metric
 		}
 	}
 
@@ -133,7 +133,7 @@ func (suite *UseCaseSuite) Spawn(ctx context.Context) {
 
 		if lib.DoneOrWait(ctx, walletConfig.LaunchRoutineDelay) {
 			log.Error().Msg("Reputer process finished")
-			return
+			// TODO send metric
 		}
 	}
 
@@ -144,6 +144,7 @@ func (suite *UseCaseSuite) Spawn(ctx context.Context) {
 	}()
 
 	<-essentialDone // Block until all essential routines are done
+	return nil
 }
 
 // Attempts to build and commit a worker payload for a given nonce
@@ -521,7 +522,7 @@ func runActorProcess[T lib.TopicActor](ctx context.Context, suite *UseCaseSuite,
 		// Query the latest block
 		currentBlockHeight, err = WithTimeoutResult(ctx, time.Duration(walletConfig.TimeoutRPCSecondsQuery)*time.Second,
 			func(ctx context.Context) (lib.BlockHeight, error) {
-				return suite.RPCManager.GetCurrentQueryNode().GetBlockHeight(ctx)
+				return suite.RPCManager.GetCurrentQueryNode().GetBlockHeight(ctx, walletConfig)
 			})
 
 		if err != nil {

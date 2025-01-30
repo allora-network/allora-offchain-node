@@ -37,7 +37,7 @@ const (
 	RPC_MODE  int = 2
 )
 
-type RPCManager struct {
+type ConnectionManager struct {
 	queryNodes   []NodeConfig
 	txNodes      []NodeConfig
 	queryIdx     int
@@ -49,7 +49,7 @@ type RPCManager struct {
 	walletConfig *WalletConfig
 }
 
-func NewRPCManager(ctx context.Context, userConfig UserConfig) (*RPCManager, error) {
+func NewRPCManager(ctx context.Context, userConfig UserConfig) (*ConnectionManager, error) {
 	if len(userConfig.Wallet.NodeRPCs) == 0 {
 		return nil, fmt.Errorf("no GRPC/RPC nodes provided")
 	}
@@ -72,18 +72,18 @@ func NewRPCManager(ctx context.Context, userConfig UserConfig) (*RPCManager, err
 	}
 
 	// Create a new RPCManager with the wallet and wallet config, will be
-	var rpcManager = &RPCManager{
+	var rpcManager = &ConnectionManager{
 		wallet:       wallet,
 		walletConfig: &userConfig.Wallet,
 	}
 
 	// Load here the nodeconfigs
 	var queryNodes []NodeConfig
-	for _, grpc := range userConfig.Wallet.NodeGRPCs {
-		log.Info().Str("grpc", grpc).Msg("Initializing grpc query nodes")
-		nodeConfig, err := userConfig.GenerateNodeConfig(ctx, wallet, "", grpc)
+	for _, endpoint := range userConfig.Wallet.NodeGRPCs {
+		log.Info().Str("grpc", endpoint).Msg("Initializing grpc query nodes")
+		nodeConfig, err := userConfig.GenerateNodeConfig(ctx, wallet, GRPC_MODE, endpoint)
 		if err != nil {
-			log.Error().Err(err).Str("grpc", grpc).Msg("Error generating node config, skipping GRPC node")
+			log.Error().Err(err).Str("grpc", endpoint).Msg("Error generating node config, skipping GRPC node")
 			continue
 		}
 		nodeConfig.RPCManager = rpcManager
@@ -92,11 +92,11 @@ func NewRPCManager(ctx context.Context, userConfig UserConfig) (*RPCManager, err
 
 	var txNodes []NodeConfig
 
-	for _, rpc := range userConfig.Wallet.NodeRPCs {
-		log.Info().Str("rpc", rpc).Msg("Initializing rpc tx nodes")
-		nodeConfig, err := userConfig.GenerateNodeConfig(ctx, wallet, rpc, "")
+	for _, endpoint := range userConfig.Wallet.NodeRPCs {
+		log.Info().Str("rpc", endpoint).Msg("Initializing rpc tx nodes")
+		nodeConfig, err := userConfig.GenerateNodeConfig(ctx, wallet, RPC_MODE, endpoint)
 		if err != nil {
-			log.Error().Err(err).Str("rpc", rpc).Msg("Error generating node config, skipping RPC node")
+			log.Error().Err(err).Str("rpc", endpoint).Msg("Error generating node config, skipping RPC node")
 			continue
 		}
 		nodeConfig.RPCManager = rpcManager
@@ -120,7 +120,7 @@ func NewRPCManager(ctx context.Context, userConfig UserConfig) (*RPCManager, err
 	return rpcManager, nil
 }
 
-func (r *RPCManager) InitializeWallet(ctx context.Context, walletConfig WalletConfig) error {
+func (r *ConnectionManager) InitializeWallet(ctx context.Context, walletConfig WalletConfig) error {
 	var initErr error
 	r.walletInit.Do(func() {
 		wallet, err := NewWalletFromConfig(ctx, walletConfig)
@@ -134,58 +134,58 @@ func (r *RPCManager) InitializeWallet(ctx context.Context, walletConfig WalletCo
 }
 
 // GetWallet returns the wallet instance, returns error if wallet is not initialized
-func (r *RPCManager) GetWallet() (*Wallet, error) {
+func (r *ConnectionManager) GetWallet() (*Wallet, error) {
 	if r.wallet == nil {
 		return nil, fmt.Errorf("wallet not initialized")
 	}
 	return r.wallet, nil
 }
 
-func (r *RPCManager) GetWalletConfig() (*WalletConfig, error) {
+func (r *ConnectionManager) GetWalletConfig() (*WalletConfig, error) {
 	if r.walletConfig == nil {
 		return nil, fmt.Errorf("wallet config not initialized")
 	}
 	return r.walletConfig, nil
 }
 
-func (r *RPCManager) GetQueryNodes() ([]NodeConfig, error) {
+func (r *ConnectionManager) GetQueryNodes() ([]NodeConfig, error) {
 	r.queryMu.RLock()
 	defer r.queryMu.RUnlock()
 	return r.queryNodes, nil
 }
 
-func (r *RPCManager) GetTxNodes() ([]NodeConfig, error) {
+func (r *ConnectionManager) GetTxNodes() ([]NodeConfig, error) {
 	r.txMu.RLock()
 	defer r.txMu.RUnlock()
 	return r.txNodes, nil
 }
 
-func (r *RPCManager) GetCurrentQueryIndex() int {
+func (r *ConnectionManager) GetCurrentQueryIndex() int {
 	r.queryMu.RLock()
 	defer r.queryMu.RUnlock()
 	return r.queryIdx
 }
 
-func (r *RPCManager) GetCurrentTxIndex() int {
+func (r *ConnectionManager) GetCurrentTxIndex() int {
 	r.txMu.RLock()
 	defer r.txMu.RUnlock()
 	return r.txIdx
 }
 
-func (r *RPCManager) GetCurrentQueryNode() *NodeConfig {
+func (r *ConnectionManager) GetCurrentQueryNode() *NodeConfig {
 	r.queryMu.RLock()
 	defer r.queryMu.RUnlock()
 	return &r.queryNodes[r.queryIdx]
 }
 
-func (r *RPCManager) GetCurrentTxNode() *NodeConfig {
+func (r *ConnectionManager) GetCurrentTxNode() *NodeConfig {
 	r.txMu.RLock()
 	defer r.txMu.RUnlock()
 	return &r.txNodes[r.txIdx]
 }
 
 // internal function, switches to a node assuming a lock has been acquired
-func (r *RPCManager) switchToNodeLocked(mode, index int, nodes []NodeConfig) *NodeConfig {
+func (r *ConnectionManager) switchToNodeLocked(mode, index int, nodes []NodeConfig) *NodeConfig {
 	if len(nodes) == 1 {
 		return &nodes[0]
 	}
@@ -211,7 +211,7 @@ func (r *RPCManager) switchToNodeLocked(mode, index int, nodes []NodeConfig) *No
 
 // SwitchToNextNode switches to the next node in the list.
 // Node change is persistent, so it will be used again in the next call
-func (r *RPCManager) SwitchToNextQueryNode() *NodeConfig {
+func (r *ConnectionManager) SwitchToNextQueryNode() *NodeConfig {
 	r.queryMu.Lock()
 	defer r.queryMu.Unlock()
 	// Get next node index, wrap around if necessary
@@ -219,7 +219,7 @@ func (r *RPCManager) SwitchToNextQueryNode() *NodeConfig {
 	return r.switchToNodeLocked(GRPC_MODE, nextNode, r.queryNodes)
 }
 
-func (r *RPCManager) SwitchToNextTxNode() *NodeConfig {
+func (r *ConnectionManager) SwitchToNextTxNode() *NodeConfig {
 	r.txMu.Lock()
 	defer r.txMu.Unlock()
 	// Get next node index, wrap around if necessary
@@ -228,30 +228,30 @@ func (r *RPCManager) SwitchToNextTxNode() *NodeConfig {
 }
 
 // Switches to a specific node, acquiring a lock
-func (r *RPCManager) SwitchToQueryNode(index int) *NodeConfig {
+func (r *ConnectionManager) SwitchToQueryNode(index int) *NodeConfig {
 	r.queryMu.Lock()
 	defer r.queryMu.Unlock()
 	return r.switchToNodeLocked(GRPC_MODE, index, r.queryNodes)
 }
 
-func (r *RPCManager) SwitchToTxNode(index int) *NodeConfig {
+func (r *ConnectionManager) SwitchToTxNode(index int) *NodeConfig {
 	r.txMu.Lock()
 	defer r.txMu.Unlock()
 	return r.switchToNodeLocked(RPC_MODE, index, r.txNodes)
 }
 
-func (r *RPCManager) Close() error {
+func (r *ConnectionManager) Close() error {
 	log.Info().Msg("Closing RPCManager")
 	// Iterate through all nodes and close them
 	for _, node := range r.queryNodes {
-		if node.Chain.Client.GRPCClient != nil {
-			err := node.Chain.Client.GRPCClient.Close()
+		if node.Chain.GRPCClient != nil {
+			err := node.Chain.GRPCClient.Close()
 			if err != nil {
 				return err
 			}
 		}
-		if node.Chain.Client.RPCClient != nil {
-			err := node.Chain.Client.RPCClient.Stop()
+		if node.Chain.RPCClient != nil && node.Chain.RPCClient.Client != nil {
+			err := node.Chain.RPCClient.Client.Stop()
 			if err != nil {
 				return err
 			}
@@ -259,14 +259,14 @@ func (r *RPCManager) Close() error {
 	}
 
 	for _, node := range r.txNodes {
-		if node.Chain.Client.GRPCClient != nil {
-			err := node.Chain.Client.GRPCClient.Close()
+		if node.Chain.GRPCClient != nil {
+			err := node.Chain.GRPCClient.Close()
 			if err != nil {
 				return err
 			}
 		}
-		if node.Chain.Client.RPCClient != nil {
-			err := node.Chain.Client.RPCClient.Stop()
+		if node.Chain.RPCClient != nil && node.Chain.RPCClient.Client != nil {
+			err := node.Chain.RPCClient.Client.Stop()
 			if err != nil {
 				return err
 			}
@@ -275,7 +275,7 @@ func (r *RPCManager) Close() error {
 	return nil
 }
 
-func (r *RPCManager) SendDataWithNodeRetry(
+func (r *ConnectionManager) SendDataWithNodeRetry(
 	ctx context.Context,
 	msg sdk.Msg,
 	timeoutHeight uint64,
