@@ -14,7 +14,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-type RPCManagerInterface interface {
+type ConnectionManagerInterface interface {
 	GetCurrentQueryNode() *NodeConfig
 	GetCurrentTxNode() *NodeConfig
 	GetCurrentQueryIndex() int
@@ -49,9 +49,13 @@ type ConnectionManager struct {
 	walletConfig *WalletConfig
 }
 
-func NewRPCManager(ctx context.Context, userConfig UserConfig) (*ConnectionManager, error) {
+// Creates a new ConnectionManager instance, initialising the wallet and the connection nodes
+func NewConnectionManager(ctx context.Context, userConfig UserConfig) (*ConnectionManager, error) {
 	if len(userConfig.Wallet.NodeRPCs) == 0 {
-		return nil, fmt.Errorf("no GRPC/RPC nodes provided")
+		return nil, fmt.Errorf("no RPC nodes provided")
+	}
+	if len(userConfig.Wallet.NodeGRPCs) == 0 {
+		return nil, fmt.Errorf("no GRPC nodes provided")
 	}
 
 	wallet, err := NewWalletFromConfig(ctx, userConfig.Wallet)
@@ -241,7 +245,7 @@ func (r *ConnectionManager) SwitchToTxNode(index int) *NodeConfig {
 }
 
 func (r *ConnectionManager) Close() error {
-	log.Info().Msg("Closing RPCManager")
+	log.Info().Msg("Closing ConnectionManager")
 	// Iterate through all nodes and close them
 	for _, node := range r.queryNodes {
 		if node.Chain.GRPCClient != nil {
@@ -289,7 +293,7 @@ func (r *ConnectionManager) SendDataWithNodeRetry(
 // RunWithNodeRetry executes an operation that returns (T, error) on nodes until success or all nodes are exhausted
 func RunWithNodeRetry[T any](
 	ctx context.Context,
-	r RPCManagerInterface,
+	r ConnectionManagerInterface,
 	operation func(*NodeConfig) (T, error),
 	operationName string,
 	mode int,

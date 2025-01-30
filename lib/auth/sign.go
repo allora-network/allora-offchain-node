@@ -1,4 +1,4 @@
-package lib
+package auth
 
 import (
 	errorsmod "cosmossdk.io/errors"
@@ -12,6 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 )
 
+// MarshallAndSignByPrivKey is a helper function to sign a message with a private key
 func MarshallAndSignByPrivKey(payload proto.Message, privKey cryptotypes.PrivKey, address sdktypes.Address) (sig, pk []byte, err error) {
 	protoBytesIn := make([]byte, 0)
 	protoBytesIn, err = proto.Marshal(payload)
@@ -25,12 +26,8 @@ func MarshallAndSignByPrivKey(payload proto.Message, privKey cryptotypes.PrivKey
 	return sig, privKey.PubKey().Bytes(), nil
 }
 
+// MarshallAndSignByKeyring is a helper function to sign a message with a keyring
 func MarshallAndSignByKeyring(payload proto.Message, keyring keyring.Keyring, address sdktypes.Address) (sig, pk []byte, err error) {
-	// protoBytesIn := make([]byte, 0)
-	// protoBytesIn, err = payload.XXX_Marshal(protoBytesIn, true)
-	// if err != nil {
-	// 	return nil, nil, errorsmod.Wrapf(err, "error marshalling workerPayload") // nolint: exhaustruct
-	// }
 	protoBytesIn, err := MarshalProtoMessage(payload)
 	if err != nil {
 		return nil, nil, errorsmod.Wrapf(err, "error marshalling workerPayload") // nolint: exhaustruct
@@ -46,7 +43,8 @@ func MarshallAndSignByKeyring(payload proto.Message, keyring keyring.Keyring, ad
 	return sig, pubKey.Bytes(), nil
 }
 
-// MarshalProtoMessage dynamically marshals the Protobuf message.
+// MarshalProtoMessage dynamically marshals anytype of Protobuf message.
+// Attempts to use XXX_Marshal if it exists, otherwise falls back to the default proto.Marshal.
 func MarshalProtoMessage(msg proto.Message) ([]byte, error) {
 	// Check if XXX_Marshal exists on the type.
 	if m, ok := msg.(interface {

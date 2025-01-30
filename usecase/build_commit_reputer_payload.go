@@ -2,6 +2,7 @@ package usecase
 
 import (
 	lib "allora_offchain_node/lib"
+	auth "allora_offchain_node/lib/auth"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -224,7 +225,7 @@ func (suite *UseCaseSuite) SignReputerValueBundle(valueBundle *emissionstypes.Va
 	if err != nil {
 		return &emissionstypes.ReputerValueBundle{}, errorsmod.Wrapf(err, "error getting wallet") // nolint: exhaustruct
 	}
-	sig, pk, err := lib.MarshallAndSignByPrivKey(valueBundle, wallet.PrivKey, wallet.AddressSDK)
+	sig, pk, err := auth.MarshallAndSignByPrivKey(valueBundle, wallet.PrivKey, wallet.AddressSDK)
 	if err != nil {
 		return &emissionstypes.ReputerValueBundle{}, errorsmod.Wrapf(err, "error signing the InferenceForecastsBundle message") // nolint: exhaustruct
 	}

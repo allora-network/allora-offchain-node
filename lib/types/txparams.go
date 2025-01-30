@@ -1,4 +1,4 @@
-package types
+package transaction
 
 import (
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"

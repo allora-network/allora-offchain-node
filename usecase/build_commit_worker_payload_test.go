@@ -128,8 +128,8 @@ func TestComputeWorkerBundle(t *testing.T) {
 			}
 
 			// Replace RPCManager creation with mock
-			mockRPCManager := &lib.MockRPCManager{} //nolint:exhaustruct
-			mockNodeConfig := &lib.NodeConfig{}     //nolint:exhaustruct
+			mockRPCManager := &lib.MockConnectionManager{} //nolint:exhaustruct
+			mockNodeConfig := &lib.NodeConfig{}            //nolint:exhaustruct
 
 			// Add mock expectations
 			mockRPCManager.On("GetCurrentQueryNode").Return(mockNodeConfig)

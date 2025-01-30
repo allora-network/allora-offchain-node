@@ -1,7 +1,8 @@
 package lib
 
 import (
-	"allora_offchain_node/client"
+	"allora_offchain_node/lib/auth"
+	"allora_offchain_node/lib/rpcclient"
 	"context"
 	"errors"
 	"fmt"
@@ -131,7 +132,7 @@ func GetKeyring(walletConfig WalletConfig) (kr keyring.Keyring, err error) { // 
 		keyring.BackendTest,
 		alloraClientHome,
 		os.Stdin,
-		GetKeyringCodec(),
+		auth.GetKeyringCodec(),
 	)
 
 	if err != nil {
@@ -148,7 +149,7 @@ func GetAddressAndKeys(mnemonic string, keyName string) (cryptotypes.PrivKey, cr
 	}
 
 	// Get keys from mnemonic
-	privKey, pubKey, address := client.GetPrivKey(ADDRESS_PREFIX, []byte(mnemonic))
+	privKey, pubKey, address := rpcclient.GetPrivKey(ADDRESS_PREFIX, []byte(mnemonic))
 	if privKey == nil || pubKey == nil || address == "" {
 		return nil, nil, "", nil, errors.New("failed to generate keys from mnemonic")
 	}

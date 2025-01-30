@@ -8,11 +8,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type MockRPCManager struct {
+type MockConnectionManager struct {
 	mock.Mock
 }
 
-func (m *MockRPCManager) GetCurrentQueryNode() *NodeConfig {
+func (m *MockConnectionManager) GetCurrentQueryNode() *NodeConfig {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil
@@ -23,7 +23,7 @@ func (m *MockRPCManager) GetCurrentQueryNode() *NodeConfig {
 	return nil
 }
 
-func (m *MockRPCManager) GetCurrentTxNode() *NodeConfig {
+func (m *MockConnectionManager) GetCurrentTxNode() *NodeConfig {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil
@@ -34,7 +34,7 @@ func (m *MockRPCManager) GetCurrentTxNode() *NodeConfig {
 	return nil
 }
 
-func (m *MockRPCManager) SwitchToNextQueryNode() *NodeConfig {
+func (m *MockConnectionManager) SwitchToNextQueryNode() *NodeConfig {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil
@@ -45,7 +45,7 @@ func (m *MockRPCManager) SwitchToNextQueryNode() *NodeConfig {
 	return nil
 }
 
-func (m *MockRPCManager) SwitchToNextTxNode() *NodeConfig {
+func (m *MockConnectionManager) SwitchToNextTxNode() *NodeConfig {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil
@@ -56,7 +56,7 @@ func (m *MockRPCManager) SwitchToNextTxNode() *NodeConfig {
 	return nil
 }
 
-func (m *MockRPCManager) GetStats() (int, map[int]int) {
+func (m *MockConnectionManager) GetStats() (int, map[int]int) {
 	args := m.Called()
 	failures, ok := args.Get(1).(map[int]int)
 	if !ok {
@@ -65,7 +65,7 @@ func (m *MockRPCManager) GetStats() (int, map[int]int) {
 	return args.Int(0), failures
 }
 
-func (m *MockRPCManager) GetQueryNodes() ([]NodeConfig, error) {
+func (m *MockConnectionManager) GetQueryNodes() ([]NodeConfig, error) {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -76,7 +76,7 @@ func (m *MockRPCManager) GetQueryNodes() ([]NodeConfig, error) {
 	return nil, args.Error(1)
 }
 
-func (m *MockRPCManager) GetTxNodes() ([]NodeConfig, error) {
+func (m *MockConnectionManager) GetTxNodes() ([]NodeConfig, error) {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -87,7 +87,7 @@ func (m *MockRPCManager) GetTxNodes() ([]NodeConfig, error) {
 	return nil, args.Error(1)
 }
 
-func (m *MockRPCManager) SendDataWithNodeRetry(ctx context.Context, msg sdk.Msg, timeoutHeight uint64, operationName string) (*coretypes.ResultBroadcastTx, error) {
+func (m *MockConnectionManager) SendDataWithNodeRetry(ctx context.Context, msg sdk.Msg, timeoutHeight uint64, operationName string) (*coretypes.ResultBroadcastTx, error) {
 	args := m.Called(ctx, msg, timeoutHeight, operationName)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -98,7 +98,7 @@ func (m *MockRPCManager) SendDataWithNodeRetry(ctx context.Context, msg sdk.Msg,
 	return nil, args.Error(1)
 }
 
-func (m *MockRPCManager) SendDataWithRetry(ctx context.Context, req sdk.Msg, infoMsg string, timeoutHeight uint64) (*coretypes.ResultBroadcastTx, error) {
+func (m *MockConnectionManager) SendDataWithRetry(ctx context.Context, req sdk.Msg, infoMsg string, timeoutHeight uint64) (*coretypes.ResultBroadcastTx, error) {
 	args := m.Called(ctx, req, infoMsg, timeoutHeight)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -109,17 +109,17 @@ func (m *MockRPCManager) SendDataWithRetry(ctx context.Context, req sdk.Msg, inf
 	return nil, args.Error(1)
 }
 
-func (m *MockRPCManager) GetCurrentQueryIndex() int {
+func (m *MockConnectionManager) GetCurrentQueryIndex() int {
 	args := m.Called()
 	return args.Int(0)
 }
 
-func (m *MockRPCManager) GetCurrentTxIndex() int {
+func (m *MockConnectionManager) GetCurrentTxIndex() int {
 	args := m.Called()
 	return args.Int(0)
 }
 
-func (m *MockRPCManager) SwitchToQueryNode(index int) *NodeConfig {
+func (m *MockConnectionManager) SwitchToQueryNode(index int) *NodeConfig {
 	args := m.Called(index)
 	if args.Get(0) == nil {
 		return nil
@@ -130,7 +130,7 @@ func (m *MockRPCManager) SwitchToQueryNode(index int) *NodeConfig {
 	return nil
 }
 
-func (m *MockRPCManager) SwitchToTxNode(index int) *NodeConfig {
+func (m *MockConnectionManager) SwitchToTxNode(index int) *NodeConfig {
 	args := m.Called(index)
 	if args.Get(0) == nil {
 		return nil
@@ -141,11 +141,11 @@ func (m *MockRPCManager) SwitchToTxNode(index int) *NodeConfig {
 	return nil
 }
 
-func (m *MockRPCManager) Close() error {
+func (m *MockConnectionManager) Close() error {
 	return nil
 }
 
-func (m *MockRPCManager) GetWallet() (*Wallet, error) {
+func (m *MockConnectionManager) GetWallet() (*Wallet, error) {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -156,7 +156,7 @@ func (m *MockRPCManager) GetWallet() (*Wallet, error) {
 	return nil, args.Error(1)
 }
 
-func (m *MockRPCManager) GetWalletConfig() (*WalletConfig, error) {
+func (m *MockConnectionManager) GetWalletConfig() (*WalletConfig, error) {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil, args.Error(1)

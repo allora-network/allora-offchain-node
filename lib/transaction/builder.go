@@ -1,8 +1,8 @@
 package transaction
 
 import (
-	"allora_offchain_node/client"
-	"allora_offchain_node/types"
+	"allora_offchain_node/lib/rpcclient"
+	types "allora_offchain_node/lib/types"
 	"context"
 
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -40,11 +40,11 @@ func BuildAndSignTransaction(
 	}
 
 	// Estimate gas and fees
-	gas, err := client.EstimateGas(totalTxSize, txParams.GasEstimationConfig)
+	gas, err := rpcclient.EstimateGas(totalTxSize, txParams.GasEstimationConfig)
 	if err != nil {
 		return nil, err
 	}
-	fees, err := client.CalculateFees(gas, txParams.GasEstimationConfig.MinGasPrice)
+	fees, err := rpcclient.CalculateFees(gas, txParams.GasEstimationConfig.MinGasPrice)
 	if err != nil {
 		return nil, err
 	}

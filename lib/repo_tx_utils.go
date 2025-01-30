@@ -1,8 +1,8 @@
 package lib
 
 import (
-	"allora_offchain_node/transaction"
-	"allora_offchain_node/types"
+	"allora_offchain_node/lib/transaction"
+	types "allora_offchain_node/lib/types"
 	"context"
 
 	errorsmod "cosmossdk.io/errors"

@@ -1,7 +1,7 @@
-package client
+package rpcclient
 
 import (
-	"allora_offchain_node/types"
+	types "allora_offchain_node/lib/types"
 	"fmt"
 	"math"
 

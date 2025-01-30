@@ -1,7 +1,7 @@
 package lib
 
 import (
-	"allora_offchain_node/client"
+	"allora_offchain_node/lib/rpcclient"
 	"errors"
 	"fmt"
 
@@ -65,8 +65,8 @@ type WalletConfig struct {
 
 // Communication with the chain
 type ChainConfig struct {
-	RPCClient            *client.AlloraRPCClient // A custom wrapper around the cometrpc.HTTP client
-	GRPCClient           *grpc.ClientConn        // Basic type to be used to init module-based clients
+	RPCClient            *rpcclient.AlloraRPCClient // A custom wrapper around the cometrpc.HTTP client
+	GRPCClient           *grpc.ClientConn           // Basic type to be used to init module-based clients
 	EmissionsQueryClient emissions.QueryServiceClient
 	BankQueryClient      bank.QueryClient
 	AuthQueryClient      auth.QueryClient

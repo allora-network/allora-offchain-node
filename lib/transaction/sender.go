@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"allora_offchain_node/client"
-	"allora_offchain_node/types"
+	types "allora_offchain_node/lib/types"
+
+	"allora_offchain_node/lib/rpcclient"
 
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
@@ -13,7 +14,7 @@ import (
 
 // SendTransactionViaRPC sends a transaction using the provided rpc, TransactionParams and sequence number.
 func SendTransactionViaRPC(ctx context.Context,
-	rpcClient *client.AlloraRPCClient,
+	rpcClient *rpcclient.AlloraRPCClient,
 	rpcEndpoint string,
 	txParams *types.TransactionParams,
 	sequence uint64,
