@@ -21,7 +21,7 @@ func QueryDataWithRetry[T any](
 ) (T, error) {
 	var result T
 
-	walletConfig, err := node.RPCManager.GetWalletConfig()
+	walletConfig, err := node.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return result, errorsmod.Wrapf(err, "Error getting wallet config")
 	}

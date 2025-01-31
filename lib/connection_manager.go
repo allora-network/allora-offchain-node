@@ -75,8 +75,8 @@ func NewConnectionManager(ctx context.Context, userConfig UserConfig) (*Connecti
 		return nil, err
 	}
 
-	// Create a new RPCManager with the wallet and wallet config, will be
-	var rpcManager = &ConnectionManager{
+	// Create a new ConnectionManager with the wallet and wallet config, will be
+	var connectionManager = &ConnectionManager{
 		wallet:       wallet,
 		walletConfig: &userConfig.Wallet,
 	}
@@ -90,7 +90,7 @@ func NewConnectionManager(ctx context.Context, userConfig UserConfig) (*Connecti
 			log.Error().Err(err).Str("grpc", endpoint).Msg("Error generating node config, skipping GRPC node")
 			continue
 		}
-		nodeConfig.RPCManager = rpcManager
+		nodeConfig.ConnectionManager = connectionManager
 		queryNodes = append(queryNodes, *nodeConfig)
 	}
 
@@ -103,17 +103,17 @@ func NewConnectionManager(ctx context.Context, userConfig UserConfig) (*Connecti
 			log.Error().Err(err).Str("rpc", endpoint).Msg("Error generating node config, skipping RPC node")
 			continue
 		}
-		nodeConfig.RPCManager = rpcManager
+		nodeConfig.ConnectionManager = connectionManager
 		txNodes = append(txNodes, *nodeConfig)
 	}
 
-	rpcManager.queryNodes = queryNodes
-	rpcManager.txNodes = txNodes
-	rpcManager.queryIdx = 0
-	rpcManager.txIdx = 0
+	connectionManager.queryNodes = queryNodes
+	connectionManager.txNodes = txNodes
+	connectionManager.queryIdx = 0
+	connectionManager.txIdx = 0
 
 	// Initialize the wallet with the account info
-	_, sequence, accNum, err := rpcManager.GetCurrentQueryNode().GetAccountInfo(ctx, wallet.Address)
+	_, sequence, accNum, err := connectionManager.GetCurrentQueryNode().GetAccountInfo(ctx, wallet.Address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account info: %w", err)
 	}
@@ -121,85 +121,85 @@ func NewConnectionManager(ctx context.Context, userConfig UserConfig) (*Connecti
 	wallet.AccountNumber = accNum
 	log.Info().Msgf("Wallet initialized successfully, with account (sequence: %d, accNum: %d)", sequence, accNum)
 
-	return rpcManager, nil
+	return connectionManager, nil
 }
 
-func (r *ConnectionManager) InitializeWallet(ctx context.Context, walletConfig WalletConfig) error {
+func (connectionManager *ConnectionManager) InitializeWallet(ctx context.Context, walletConfig WalletConfig) error {
 	var initErr error
-	r.walletInit.Do(func() {
+	connectionManager.walletInit.Do(func() {
 		wallet, err := NewWalletFromConfig(ctx, walletConfig)
 		if err != nil {
 			initErr = fmt.Errorf("failed to initialize wallet: %w", err)
 			return
 		}
-		r.wallet = wallet
+		connectionManager.wallet = wallet
 	})
 	return initErr
 }
 
 // GetWallet returns the wallet instance, returns error if wallet is not initialized
-func (r *ConnectionManager) GetWallet() (*Wallet, error) {
-	if r.wallet == nil {
+func (connectionManager *ConnectionManager) GetWallet() (*Wallet, error) {
+	if connectionManager.wallet == nil {
 		return nil, fmt.Errorf("wallet not initialized")
 	}
-	return r.wallet, nil
+	return connectionManager.wallet, nil
 }
 
-func (r *ConnectionManager) GetWalletConfig() (*WalletConfig, error) {
-	if r.walletConfig == nil {
+func (connectionManager *ConnectionManager) GetWalletConfig() (*WalletConfig, error) {
+	if connectionManager.walletConfig == nil {
 		return nil, fmt.Errorf("wallet config not initialized")
 	}
-	return r.walletConfig, nil
+	return connectionManager.walletConfig, nil
 }
 
-func (r *ConnectionManager) GetQueryNodes() ([]NodeConfig, error) {
-	r.queryMu.RLock()
-	defer r.queryMu.RUnlock()
-	return r.queryNodes, nil
+func (connectionManager *ConnectionManager) GetQueryNodes() ([]NodeConfig, error) {
+	connectionManager.queryMu.RLock()
+	defer connectionManager.queryMu.RUnlock()
+	return connectionManager.queryNodes, nil
 }
 
-func (r *ConnectionManager) GetTxNodes() ([]NodeConfig, error) {
-	r.txMu.RLock()
-	defer r.txMu.RUnlock()
-	return r.txNodes, nil
+func (connectionManager *ConnectionManager) GetTxNodes() ([]NodeConfig, error) {
+	connectionManager.txMu.RLock()
+	defer connectionManager.txMu.RUnlock()
+	return connectionManager.txNodes, nil
 }
 
-func (r *ConnectionManager) GetCurrentQueryIndex() int {
-	r.queryMu.RLock()
-	defer r.queryMu.RUnlock()
-	return r.queryIdx
+func (connectionManager *ConnectionManager) GetCurrentQueryIndex() int {
+	connectionManager.queryMu.RLock()
+	defer connectionManager.queryMu.RUnlock()
+	return connectionManager.queryIdx
 }
 
-func (r *ConnectionManager) GetCurrentTxIndex() int {
-	r.txMu.RLock()
-	defer r.txMu.RUnlock()
-	return r.txIdx
+func (connectionManager *ConnectionManager) GetCurrentTxIndex() int {
+	connectionManager.txMu.RLock()
+	defer connectionManager.txMu.RUnlock()
+	return connectionManager.txIdx
 }
 
-func (r *ConnectionManager) GetCurrentQueryNode() *NodeConfig {
-	r.queryMu.RLock()
-	defer r.queryMu.RUnlock()
-	return &r.queryNodes[r.queryIdx]
+func (connectionManager *ConnectionManager) GetCurrentQueryNode() *NodeConfig {
+	connectionManager.queryMu.RLock()
+	defer connectionManager.queryMu.RUnlock()
+	return &connectionManager.queryNodes[connectionManager.queryIdx]
 }
 
-func (r *ConnectionManager) GetCurrentTxNode() *NodeConfig {
-	r.txMu.RLock()
-	defer r.txMu.RUnlock()
-	return &r.txNodes[r.txIdx]
+func (connectionManager *ConnectionManager) GetCurrentTxNode() *NodeConfig {
+	connectionManager.txMu.RLock()
+	defer connectionManager.txMu.RUnlock()
+	return &connectionManager.txNodes[connectionManager.txIdx]
 }
 
 // internal function, switches to a node assuming a lock has been acquired
-func (r *ConnectionManager) switchToNodeLocked(mode, index int, nodes []NodeConfig) *NodeConfig {
+func (connectionManager *ConnectionManager) switchToNodeLocked(mode, index int, nodes []NodeConfig) *NodeConfig {
 	if len(nodes) == 1 {
 		return &nodes[0]
 	}
 	var oldIndex int
 	if mode == GRPC_MODE {
-		oldIndex = r.queryIdx
-		r.queryIdx = index
+		oldIndex = connectionManager.queryIdx
+		connectionManager.queryIdx = index
 	} else if mode == RPC_MODE {
-		oldIndex = r.txIdx
-		r.txIdx = index
+		oldIndex = connectionManager.txIdx
+		connectionManager.txIdx = index
 	} else {
 		log.Error().Int("mode", mode).Msg("Invalid mode, not switching")
 		return nil
@@ -215,39 +215,39 @@ func (r *ConnectionManager) switchToNodeLocked(mode, index int, nodes []NodeConf
 
 // SwitchToNextNode switches to the next node in the list.
 // Node change is persistent, so it will be used again in the next call
-func (r *ConnectionManager) SwitchToNextQueryNode() *NodeConfig {
-	r.queryMu.Lock()
-	defer r.queryMu.Unlock()
+func (connectionManager *ConnectionManager) SwitchToNextQueryNode() *NodeConfig {
+	connectionManager.queryMu.Lock()
+	defer connectionManager.queryMu.Unlock()
 	// Get next node index, wrap around if necessary
-	nextNode := (r.queryIdx + 1) % len(r.queryNodes)
-	return r.switchToNodeLocked(GRPC_MODE, nextNode, r.queryNodes)
+	nextNode := (connectionManager.queryIdx + 1) % len(connectionManager.queryNodes)
+	return connectionManager.switchToNodeLocked(GRPC_MODE, nextNode, connectionManager.queryNodes)
 }
 
-func (r *ConnectionManager) SwitchToNextTxNode() *NodeConfig {
-	r.txMu.Lock()
-	defer r.txMu.Unlock()
+func (connectionManager *ConnectionManager) SwitchToNextTxNode() *NodeConfig {
+	connectionManager.txMu.Lock()
+	defer connectionManager.txMu.Unlock()
 	// Get next node index, wrap around if necessary
-	nextNode := (r.txIdx + 1) % len(r.txNodes)
-	return r.switchToNodeLocked(RPC_MODE, nextNode, r.txNodes)
+	nextNode := (connectionManager.txIdx + 1) % len(connectionManager.txNodes)
+	return connectionManager.switchToNodeLocked(RPC_MODE, nextNode, connectionManager.txNodes)
 }
 
 // Switches to a specific node, acquiring a lock
-func (r *ConnectionManager) SwitchToQueryNode(index int) *NodeConfig {
-	r.queryMu.Lock()
-	defer r.queryMu.Unlock()
-	return r.switchToNodeLocked(GRPC_MODE, index, r.queryNodes)
+func (connectionManager *ConnectionManager) SwitchToQueryNode(index int) *NodeConfig {
+	connectionManager.queryMu.Lock()
+	defer connectionManager.queryMu.Unlock()
+	return connectionManager.switchToNodeLocked(GRPC_MODE, index, connectionManager.queryNodes)
 }
 
-func (r *ConnectionManager) SwitchToTxNode(index int) *NodeConfig {
-	r.txMu.Lock()
-	defer r.txMu.Unlock()
-	return r.switchToNodeLocked(RPC_MODE, index, r.txNodes)
+func (connectionManager *ConnectionManager) SwitchToTxNode(index int) *NodeConfig {
+	connectionManager.txMu.Lock()
+	defer connectionManager.txMu.Unlock()
+	return connectionManager.switchToNodeLocked(RPC_MODE, index, connectionManager.txNodes)
 }
 
-func (r *ConnectionManager) Close() error {
+func (connectionManager *ConnectionManager) Close() error {
 	log.Info().Msg("Closing ConnectionManager")
 	// Iterate through all nodes and close them
-	for _, node := range r.queryNodes {
+	for _, node := range connectionManager.queryNodes {
 		if node.Chain.GRPCClient != nil {
 			err := node.Chain.GRPCClient.Close()
 			if err != nil {
@@ -262,7 +262,7 @@ func (r *ConnectionManager) Close() error {
 		}
 	}
 
-	for _, node := range r.txNodes {
+	for _, node := range connectionManager.txNodes {
 		if node.Chain.GRPCClient != nil {
 			err := node.Chain.GRPCClient.Close()
 			if err != nil {
@@ -279,37 +279,36 @@ func (r *ConnectionManager) Close() error {
 	return nil
 }
 
-func (r *ConnectionManager) SendDataWithNodeRetry(
+func (connectionManager *ConnectionManager) SendDataWithNodeRetry(
 	ctx context.Context,
 	msg sdk.Msg,
 	timeoutHeight uint64,
 	operationName string,
 ) (*coretypes.ResultBroadcastTx, error) {
-	return RunWithNodeRetry(ctx, r, func(node *NodeConfig) (*coretypes.ResultBroadcastTx, error) {
-		return r.SendDataWithRetry(ctx, msg, operationName, timeoutHeight)
+	return RunWithNodeRetry(ctx, connectionManager, func(node *NodeConfig) (*coretypes.ResultBroadcastTx, error) {
+		return connectionManager.SendDataWithRetry(ctx, msg, operationName, timeoutHeight)
 	}, operationName, RPC_MODE)
 }
 
 // RunWithNodeRetry executes an operation that returns (T, error) on nodes until success or all nodes are exhausted
 func RunWithNodeRetry[T any](
 	ctx context.Context,
-	r ConnectionManagerInterface,
+	connectionManager ConnectionManagerInterface,
 	operation func(*NodeConfig) (T, error),
 	operationName string,
 	mode int,
 ) (T, error) {
 	var zeroValue T
 	var err error
-
+	var nodes []NodeConfig
 	triedNodes := make(map[int]bool)
-	nodes := []NodeConfig{}
 	if mode == GRPC_MODE {
-		nodes, err = r.GetQueryNodes()
+		nodes, err = connectionManager.GetQueryNodes()
 		if err != nil {
 			return zeroValue, errorsmod.Wrapf(err, "error getting nodes")
 		}
 	} else if mode == RPC_MODE {
-		nodes, err = r.GetTxNodes()
+		nodes, err = connectionManager.GetTxNodes()
 		if err != nil {
 			return zeroValue, errorsmod.Wrapf(err, "error getting nodes")
 		}
@@ -320,20 +319,20 @@ func RunWithNodeRetry[T any](
 	totalNodes := len(nodes)
 	// Force change of initial node
 	if mode == GRPC_MODE {
-		r.SwitchToNextQueryNode()
+		connectionManager.SwitchToNextQueryNode()
 	} else if mode == RPC_MODE {
-		r.SwitchToNextTxNode()
+		connectionManager.SwitchToNextTxNode()
 	}
 
 	for attempts := 0; attempts < totalNodes; attempts++ {
 		var currentNode *NodeConfig
 		var currentIdx int
 		if mode == GRPC_MODE {
-			currentNode = r.GetCurrentQueryNode()
-			currentIdx = r.GetCurrentQueryIndex() // We can use the attempt number as the index
+			currentNode = connectionManager.GetCurrentQueryNode()
+			currentIdx = connectionManager.GetCurrentQueryIndex() // We can use the attempt number as the index
 		} else if mode == RPC_MODE {
-			currentNode = r.GetCurrentTxNode()
-			currentIdx = r.GetCurrentTxIndex() // We can use the attempt number as the index
+			currentNode = connectionManager.GetCurrentTxNode()
+			currentIdx = connectionManager.GetCurrentTxIndex() // We can use the attempt number as the index
 		} else {
 			return zeroValue, errorsmod.Wrapf(errors.New("invalid server mode"), "invalid mode: %d, can be GRPC_MODE: %d or RPC_MODE: %d", mode, GRPC_MODE, RPC_MODE)
 		}
@@ -341,9 +340,9 @@ func RunWithNodeRetry[T any](
 		// Skip if we've already tried this node
 		if triedNodes[currentIdx] {
 			if mode == RPC_MODE {
-				r.SwitchToNextQueryNode()
+				connectionManager.SwitchToNextQueryNode()
 			} else {
-				r.SwitchToNextTxNode()
+				connectionManager.SwitchToNextTxNode()
 			}
 			continue
 		}
@@ -366,9 +365,9 @@ func RunWithNodeRetry[T any](
 				Str("operation", operationName).
 				Msg("Error - Switching to next node")
 			if mode == GRPC_MODE {
-				r.SwitchToNextQueryNode()
+				connectionManager.SwitchToNextQueryNode()
 			} else {
-				r.SwitchToNextTxNode()
+				connectionManager.SwitchToNextTxNode()
 			}
 			continue
 		}

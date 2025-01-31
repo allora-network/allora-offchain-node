@@ -19,11 +19,11 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 	log := log.With().Uint64("topicId", worker.TopicId).Str("actorType", "worker").Logger()
 	log.Info().Msg("Building worker payload")
 
-	wallet, err := suite.RPCManager.GetWallet()
+	wallet, err := suite.ConnectionManager.GetWallet()
 	if err != nil {
 		return errorsmod.Wrapf(err, "Error getting wallet")
 	}
-	walletConfig, err := suite.RPCManager.GetWalletConfig()
+	walletConfig, err := suite.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return errorsmod.Wrapf(err, "Error getting wallet config")
 	}
@@ -83,7 +83,7 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 	}
 
 	if walletConfig.SubmitTx {
-		_, err = suite.RPCManager.SendDataWithNodeRetry(ctx, req, timeoutHeight, "Send Worker Data to chain")
+		_, err = suite.ConnectionManager.SendDataWithNodeRetry(ctx, req, timeoutHeight, "Send Worker Data to chain")
 		if err != nil {
 			return errorsmod.Wrapf(err, "Error sending Worker Data to chain, topicId: %d, blockHeight: %d", worker.TopicId, nonce.BlockHeight)
 		}
@@ -95,7 +95,7 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 }
 
 func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse, nonce emissionstypes.BlockHeight) (emissionstypes.InferenceForecastBundle, error) {
-	wallet, err := suite.RPCManager.GetWallet()
+	wallet, err := suite.ConnectionManager.GetWallet()
 	if err != nil {
 		return emissionstypes.InferenceForecastBundle{}, errorsmod.Wrapf(err, "error getting wallet") // nolint: exhaustruct
 	}
@@ -144,7 +144,7 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 
 func (suite *UseCaseSuite) SignWorkerPayload(workerPayload *emissionstypes.InferenceForecastBundle) (*emissionstypes.WorkerDataBundle, error) {
 	// Marshall and sign the bundle
-	wallet, err := suite.RPCManager.GetWallet()
+	wallet, err := suite.ConnectionManager.GetWallet()
 	if err != nil {
 		return &emissionstypes.WorkerDataBundle{}, errorsmod.Wrapf(err, "error getting wallet") // nolint: exhaustruct
 	}

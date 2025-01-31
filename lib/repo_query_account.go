@@ -12,7 +12,7 @@ import (
 
 // GetBaseFee queries the current base fee from the feemarket module
 func (node *NodeConfig) GetAccountInfo(ctx context.Context, inAddress string) (address string, sequence uint64, accNum uint64, err error) {
-	walletConfig, err := node.RPCManager.GetWalletConfig()
+	walletConfig, err := node.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return "", 0, 0, errorsmod.Wrapf(err, "Error getting wallet config")
 	}

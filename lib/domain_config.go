@@ -126,9 +126,9 @@ type UserConfig struct {
 
 // NodeConfig is the configuration for a node
 type NodeConfig struct {
-	ServerAddress string             // Server endpoint address URI
-	Chain         ChainConfig        // Configuration for the chain
-	RPCManager    *ConnectionManager // Link to the RPCManager that created this node
+	ServerAddress     string             // Server endpoint address URI
+	Chain             ChainConfig        // Configuration for the chain
+	ConnectionManager *ConnectionManager // Link to the ConnectionManager that created this node
 }
 
 type WorkerResponse struct {

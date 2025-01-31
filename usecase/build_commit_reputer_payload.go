@@ -21,18 +21,18 @@ import (
 func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, reputer lib.ReputerConfig, nonce lib.BlockHeight, timeoutHeight uint64) error {
 	log := log.With().Uint64("topicId", reputer.TopicId).Str("actorType", "reputer").Logger()
 	log.Info().Msg("Building reputer payload")
-	wallet, err := suite.RPCManager.GetWallet()
+	wallet, err := suite.ConnectionManager.GetWallet()
 	if err != nil {
 		return errorsmod.Wrapf(err, "Error getting wallet")
 	}
-	walletConfig, err := suite.RPCManager.GetWalletConfig()
+	walletConfig, err := suite.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return errorsmod.Wrapf(err, "Error getting wallet config")
 	}
 
 	valueBundle, err := lib.RunWithNodeRetry(
 		ctx,
-		suite.RPCManager,
+		suite.ConnectionManager,
 		func(node *lib.NodeConfig) (*emissionstypes.ValueBundle, error) {
 			return node.GetReputerValuesAtBlock(ctx, reputer.TopicId, nonce)
 		},
@@ -80,7 +80,7 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 	}
 
 	if walletConfig.SubmitTx {
-		_, err = suite.RPCManager.SendDataWithNodeRetry(ctx, req, timeoutHeight, "Send Reputer Data to chain")
+		_, err = suite.ConnectionManager.SendDataWithNodeRetry(ctx, req, timeoutHeight, "Send Reputer Data to chain")
 		if err != nil {
 			return errorsmod.Wrapf(err, "error sending Reputer Data to chain, topic: %d, blockHeight: %d", reputer.TopicId, nonce)
 		}
@@ -221,7 +221,7 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 }
 
 func (suite *UseCaseSuite) SignReputerValueBundle(valueBundle *emissionstypes.ValueBundle) (*emissionstypes.ReputerValueBundle, error) {
-	wallet, err := suite.RPCManager.GetWallet()
+	wallet, err := suite.ConnectionManager.GetWallet()
 	if err != nil {
 		return &emissionstypes.ReputerValueBundle{}, errorsmod.Wrapf(err, "error getting wallet") // nolint: exhaustruct
 	}

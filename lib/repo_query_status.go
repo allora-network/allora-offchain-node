@@ -23,5 +23,5 @@ func (node *NodeConfig) GetBlockHeight(ctx context.Context, walletConfig *Wallet
 		return 0, err
 	}
 
-	return resp.Block.Header.Height, nil
+	return resp.SdkBlock.Header.Height, nil
 }

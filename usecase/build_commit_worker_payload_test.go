@@ -127,16 +127,16 @@ func TestComputeWorkerBundle(t *testing.T) {
 				// Other wallet fields are not required for this test
 			}
 
-			// Replace RPCManager creation with mock
-			mockRPCManager := &lib.MockConnectionManager{} //nolint:exhaustruct
-			mockNodeConfig := &lib.NodeConfig{}            //nolint:exhaustruct
+			// Replace ConnectionManager creation with mock
+			mockConnectionManager := &lib.MockConnectionManager{} //nolint:exhaustruct
+			mockNodeConfig := &lib.NodeConfig{}                   //nolint:exhaustruct
 
 			// Add mock expectations
-			mockRPCManager.On("GetCurrentQueryNode").Return(mockNodeConfig)
-			mockRPCManager.On("GetCurrentTxNode").Return(mockNodeConfig)
-			mockRPCManager.On("GetWallet").Return(mockWallet, nil)
+			mockConnectionManager.On("GetCurrentQueryNode").Return(mockNodeConfig)
+			mockConnectionManager.On("GetCurrentTxNode").Return(mockNodeConfig)
+			mockConnectionManager.On("GetWallet").Return(mockWallet, nil)
 
-			suite := &UseCaseSuite{RPCManager: mockRPCManager} //nolint:exhaustruct
+			suite := &UseCaseSuite{ConnectionManager: mockConnectionManager} //nolint:exhaustruct
 
 			response, err := suite.BuildWorkerPayload(tt.workerConfig, 1)
 			if tt.expectError {

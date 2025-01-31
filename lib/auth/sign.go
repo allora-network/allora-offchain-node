@@ -14,8 +14,7 @@ import (
 
 // MarshallAndSignByPrivKey is a helper function to sign a message with a private key
 func MarshallAndSignByPrivKey(payload proto.Message, privKey cryptotypes.PrivKey, address sdktypes.Address) (sig, pk []byte, err error) {
-	protoBytesIn := make([]byte, 0)
-	protoBytesIn, err = proto.Marshal(payload)
+	protoBytesIn, err := proto.Marshal(payload)
 	if err != nil {
 		return nil, nil, errorsmod.Wrapf(err, "error marshalling workerPayload") // nolint: exhaustruct
 	}

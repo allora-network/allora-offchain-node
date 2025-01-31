@@ -15,7 +15,7 @@ func (node *NodeConfig) GetReputerStakeInTopic(
 	topicId emissionstypes.TopicId,
 	reputer Address,
 ) (cosmossdk_io_math.Int, error) {
-	walletConfig, err := node.RPCManager.GetWalletConfig()
+	walletConfig, err := node.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return cosmossdk_io_math.Int{}, errorsmod.Wrapf(err, "Error getting wallet config")
 	}

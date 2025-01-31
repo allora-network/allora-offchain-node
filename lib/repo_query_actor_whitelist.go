@@ -10,7 +10,7 @@ import (
 
 // Checks if a worker can submit to a given topic
 func (node *NodeConfig) CanSubmitWorker(ctx context.Context, topicId emissionstypes.TopicId, address string) (bool, error) {
-	walletConfig, err := node.RPCManager.GetWalletConfig()
+	walletConfig, err := node.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return false, errorsmod.Wrapf(err, "Error getting wallet config")
 	}
@@ -37,7 +37,7 @@ func (node *NodeConfig) CanSubmitWorker(ctx context.Context, topicId emissionsty
 
 // Checks if a reputer can submit to a given topic
 func (node *NodeConfig) CanSubmitReputer(ctx context.Context, topicId emissionstypes.TopicId, address string) (bool, error) {
-	walletConfig, err := node.RPCManager.GetWalletConfig()
+	walletConfig, err := node.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return false, errorsmod.Wrapf(err, "Error getting wallet config")
 	}

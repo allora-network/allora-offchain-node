@@ -3,7 +3,6 @@ package rpcclient
 import (
 	types "allora_offchain_node/lib/types"
 	"fmt"
-	"math"
 
 	cosmossdk_io_math "cosmossdk.io/math"
 )
@@ -19,11 +18,6 @@ func EstimateGas(txSize int, config types.GasEstimationConfig) (uint64, error) {
 
 	// Total gas is base gas + size gas
 	totalGas := config.BaseGas + sizeGas
-
-	// Ensure totalGas is within reasonable bounds to avoid overflow
-	if totalGas > math.MaxUint64 {
-		return 0, fmt.Errorf("calculated gas exceeds maximum allowable value")
-	}
 
 	return totalGas, nil
 }

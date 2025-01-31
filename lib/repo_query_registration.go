@@ -9,12 +9,12 @@ import (
 
 // Checks if the worker is registered in a topic, with retries
 func (node *NodeConfig) IsWorkerRegistered(ctx context.Context, topicId uint64) (bool, error) {
-	walletConfig, err := node.RPCManager.GetWalletConfig()
+	walletConfig, err := node.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return false, err
 	}
 
-	wallet, err := node.RPCManager.GetWallet()
+	wallet, err := node.ConnectionManager.GetWallet()
 	if err != nil {
 		return false, err
 	}
@@ -42,12 +42,12 @@ func (node *NodeConfig) IsWorkerRegistered(ctx context.Context, topicId uint64) 
 
 // Checks if the reputer is registered in a topic, with retries
 func (node *NodeConfig) IsReputerRegistered(ctx context.Context, topicId uint64) (bool, error) {
-	walletConfig, err := node.RPCManager.GetWalletConfig()
+	walletConfig, err := node.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return false, err
 	}
 
-	wallet, err := node.RPCManager.GetWallet()
+	wallet, err := node.ConnectionManager.GetWallet()
 	if err != nil {
 		return false, err
 	}

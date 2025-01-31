@@ -15,13 +15,13 @@ func (suite *UseCaseSuite) RegisterWorkerIdempotently(ctx context.Context, confi
 	log := log.With().Uint64("topicId", config.TopicId).Str("actorType", "worker").Logger()
 	log.Info().Msg("Registering worker")
 
-	walletConfig, err := suite.RPCManager.GetWalletConfig()
+	walletConfig, err := suite.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return false, errorsmod.Wrapf(err, "Error getting wallet config")
 	}
-	rpcManager := suite.RPCManager
-	queryNode := rpcManager.GetCurrentQueryNode()
-	wallet, err := rpcManager.GetWallet()
+	connectionManager := suite.ConnectionManager
+	queryNode := connectionManager.GetCurrentQueryNode()
+	wallet, err := connectionManager.GetWallet()
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get wallet")
 		return false, err
@@ -39,7 +39,7 @@ func (suite *UseCaseSuite) RegisterWorkerIdempotently(ctx context.Context, confi
 		log.Info().Msg("Node not yet registered. Attempting registration...")
 	}
 
-	queryNode = rpcManager.SwitchToNextQueryNode()
+	queryNode = connectionManager.SwitchToNextQueryNode()
 	moduleParams, err := queryNode.Chain.EmissionsQueryClient.GetParams(ctx, &emissionstypes.GetParamsRequest{})
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get chain params")
@@ -47,7 +47,7 @@ func (suite *UseCaseSuite) RegisterWorkerIdempotently(ctx context.Context, confi
 	}
 
 	// Switch to spread the load
-	queryNode = rpcManager.SwitchToNextQueryNode()
+	queryNode = connectionManager.SwitchToNextQueryNode()
 
 	balance, err := queryNode.GetBalance(ctx, wallet.Address, wallet.DefaultBondDenom)
 	if err != nil {
@@ -65,7 +65,7 @@ func (suite *UseCaseSuite) RegisterWorkerIdempotently(ctx context.Context, confi
 		Owner:     wallet.Address,
 		IsReputer: false,
 	}
-	res, err := rpcManager.SendDataWithRetry(ctx, msg, "Register node", 0)
+	res, err := connectionManager.SendDataWithRetry(ctx, msg, "Register node", 0)
 	if err != nil {
 		if lib.IsErrorSwitchingNode(err) {
 			log.Warn().Err(err).Msg("Error on worker registration process, switching to next node")
@@ -102,13 +102,13 @@ func (suite *UseCaseSuite) RegisterAndStakeReputerIdempotently(ctx context.Conte
 	log := log.With().Uint64("topicId", config.TopicId).Str("actorType", "reputer").Logger()
 	log.Info().Msg("Registering reputer")
 
-	walletConfig, err := suite.RPCManager.GetWalletConfig()
+	walletConfig, err := suite.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return false, errorsmod.Wrapf(err, "Error getting wallet config")
 	}
-	rpcManager := suite.RPCManager
-	queryNode := rpcManager.GetCurrentQueryNode()
-	wallet, err := rpcManager.GetWallet()
+	connectionManager := suite.ConnectionManager
+	queryNode := connectionManager.GetCurrentQueryNode()
+	wallet, err := connectionManager.GetWallet()
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get wallet")
 		return false, err
@@ -146,7 +146,7 @@ func (suite *UseCaseSuite) RegisterAndStakeReputerIdempotently(ctx context.Conte
 			Owner:     wallet.Address,
 			IsReputer: true,
 		}
-		res, err := rpcManager.SendDataWithRetry(ctx, msgRegister, "Register node", 0)
+		res, err := connectionManager.SendDataWithRetry(ctx, msgRegister, "Register node", 0)
 		if err != nil {
 			if lib.IsErrorSwitchingNode(err) {
 				log.Warn().Err(err).Msg("Error on reputer registration process, switching to next node")
@@ -204,7 +204,7 @@ func (suite *UseCaseSuite) RegisterAndStakeReputerIdempotently(ctx context.Conte
 		Amount:  minStake.Sub(stake),
 		TopicId: config.TopicId,
 	}
-	res, err := rpcManager.SendDataWithRetry(ctx, msgAddStake, "Add stake", 0)
+	res, err := connectionManager.SendDataWithRetry(ctx, msgAddStake, "Add stake", 0)
 	if err != nil {
 		// Necessary to switch to next node if we get a 429 error handling control to caller
 		if lib.IsErrorSwitchingNode(err) {

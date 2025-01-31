@@ -26,7 +26,7 @@ func SetGasPrice(price float64) {
 
 // GetBaseFee queries the current base fee from the feemarket module
 func (node *NodeConfig) GetBaseFee(ctx context.Context, denom string) (float64, error) {
-	walletConfig, err := node.RPCManager.GetWalletConfig()
+	walletConfig, err := node.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return 0, errorsmod.Wrapf(err, "Error getting wallet config")
 	}

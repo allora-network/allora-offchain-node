@@ -11,15 +11,15 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (rpcManager *ConnectionManager) SendDataWithRetry(ctx context.Context, req sdktypes.Msg, infoMsg string, timeoutHeight uint64) (*coretypes.ResultBroadcastTx, error) {
+func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Context, req sdktypes.Msg, infoMsg string, timeoutHeight uint64) (*coretypes.ResultBroadcastTx, error) {
 	// Excess fees correction factor translated to fees using configured gas prices
 	// This value is updated by the fee price update routine - making copy for consistency within method
 	gasPrice := GetGasPrice()
-	walletConfig, err := rpcManager.GetWalletConfig()
+	walletConfig, err := connectionManager.GetWalletConfig()
 	if err != nil {
 		return nil, err
 	}
-	wallet, err := rpcManager.GetWallet()
+	wallet, err := connectionManager.GetWallet()
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (rpcManager *ConnectionManager) SendDataWithRetry(ctx context.Context, req 
 		},
 	}
 
-	txNode := rpcManager.GetCurrentTxNode()
+	txNode := connectionManager.GetCurrentTxNode()
 
 	for retryCount := int64(0); retryCount <= walletConfig.MaxRetries; retryCount++ {
 		log.Debug().Msgf("SendDataWithRetry iteration started (%d/%d)", retryCount, walletConfig.MaxRetries)

@@ -130,22 +130,22 @@ func main() {
 	// Check and set defaults for the user config if any values are not set
 	finalUserConfig.CheckAndSetDefaults()
 
-	// Creates the RPCManagerand initialises the NodeConfigs
-	rpcManager, err := lib.NewConnectionManager(ctx, finalUserConfig)
+	// Creates the ConnectionManagerand initialises the NodeConfigs
+	connectionManager, err := lib.NewConnectionManager(ctx, finalUserConfig)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to initialize RPCManager, exiting")
+		log.Error().Err(err).Msg("Failed to initialize ConnectionManager, exiting")
 		return
 	}
-	// Close the RPCManager when the program exits
-	defer rpcManager.Close()
+	// Close the ConnectionManager when the program exits
+	defer connectionManager.Close()
 
-	spawner, err := usecase.NewUseCaseSuite(ctx, finalUserConfig, rpcManager)
+	spawner, err := usecase.NewUseCaseSuite(ctx, finalUserConfig, connectionManager)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize use case, exiting")
 		return
 	}
 
-	spawner.Metrics = *metrics
+	spawner.Metrics = metrics // cache the metrics object for ease of access on usecase suite
 
 	sigCtx, sigCancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer sigCancel()

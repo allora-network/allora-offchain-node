@@ -6,17 +6,17 @@ import (
 )
 
 type UseCaseSuite struct {
-	UserConfig lib.UserConfig
-	RPCManager lib.ConnectionManagerInterface
-	Metrics    lib.Metrics
+	UserConfig        lib.UserConfig
+	ConnectionManager lib.ConnectionManagerInterface
+	Metrics           *lib.Metrics
 }
 
 // Static method to create a new UseCaseSuite
-func NewUseCaseSuite(ctx context.Context, userConfig lib.UserConfig, rpcManager lib.ConnectionManagerInterface) (*UseCaseSuite, error) {
+func NewUseCaseSuite(ctx context.Context, userConfig lib.UserConfig, connectionManager lib.ConnectionManagerInterface) (*UseCaseSuite, error) {
 	err := userConfig.ValidateConfigAdapters()
 	if err != nil {
 		return nil, err
 	}
 
-	return &UseCaseSuite{UserConfig: userConfig, RPCManager: rpcManager}, nil // nolint: exhaustruct
+	return &UseCaseSuite{UserConfig: userConfig, ConnectionManager: connectionManager}, nil // nolint: exhaustruct
 }

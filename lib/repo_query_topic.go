@@ -11,7 +11,7 @@ import (
 
 // Gets topic info for a given topic ID, with retries
 func (node *NodeConfig) GetTopicInfo(ctx context.Context, topicId emissionstypes.TopicId) (*emissionstypes.Topic, error) {
-	walletConfig, err := node.RPCManager.GetWalletConfig()
+	walletConfig, err := node.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return nil, errorsmod.Wrapf(err, "Error getting wallet config")
 	}

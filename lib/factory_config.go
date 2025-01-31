@@ -4,6 +4,9 @@ import (
 	grpcclient "allora_offchain_node/lib/grpcclient"
 	rpcclient "allora_offchain_node/lib/rpcclient"
 	"context"
+	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -14,74 +17,40 @@ import (
 	feemarkettypes "github.com/skip-mev/feemarket/x/feemarket/types"
 
 	errorsmod "cosmossdk.io/errors"
-	cometrpc "github.com/cometbft/cometbft/rpc/client/http"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+
+	cometrpc "github.com/cometbft/cometbft/rpc/client/http"
+	jsonrpc "github.com/cometbft/cometbft/rpc/jsonrpc/client"
 )
 
 // Used
 // var cdc = codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 
-func getAlloraRPCClient(config *UserConfig, rpc string) (rpcClient *rpcclient.AlloraRPCClient, err error) {
-	cmtCli, err := cometrpc.New(rpc, "/websocket")
+func getAlloraRPCClient(config *UserConfig, rpc string) (alloraRpcClient *rpcclient.AlloraRPCClient, err error) {
+	httpClient, err := jsonrpc.DefaultHTTPClient(rpc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating default http client")
+	}
+
+	httpClient.Timeout = time.Duration(config.Wallet.TimeoutHTTPConnection) * time.Second
+	if transport, ok := httpClient.Transport.(*http.Transport); ok {
+		transport.DisableKeepAlives = false
+		transport.DisableCompression = false
+		transport.ForceAttemptHTTP2 = true
+		transport.MaxIdleConns = 100
+		transport.IdleConnTimeout = 90 * time.Second
+		transport.TLSHandshakeTimeout = 10 * time.Second
+		transport.ExpectContinueTimeout = 1 * time.Second
+	} else {
+		return nil, fmt.Errorf("unexpected transport type: %T", httpClient.Transport)
+	}
+
+	cmtCli, err := cometrpc.NewWithClient(rpc, "/websocket", httpClient)
+	if err != nil {
+		return nil, fmt.Errorf("error creating comet rpc client")
 	}
 
 	return &rpcclient.AlloraRPCClient{Client: cmtCli}, nil
-	// create a allora client instance
-	// ctx := context.Background()
-	// userHomeDir, _ := os.UserHomeDir()
-	// alloraClientHome := filepath.Join(userHomeDir, ".allorad")
-	// if config.Wallet.AlloraHomeDir != "" {
-	// 	alloraClientHome = config.Wallet.AlloraHomeDir
-	// }
-
-	// // Check that the given home folder exists
-	// if _, err := os.Stat(alloraClientHome); errors.Is(err, os.ErrNotExist) {
-	// 	log.Info().Msg("Home directory does not exist, creating...")
-	// 	err = os.MkdirAll(alloraClientHome, 0755)
-	// 	if err != nil {
-	// 		return nil, errorsmod.Wrap(err, "cannot create allora client home directory")
-	// 	}
-	// 	log.Info().Str("home", alloraClientHome).Msg("Allora client home directory created")
-	// }
-
-	// httpClient, err := jsonrpc.DefaultHTTPClient(rpc)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("error creating default http client")
-	// }
-
-	// httpClient.Timeout = time.Duration(config.Wallet.TimeoutHTTPConnection) * time.Second
-	// if transport, ok := httpClient.Transport.(*http.Transport); ok {
-	// 	transport.DisableKeepAlives = false
-	// 	transport.DisableCompression = false
-	// 	transport.ForceAttemptHTTP2 = true
-	// 	transport.MaxIdleConns = 100
-	// 	transport.IdleConnTimeout = 90 * time.Second
-	// 	transport.TLSHandshakeTimeout = 10 * time.Second
-	// 	transport.ExpectContinueTimeout = 1 * time.Second
-	// } else {
-	// 	return nil, fmt.Errorf("unexpected transport type: %T", httpClient.Transport)
-	// }
-
-	// rpcClient, err := rpchttp.NewWithClient(rpc, "/websocket", httpClient)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("error creating rpc client")
-	// }
-
-	// client, err := cosmosclient.New(ctx,
-	// 	cosmosclient.WithNodeAddress(rpc),
-	// 	cosmosclient.WithAddressPrefix(ADDRESS_PREFIX),
-	// 	cosmosclient.WithHome(alloraClientHome),
-	// 	cosmosclient.WithGas(config.Wallet.Gas),
-	// 	cosmosclient.WithGasAdjustment(config.Wallet.GasAdjustment),
-	// 	cosmosclient.WithAccountRetriever(authtypes.AccountRetriever{}),
-	// 	cosmosclient.WithRPCClient(rpcClient),
-	// )
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return &client, nil
 }
 
 func (c *UserConfig) GenerateNodeConfig(ctx context.Context, wallet *Wallet, mode int, endpoint string) (nodeConfig *NodeConfig, err error) {

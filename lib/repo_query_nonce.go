@@ -10,7 +10,7 @@ import (
 
 // Gets the latest open worker nonce for a given topic, with retries
 func (node *NodeConfig) GetLatestOpenWorkerNonceByTopicId(ctx context.Context, topicId emissionstypes.TopicId) (*emissionstypes.Nonce, error) {
-	walletConfig, err := node.RPCManager.GetWalletConfig()
+	walletConfig, err := node.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return &emissionstypes.Nonce{}, errorsmod.Wrapf(err, "Error getting wallet config")
 	}
@@ -40,7 +40,7 @@ func (node *NodeConfig) GetLatestOpenWorkerNonceByTopicId(ctx context.Context, t
 
 // Gets the oldest open reputer nonce for a given topic, with retries
 func (node *NodeConfig) GetOldestReputerNonceByTopicId(ctx context.Context, topicId emissionstypes.TopicId) (*emissionstypes.Nonce, error) {
-	walletConfig, err := node.RPCManager.GetWalletConfig()
+	walletConfig, err := node.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return &emissionstypes.Nonce{}, errorsmod.Wrapf(err, "Error getting wallet config")
 	}

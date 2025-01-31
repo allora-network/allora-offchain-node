@@ -111,9 +111,9 @@ func ProcessErrorTx(ctx context.Context, err error, infoMsg string, retryCount, 
 
 // triageABCIErrorCode handles specific ABCI error codes and returns appropriate processing instructions
 func triageABCIErrorCode(ctx context.Context, errorCode uint32, err error, infoMsg string, retryCount, retryMax int64, node *NodeConfig) (string, error) {
-	rpcManager := node.RPCManager
+	connectionManager := node.ConnectionManager
 	// Beware: this error must not overwrite the "err" error
-	walletConfig, errorWalletConfig := rpcManager.GetWalletConfig()
+	walletConfig, errorWalletConfig := connectionManager.GetWalletConfig()
 	if errorWalletConfig != nil {
 		return "", errorWalletConfig
 	}
@@ -196,8 +196,8 @@ func triageABCIErrorCode(ctx context.Context, errorCode uint32, err error, infoM
 
 // Triages error by string matching
 func triageStringMatchingError(ctx context.Context, err error, infoMsg string, node *NodeConfig) (string, error) {
-	rpcManager := node.RPCManager
-	walletConfig, errorWalletConfig := rpcManager.GetWalletConfig()
+	connectionManager := node.ConnectionManager
+	walletConfig, errorWalletConfig := connectionManager.GetWalletConfig()
 	if errorWalletConfig != nil {
 		return "", errorWalletConfig
 	}
@@ -224,7 +224,7 @@ func triageStringMatchingError(ctx context.Context, err error, infoMsg string, n
 			Uint64("expected", expectedSeqNum).
 			Uint64("current", currentSeqNum).
 			Msg("Retrying resetting sequence from current to expected")
-		wallet, err := rpcManager.GetWallet()
+		wallet, err := connectionManager.GetWallet()
 		if err != nil {
 			return "", err
 		}

@@ -6,7 +6,6 @@ import (
 	"context"
 
 	"github.com/cosmos/cosmos-sdk/client/tx"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
@@ -51,8 +50,8 @@ func BuildAndSignTransaction(
 	txBuilder.SetGasLimit(gas)
 
 	// Set fees for tx
-	feeCoin := sdk.NewCoin(txParams.Denom, fees)
-	txBuilder.SetFeeAmount(sdk.NewCoins(feeCoin))
+	feeCoin := sdktypes.NewCoin(txParams.Denom, fees)
+	txBuilder.SetFeeAmount(sdktypes.NewCoins(feeCoin))
 
 	// Set memo and timeout height
 	txBuilder.SetMemo(memo)
