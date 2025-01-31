@@ -58,7 +58,9 @@ chmod +x start.local
 ```
 
 ## Prometheus Metrics
-Some metrics has been provided for in the node. You can access them with port `:2112/metrics`. Here are the following list of existing metrics: 
+
+Some metrics has been provided for in the node. You can access them with port `:2112/metrics`. Here are the following list of existing metrics:
+
 - `allora_worker_inference_request_count`: The total number of times worker requests inference from source
 - `allora_worker_forecast_request_count`: The total number of times worker requests forecast from source
 - `allora_reputer_truth_request_count`: The total number of times reputer requests truth from source
@@ -66,6 +68,9 @@ Some metrics has been provided for in the node. You can access them with port `:
 - `allora_reputer_data_build_count`: The total number of times reputer built data successfully
 - `allora_worker_chain_submission_count`: The total number of worker commits to the chain
 - `allora_reputer_chain_submission_count`: The total number of reputer commits to the chain
+- `allora_application_finished_count`: The total number of application runs finished
+- `allora_worker_process_finished_count`: The total number of worker processes finished
+- `allora_reputer_process_finished_count`: The total number of reputer processes finished
 
 > Please note that we will keep updating the list as more metrics are being added
 
@@ -173,15 +178,17 @@ Error handling is done differently for different types of errors.
 Note: when an account sequence mismatch is detected, the node will attempt to set the expected sequence number and retry the transaction before broadcasting.
 Note: the node will check if the actor is whitelisted on worker setup and before submitting a payload.
 
-#### Retries 
-- `accounSequenceRetryDelay`: For the "account sequence mismatch" error. 
-- `retryDelay`: For all other errors that need retry delays.
+#### Retries and Delays
 
+- `accounSequenceRetryDelay`: For the "account sequence mismatch" error.
+- `retryDelay`: For all other errors that need retry delays.
+- `launchRoutineDelay`: The start of the routine performs many chain interactions. This often triggers "429 Too Many Requests" error. This delay is used to avoid this error, and is set to 10 seconds by default.
 
 ### Smart Window Detection
 
 The node will automatically detect the submission window length for each topic on each actor type.
 This can be configured by the following settings in the config.json:
+
 * `blockDurationEstimated`: Estimated network block time in seconds. Minimum is 1.
 * `windowCorrectionFactor`: Correction factor to fine-tune the submission window length. Higher values optimize the number of calls for window checking. Minimum is 0.5.
 
