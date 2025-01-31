@@ -42,7 +42,7 @@ func NewWallet(
 	privKey cryptotypes.PrivKey,
 	keyring keyring.Keyring,
 ) *Wallet {
-	return &Wallet{
+	return &Wallet{ // nolint:exhaustruct
 		Address:          address,
 		AddressSDK:       addressSDK,
 		AccountNumber:    accountNumber,

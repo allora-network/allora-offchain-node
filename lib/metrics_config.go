@@ -32,7 +32,7 @@ type Metrics struct {
 // InitMetrics initializes the singleton instance with the given counters
 func InitMetrics(counters []MetricsCounter) *Metrics {
 	once.Do(func() {
-		instance = &Metrics{
+		instance = &Metrics{ // nolint:exhaustruct
 			Counters:   counters,
 			CounterMap: make(map[string]*prometheus.CounterVec),
 		}

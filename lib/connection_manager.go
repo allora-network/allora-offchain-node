@@ -75,8 +75,9 @@ func NewConnectionManager(ctx context.Context, userConfig UserConfig) (*Connecti
 		return nil, err
 	}
 
-	// Create a new ConnectionManager with the wallet and wallet config, will be
-	var connectionManager = &ConnectionManager{
+	// Create a new ConnectionManager partially initialized with the wallet and wallet config,
+	// it will be completed later
+	var connectionManager = &ConnectionManager{ // nolint:exhaustruct
 		wallet:       wallet,
 		walletConfig: &userConfig.Wallet,
 	}
