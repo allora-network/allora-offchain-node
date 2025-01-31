@@ -165,12 +165,14 @@ The node will use the following timeouts:
 * `timeoutRPCSecondsRegistration`: Timeout for whole RPC registration process in seconds, including retries.
 * `timeoutHTTPConnection`: Timeout for HTTP connection (underlying to the RPC client) in seconds.
 
-### RPC nodes
+### GRPC / RPC connections
 
-From v0.7.1, the RPC nodes to connect to are configured as an array `nodeRpcs` in the config.json file, instead of a single string.
-The offchain node will try to connect to the RPC nodes in order of appearance in the array  .
-If the node is unable to connect to an RPC node, or the node has some particular type of error(e.g. a full mempool, or a `429 Too Many Requests` error), it will switch to the next one in the array.
-If the node has tried all the RPC nodes in the array, and there was an error, it will log an error for that submission and will not try to submit that payload again.
+From v0.9.0, the node supports multiple GRPC / RPC connections.
+GRPC is used for queries, while RPC is used for transactions. At least one GRPC and one RPC node must be provided.
+GRPC nodes are configured in the `nodeGrpcs` array in the config.json file.
+RPC nodes are configured in the `nodeRpcs` array in the config.json file.
+
+The offchain node (via the `ConnectionManager`) will try to connect to the GRPC/RPC nodes in order of appearance in the array and then go switching when appropriate for error handling and spreading the load.
 
 ### Error handling
 
