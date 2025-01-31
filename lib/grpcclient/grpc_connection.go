@@ -1,7 +1,6 @@
 package grpcclient
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -11,21 +10,6 @@ import (
 	"google.golang.org/grpc/encoding"
 	"google.golang.org/grpc/keepalive"
 )
-
-// An interceptor that logs the gRPC request, for debugging purposes
-func loggerHeaderInterceptor() grpc.UnaryClientInterceptor {
-	return func(
-		ctx context.Context,
-		method string,
-		req, reply interface{},
-		cc *grpc.ClientConn,
-		invoker grpc.UnaryInvoker,
-		opts ...grpc.CallOption,
-	) error {
-		log.Info().Str("method", method).Msg("Intercepting gRPC request")
-		return invoker(ctx, method, req, reply, cc, opts...)
-	}
-}
 
 // Initializes a gRPC client for the given endpoint
 func InitializeGRPCClient(grpcEndpoint string) (grpcConnection *grpc.ClientConn, err error) {
@@ -79,3 +63,18 @@ func InitializeGRPCClient(grpcEndpoint string) (grpcConnection *grpc.ClientConn,
 	// }()
 	return grpcConnection, nil
 }
+
+// An interceptor that logs the gRPC request, for debugging purposes
+// func loggerHeaderInterceptor() grpc.UnaryClientInterceptor {
+// 	return func(
+// 		ctx context.Context,
+// 		method string,
+// 		req, reply interface{},
+// 		cc *grpc.ClientConn,
+// 		invoker grpc.UnaryInvoker,
+// 		opts ...grpc.CallOption,
+// 	) error {
+// 		log.Info().Str("method", method).Msg("Intercepting gRPC request")
+// 		return invoker(ctx, method, req, reply, cc, opts...)
+// 	}
+// }

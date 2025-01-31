@@ -38,7 +38,7 @@ func CalculateFees(gas uint64, minGasPrice float64) (cosmossdk_io_math.Int, erro
 	}
 
 	// Convert gas and gas price to fee
-	fee := cosmossdk_io_math.NewInt(int64(gas) * int64(minGasPrice))
+	fee := cosmossdk_io_math.NewIntFromUint64(gas * uint64(minGasPrice))
 
 	return fee, nil
 }

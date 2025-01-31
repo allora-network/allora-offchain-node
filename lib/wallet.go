@@ -95,7 +95,10 @@ func NewWalletFromConfig(ctx context.Context, walletConfig WalletConfig) (*Walle
 		return nil, fmt.Errorf("failed to get address and keys: %w", err)
 	}
 
-	keyring.ImportPrivKey(walletConfig.AddressKeyName, walletConfig.AddressRestoreMnemonic, "")
+	err = keyring.ImportPrivKey(walletConfig.AddressKeyName, walletConfig.AddressRestoreMnemonic, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to import private key: %w", err)
+	}
 
 	wallet := &Wallet{ // nolint: exhaustruct
 		Keyring:          keyring,

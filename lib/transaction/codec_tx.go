@@ -32,8 +32,3 @@ func GetEncodingConfig() moduletestutil.TestEncodingConfig {
 	})
 	return encodingConfig
 }
-
-// For testing purposes, allow resetting the codec
-func resetTransactionCodec() {
-	txCodec = nil
-}

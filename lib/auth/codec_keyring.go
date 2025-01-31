@@ -22,8 +22,3 @@ func GetKeyringCodec() codec.Codec {
 	})
 	return keyringCodec
 }
-
-// For testing purposes, allow resetting the codec
-func resetKeyringCodec() {
-	keyringCodec = nil
-}
