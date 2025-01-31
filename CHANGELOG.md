@@ -56,6 +56,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 
+## v0.9.0
+
+### Added
+
+* [#108](https://github.com/allora-network/allora-offchain-node/pull/108) Removed ignite, GRPC/RPC,  data model restructure, refactor and cleanup
+
+
+### Changed
+
+### Fixed
+
+### Removed
+
+### Fixed
+
+### Security
+
+
 ## v0.8.1
 
 ### Added
