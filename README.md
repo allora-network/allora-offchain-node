@@ -74,6 +74,16 @@ Some metrics has been provided for in the node. You can access them with port `:
 
 > Please note that we will keep updating the list as more metrics are being added
 
+## Architecture
+
+![Architecture](./assets/architecture.png)
+
+The Offchain Node is currently separated into two main packages:
+- __lib__: the Allora Client - this may be eventually separated into the Allora Go SDK to use the client separately
+- __usecase__: the particular usecase for the Offchain Node, ie. launching the app, read user config, and launching routines for workers and reputers as configured per user.
+
+Each routine uses the chain interactions to communicate with the chain, by use of RPC (txs) and GRPC (queries) in each case.
+
 ## Cycle Example
 
 Visualization of timeline and submission windows for an actor, in this case, a worker. 
