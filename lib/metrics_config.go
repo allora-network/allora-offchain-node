@@ -93,7 +93,7 @@ func (metrics *Metrics) StartMetricsServer(port string) {
 func (metrics *Metrics) IncrementMetricsCounter(counterName string, address string, topic uint64) {
 	metrics.mu.RLock()
 	counter := metrics.CounterMap[counterName]
-	metrics.mu.RUnlock()
+	defer metrics.mu.RUnlock()
 
 	if counter != nil {
 		counter.WithLabelValues(address, strconv.FormatUint(topic, 10)).Inc()
