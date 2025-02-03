@@ -45,6 +45,19 @@ type ActorProcessParams[T lib.TopicActor] struct {
 	ActorType string
 }
 
+// launchGasRoutine initializes gas prices and starts the auto-update routine if needed
+func (suite *UseCaseSuite) launchGasRoutine(ctx context.Context, walletConfig *lib.WalletConfig, wallet *lib.Wallet) error {
+	// Initialize gas prices explicitly first
+	err := suite.UpdateGasPrice(ctx, wallet, walletConfig)
+	if err != nil {
+		log.Error().Err(err).Msg("Error updating gas prices in auto mode - RPC availability issue?")
+		return err
+	}
+	// After initialization, start auto-update routine
+	go suite.UpdateGasPriceRoutine(ctx, wallet, walletConfig)
+	return nil
+}
+
 // Spawns the actor processes and any associated non-essential routines
 func (suite *UseCaseSuite) Spawn(ctx context.Context) error {
 	wallet, err := suite.ConnectionManager.GetWallet()
@@ -58,27 +71,9 @@ func (suite *UseCaseSuite) Spawn(ctx context.Context) error {
 		return err
 	}
 	if walletConfig.GasPrices == lib.AutoGasPrices {
-		log.Info().Msg("auto gas prices. Updating fee price routine: starting.")
-		price, err := WithTimeoutResult(ctx, time.Duration(walletConfig.TimeoutRPCSecondsQuery)*time.Second,
-			func(ctx context.Context) (float64, error) {
-				return lib.RunWithNodeRetry(
-					ctx,
-					suite.ConnectionManager,
-					func(node *lib.NodeConfig) (float64, error) {
-						return node.GetBaseFee(ctx, wallet.DefaultBondDenom)
-					},
-					"get base fee",
-					lib.GRPC_MODE,
-				)
-			})
-
-		if err != nil {
-			log.Error().Err(err).Msg("Error updating gas prices in auto mode - RPC availability issue?")
+		if err := suite.launchGasRoutine(ctx, walletConfig, wallet); err != nil {
 			return err
 		}
-		lib.SetGasPrice(price)
-		// After intialization, start auto-update routine
-		go suite.UpdateGasPriceRoutine(ctx)
 	} else {
 		price, err := strconv.ParseFloat(walletConfig.GasPrices, 64)
 		if err != nil {
