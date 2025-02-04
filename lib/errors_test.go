@@ -445,7 +445,7 @@ func TestEstimateRequiredBaseGas(t *testing.T) {
 		gasWanted             uint64
 		gasUsed               uint64
 		baseGas               uint64
-		excessCorrectionTimes int
+		excessCorrectionTimes int64
 		expected              uint64
 	}{
 		{
