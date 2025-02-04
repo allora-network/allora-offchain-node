@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	crypto "github.com/cosmos/cosmos-sdk/crypto"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	keyring "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
@@ -91,9 +92,37 @@ func NewWalletFromConfig(ctx context.Context, walletConfig WalletConfig) (*Walle
 	var pubKey cryptotypes.PubKey
 	var address string
 	var addressSDK sdktypes.AccAddress
-	privKey, pubKey, address, addressSDK, err = GetAddressAndKeys(walletConfig.AddressRestoreMnemonic, walletConfig.AddressKeyName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get address and keys: %w", err)
+
+	// If a mnemonic is provided, use it to derive keys.
+	if walletConfig.AddressRestoreMnemonic != "" {
+		privKey, pubKey, address, addressSDK, err = GetAddressAndKeys(walletConfig.AddressRestoreMnemonic, walletConfig.AddressKeyName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get address and keys from mnemonic: %w", err)
+		}
+	} else {
+		// Otherwise, extract the keys from the keyring.
+		// Look up the key in the keyring.
+		_, err = kr.Key(walletConfig.AddressKeyName)
+		if err != nil {
+			return nil, fmt.Errorf("key %s not found in keyring: %w", walletConfig.AddressKeyName, err)
+		}
+
+		// Export the armored private key using the provided passphrase.
+		armored, err := kr.ExportPrivKeyArmor(walletConfig.AddressKeyName, walletConfig.KeyringPassphrase)
+		if err != nil {
+			return nil, fmt.Errorf("failed to export armored private key: %w", err)
+		}
+
+		// Unarmor and decrypt to obtain the private key.
+		privKey, algo, err := crypto.UnarmorDecryptPrivKey(armored, walletConfig.KeyringPassphrase)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decrypt private key with algo %s: %w", algo, err)
+		}
+
+		// Derive the public key and address.
+		pubKey = privKey.PubKey()
+		addressSDK = sdktypes.AccAddress(pubKey.Address())
+		address = addressSDK.String()
 	}
 
 	// Check if key already exists in keyring
