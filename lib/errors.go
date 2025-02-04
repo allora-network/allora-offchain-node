@@ -91,7 +91,8 @@ func extractErrorCode(errorMessage string) (uint32, bool) {
 		return 0, false
 	}
 
-	return uint32(errorCode), true
+	// parseuint cannot be done on uint32 directly, but it is caught by the checks above
+	return uint32(errorCode), true // nolint:gosec
 }
 
 // ProcessErrorTx handles the error messages.
