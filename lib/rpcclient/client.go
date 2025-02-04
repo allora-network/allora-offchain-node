@@ -16,6 +16,10 @@ type AlloraRPCClient struct {
 	Client *cometrpc.HTTP
 }
 
+const (
+	WaitForTxTimeout = 30 * time.Second
+)
+
 func (c *AlloraRPCClient) BroadcastTx(ctx context.Context, txBytes []byte, waitForTx bool) (*coretypes.ResultBroadcastTx, error) {
 
 	t := tmtypes.Tx(txBytes)
@@ -41,6 +45,8 @@ func (c *AlloraRPCClient) BroadcastTx(ctx context.Context, txBytes []byte, waitF
 // WaitForTx requests the tx from hash, if not found, waits for next block and
 // tries again. Returns an error if ctx is canceled.
 func (c AlloraRPCClient) WaitForTx(ctx context.Context, hash string) (*coretypes.ResultTx, error) {
+	ctx, cancel := context.WithTimeout(ctx, WaitForTxTimeout)
+	defer cancel()
 	bz, err := hex.DecodeString(hash)
 	if err != nil {
 		return nil, fmt.Errorf("unable to decode tx hash '%s': %w", hash, err)

@@ -5,11 +5,13 @@ import (
 	types "allora_offchain_node/lib/types"
 	"context"
 
+	"cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	"github.com/rs/zerolog/log"
 )
 
 func BuildAndSignTransaction(
@@ -38,17 +40,25 @@ func BuildAndSignTransaction(
 		totalTxSize += len(msg.String())
 	}
 
-	// Estimate gas and fees
+	// Set gas limit
 	gas, err := rpcclient.EstimateGas(totalTxSize, txParams.GasEstimationConfig)
 	if err != nil {
 		return nil, err
 	}
-	fees, err := rpcclient.CalculateFees(gas, txParams.GasEstimationConfig.MinGasPrice)
-	if err != nil {
-		return nil, err
-	}
 	txBuilder.SetGasLimit(gas)
-
+	// Calculate fees for tx, potentially override with a fixed value
+	var fees math.Int
+	if txParams.GasEstimationConfig.OverrideFees > 0 {
+		// Set the gas price to the override value
+		log.Info().Msgf("Overriding fees to value: %d", txParams.GasEstimationConfig.OverrideFees)
+		fees = math.NewIntFromUint64(txParams.GasEstimationConfig.OverrideFees)
+	} else {
+		// Calculate using gas limit and min gas price
+		fees, err = rpcclient.CalculateFees(gas, txParams.GasEstimationConfig.MinGasPrice)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// Set fees for tx
 	feeCoin := sdktypes.NewCoin(txParams.Denom, fees)
 	txBuilder.SetFeeAmount(sdktypes.NewCoins(feeCoin))

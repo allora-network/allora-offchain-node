@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// GetBaseFee queries the current base fee from the feemarket module
+// GetAccountInfo queries the account info from the chain (sequence number, account number)
 func (node *NodeConfig) GetAccountInfo(ctx context.Context, inAddress string) (address string, sequence uint64, accNum uint64, err error) {
 	walletConfig, err := node.ConnectionManager.GetWalletConfig()
 	if err != nil {

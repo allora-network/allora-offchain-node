@@ -60,6 +60,7 @@ func (suite *UseCaseSuite) launchGasRoutine(ctx context.Context, walletConfig *l
 
 // Spawns the actor processes and any associated non-essential routines
 func (suite *UseCaseSuite) Spawn(ctx context.Context) error {
+
 	wallet, err := suite.ConnectionManager.GetWallet()
 	if err != nil {
 		log.Error().Err(err).Msg("Error getting wallet")
@@ -100,8 +101,14 @@ func (suite *UseCaseSuite) Spawn(ctx context.Context) error {
 		wg.Add(1)
 		go func(worker lib.WorkerConfig) {
 			defer wg.Done()
-			suite.runWorkerProcess(ctx, worker)
-			log.Error().Uint64("topicId", worker.TopicId).Err(ctx.Err()).Msg("Worker process finished")
+			select {
+			case <-ctx.Done():
+				log.Info().Uint64("topicId", worker.TopicId).Msg("Worker process received shutdown signal")
+				return
+			default:
+				suite.runWorkerProcess(ctx, worker)
+			}
+			log.Info().Uint64("topicId", worker.TopicId).Msg("Worker process finished")
 		}(worker)
 
 		if lib.DoneOrWait(ctx, walletConfig.LaunchRoutineDelay) {
@@ -122,8 +129,14 @@ func (suite *UseCaseSuite) Spawn(ctx context.Context) error {
 		wg.Add(1)
 		go func(reputer lib.ReputerConfig) {
 			defer wg.Done()
-			suite.runReputerProcess(ctx, reputer)
-			log.Error().Uint64("topicId", reputer.TopicId).Err(ctx.Err()).Msg("Reputer process finished")
+			select {
+			case <-ctx.Done():
+				log.Info().Uint64("topicId", reputer.TopicId).Msg("Reputer process received shutdown signal")
+				return
+			default:
+				suite.runReputerProcess(ctx, reputer)
+			}
+			log.Info().Uint64("topicId", reputer.TopicId).Msg("Reputer process finished")
 		}(reputer)
 
 		if lib.DoneOrWait(ctx, walletConfig.LaunchRoutineDelay) {
@@ -135,6 +148,7 @@ func (suite *UseCaseSuite) Spawn(ctx context.Context) error {
 	// Wait for all essential routines to finish
 	go func() {
 		wg.Wait()
+		log.Info().Msg("All essential routines finished")
 		close(essentialDone)
 	}()
 

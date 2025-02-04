@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/joho/godotenv"
@@ -69,6 +70,9 @@ func main() {
 	// 	   └── Spawn process
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	sigCtx, sigCancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer sigCancel()
 
 	// Initialize logger
 	initLogger()
@@ -131,24 +135,26 @@ func main() {
 	finalUserConfig.CheckAndSetDefaults()
 
 	// Creates the ConnectionManagerand initialises the NodeConfigs
-	connectionManager, err := lib.NewConnectionManager(ctx, finalUserConfig)
+	connectionManager, err := lib.NewConnectionManager(sigCtx, finalUserConfig)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to initialize ConnectionManager, exiting")
 		return
 	}
 	// Close the ConnectionManager when the program exits
 	defer connectionManager.Close()
+	wallet, err := connectionManager.GetWallet()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get wallet, exiting")
+		return
+	}
 
-	spawner, err := usecase.NewUseCaseSuite(ctx, finalUserConfig, connectionManager)
+	spawner, err := usecase.NewUseCaseSuite(sigCtx, finalUserConfig, connectionManager)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize use case, exiting")
 		return
 	}
 
 	spawner.Metrics = metrics // cache the metrics object for ease of access on usecase suite
-
-	sigCtx, sigCancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
-	defer sigCancel()
 
 	log.Info().Msg("Starting spawning processes...")
 	go func() {
@@ -161,8 +167,15 @@ func main() {
 
 	<-sigCtx.Done()
 
-	metrics.IncrementMetricsCounter(lib.ApplicationFinishedCount, "", 0)
+	metrics.IncrementMetricsCounter(lib.ApplicationFinishedCount, wallet.Address, 0)
+	// shutdown metrics server
+	log.Info().Msg("Shutting down metrics server")
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+	if err := metrics.Shutdown(shutdownCtx); err != nil {
+		log.Error().Err(err).Msg("Error shutting down metrics server")
+	}
+
 	log.Info().Msg("Stopping...")
 
-	<-ctx.Done()
 }

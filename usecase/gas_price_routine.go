@@ -9,7 +9,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-
 func (suite *UseCaseSuite) UpdateGasPrice(ctx context.Context, wallet *lib.Wallet, walletConfig *lib.WalletConfig) error {
 	price, err := lib.RunWithNodeRetry(
 		ctx,
@@ -44,9 +43,13 @@ func (suite *UseCaseSuite) UpdateGasPriceRoutine(ctx context.Context, wallet *li
 			if err != nil {
 				log.Error().Err(err).Msg("Error updating gas prices")
 			}
-			
+
 			log.Debug().Float64("gasPrice", lib.GetGasPrice()).Msg("Updating fee price routine: updating value.")
-			time.Sleep(time.Duration(walletConfig.GasPriceUpdateInterval) * time.Second)
+
+			if lib.DoneOrWait(ctx, walletConfig.GasPriceUpdateInterval) {
+				log.Error().Msg("Updating fee price routine: terminating.")
+				return
+			}
 		}
 	}
 }

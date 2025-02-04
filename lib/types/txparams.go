@@ -18,7 +18,8 @@ type TransactionParams struct {
 
 // GasEstimationConfig holds the parameters used for gas estimation.
 type GasEstimationConfig struct {
-	BaseGas     uint64  // Base gas cost for any transaction
-	GasPerByte  uint64  // Gas cost per byte of transaction size
-	MinGasPrice float64 // Minimum gas price in the smallest denomination
+	BaseGas      uint64  // Base gas cost for any transaction
+	GasPerByte   uint64  // Gas cost per byte of transaction size
+	MinGasPrice  float64 // Minimum gas price in the smallest denomination
+	OverrideFees uint64  // Override the gas price with a fixed value
 }

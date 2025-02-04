@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"sync"
@@ -27,6 +28,7 @@ type Metrics struct {
 	CounterMap map[string]*prometheus.CounterVec
 	mu         sync.RWMutex // Add mutex for map operations
 	serverOnce sync.Once    // Add this for server initialization
+	server     *http.Server // Add server field
 }
 
 // InitMetrics initializes the singleton instance with the given counters
@@ -70,24 +72,31 @@ func (metrics *Metrics) RegisterMetricsCounters() {
 func (metrics *Metrics) StartMetricsServer(port string) {
 	metrics.serverOnce.Do(func() {
 		http.Handle("/metrics", promhttp.Handler())
+		metrics.server = &http.Server{
+			Addr:              port,
+			ReadTimeout:       30 * time.Second,
+			WriteTimeout:      30 * time.Second,
+			IdleTimeout:       60 * time.Second,
+			ReadHeaderTimeout: 10 * time.Second,
+		}
+
 		go func() {
 			log.Info().Msgf("Starting metrics server on %s", port)
-			srv := &http.Server{ // nolint: exhaustruct
-				Addr:              port,
-				ReadTimeout:       30 * time.Second,
-				WriteTimeout:      30 * time.Second,
-				IdleTimeout:       60 * time.Second,
-				ReadHeaderTimeout: 10 * time.Second,
+			if err := metrics.server.ListenAndServe(); err != http.ErrServerClosed {
+				log.Error().Err(err).Msg("Metrics server failed unexpectedly")
 			}
-
-			if err := srv.ListenAndServe(); err != nil {
-				log.Error().Err(err).Msg("Could not start metric server")
-				return
-			}
-
 			log.Info().Msg("Metrics server stopped")
 		}()
 	})
+}
+
+// Shutdown gracefully shuts down the metrics server
+func (metrics *Metrics) Shutdown(ctx context.Context) error {
+	if metrics.server != nil {
+		log.Info().Msg("Shutting down metrics server...")
+		return metrics.server.Shutdown(ctx)
+	}
+	return nil
 }
 
 func (metrics *Metrics) IncrementMetricsCounter(counterName string, address string, topic uint64) {
@@ -96,7 +105,8 @@ func (metrics *Metrics) IncrementMetricsCounter(counterName string, address stri
 	defer metrics.mu.RUnlock()
 
 	if counter != nil {
-		counter.WithLabelValues(address, strconv.FormatUint(topic, 10)).Inc()
-		log.Debug().Msgf("Incremented counter %s for address %s and topic %d", counterName, address, topic)
+		topicStr := strconv.FormatUint(topic, 10)
+		counter.WithLabelValues(address, topicStr).Inc()
+		log.Debug().Msgf("Incremented counter %s for address %s and topic %s", counterName, address, topicStr)
 	}
 }

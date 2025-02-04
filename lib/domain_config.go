@@ -26,14 +26,17 @@ const (
 
 // Default values
 const (
-	DefaultTimeoutRPCSecondsQuery        int64 = 60
-	DefaultTimeoutRPCSecondsTx           int64 = 300
-	DefaultTimeoutRPCSecondsRegistration int64 = 300
-	DefaultTimeoutHTTPConnection         int64 = 10
-	DefaultGasPriceUpdateInterval        int64 = 60
-	DefaultLaunchRoutineDelay            int64 = 5
-	DefaultRetryDelay                    int64 = 3
-	DefaultAccountSequenceRetryDelay     int64 = 5
+	DefaultTimeoutRPCSecondsQuery        int64  = 60
+	DefaultTimeoutRPCSecondsTx           int64  = 300
+	DefaultTimeoutRPCSecondsRegistration int64  = 300
+	DefaultTimeoutHTTPConnection         int64  = 10
+	DefaultGasPriceUpdateInterval        int64  = 60
+	DefaultLaunchRoutineDelay            int64  = 5
+	DefaultRetryDelay                    int64  = 3
+	DefaultAccountSequenceRetryDelay     int64  = 5
+	DefaultBaseGas                       uint64 = 200000
+	DefaultGasPerByte                    uint64 = 1
+	DefaultKeyringBackend                string = "test"
 )
 
 // Properties manually provided by the user as part of UserConfig
@@ -42,11 +45,16 @@ type WalletConfig struct {
 	AddressKeyName                string                  // load a address by key from the keystore
 	AddressRestoreMnemonic        string                  // load a address by mnemonic from the keystore
 	AlloraHomeDir                 string                  // home directory for the allora keystore
+	ChainId                       string                  // chain id
+	KeyringBackend                string                  // keyring backend to use ("test", "os", "file", ...)
+	KeyringPassphrase             string                  // passphrase for the keyring (if needed)
 	Gas                           string                  // gas to use for the allora client
 	GasAdjustment                 float64                 // gas adjustment to use for the allora client
 	GasPrices                     string                  // gas prices to use for the allora client - "auto" for auto-calculated fees
 	GasPriceUpdateInterval        int64                   // number of seconds to wait between updates to the gas price
 	MaxFees                       FlexibleCosmosIntAmount // max fees to pay for a single transaction (as string or number)
+	BaseGas                       uint64                  // base gas to use for the allora client
+	GasPerByte                    uint64                  // gas per byte to use for the allora client
 	NodeRPCs                      []string                // rpc nodes for allora chain
 	NodeGRPCs                     []string                // grpc nodes for allora chain
 	MaxRetries                    int64                   // retry to get data from chain up to this many times per query or tx
@@ -60,7 +68,7 @@ type WalletConfig struct {
 	TimeoutRPCSecondsTx           int64                   // timeout for rpc data send in seconds, including retries
 	TimeoutRPCSecondsRegistration int64                   // timeout for rpc registration in seconds, including retries
 	TimeoutHTTPConnection         int64                   // timeout for http connection in seconds
-	ChainId                       string                  // chain id
+
 }
 
 // Communication with the chain
@@ -175,6 +183,15 @@ func (c *UserConfig) CheckAndSetDefaults() {
 	}
 	if c.Wallet.TimeoutHTTPConnection == 0 {
 		c.Wallet.TimeoutHTTPConnection = DefaultTimeoutHTTPConnection
+	}
+	if c.Wallet.BaseGas == 0 {
+		c.Wallet.BaseGas = DefaultBaseGas
+	}
+	if c.Wallet.GasPerByte == 0 {
+		c.Wallet.GasPerByte = DefaultGasPerByte
+	}
+	if c.Wallet.KeyringBackend == "" {
+		c.Wallet.KeyringBackend = DefaultKeyringBackend
 	}
 }
 

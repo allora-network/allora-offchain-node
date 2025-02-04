@@ -33,8 +33,8 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 		PubKey:        wallet.PubKey,
 		TimeoutHeight: timeoutHeight,
 		GasEstimationConfig: types.GasEstimationConfig{
-			BaseGas:     200000,
-			GasPerByte:  1,
+			BaseGas:     walletConfig.BaseGas,
+			GasPerByte:  walletConfig.GasPerByte,
 			MinGasPrice: gasPrice,
 		},
 	}
@@ -45,10 +45,10 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 		log.Debug().Msgf("SendDataWithRetry iteration started (%d/%d)", retryCount, walletConfig.MaxRetries)
 
 		// Create tx without fees to simulate tx creation and get estimated gas and seq number
-		txResp, _, err := transaction.SendTransactionViaRPC(ctx, txNode.Chain.RPCClient, txNode.ServerAddress, txParams, wallet.GetSequence(), false, req)
-		if err == nil {
+		txResp, _, errTx := transaction.SendTransactionViaRPC(ctx, txNode.Chain.RPCClient, txNode.ServerAddress, txParams, wallet.GetSequence(), false, req)
+		if errTx == nil {
 			if txResp != nil {
-				log.Printf("Transaction sent successfully: %v\n", txResp.Hash.String())
+				log.Info().Msgf("Transaction sent successfully: %v\n", txResp.Hash.String())
 			} else {
 				log.Error().Msg("Transaction sent successfully but response is nil")
 			}
@@ -57,7 +57,7 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 		}
 
 		// Handle error on broadcasting
-		errorResponse, err := ProcessErrorTx(ctx, err, infoMsg, retryCount, walletConfig.MaxRetries, txNode)
+		errorResponse, err := ProcessErrorTx(ctx, errTx, infoMsg, retryCount, walletConfig.MaxRetries, txNode)
 		switch errorResponse {
 		case ErrorProcessingOk:
 			return txResp, nil
@@ -77,7 +77,30 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 		case ErrorProcessingFees:
 			// Error has not been handled, just mark as recalculate fees on this iteration
 			log.Info().Msg("Insufficient fees, marking fee recalculation on tx broadcasting for retrial")
+			// TODO Handle fee and "out of gas" error differently
+			got, required, err := parseInsufficientFeeError(errTx.Error(), DEFAULT_BOND_DENOM)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to parse insufficient fee error")
+			}
+			log.Debug().Msgf("Retrying tx with required fee, got %d, required %d", got, required)
+			if required > walletConfig.MaxFees.Number.BigInt().Uint64() {
+				log.Error().Msgf("Required fee %d is greater than max fees %d", required, walletConfig.MaxFees)
+				txParams.GasEstimationConfig.OverrideFees = walletConfig.MaxFees.Number.BigInt().Uint64()
+			} else {
+				txParams.GasEstimationConfig.OverrideFees = required
+			}
 			continue
+		case ErrorProcessingGas:
+			log.Info().Msg("Insufficient gas, marking gas recalculation on tx broadcasting for retrial")
+			wanted, used, err := parseGasFromOutOfGasError(errTx.Error())
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to parse out of gas error")
+			}
+			newBaseGas := EstimateRequiredBaseGas(wanted, used, txParams.GasEstimationConfig.BaseGas, retryCount)
+			log.Debug().Msgf("Retrying tx with required gas, wanted %d, used %d; old base gas %d, new base gas %d", wanted, used, txParams.GasEstimationConfig.BaseGas, newBaseGas)
+			txParams.GasEstimationConfig.BaseGas = newBaseGas
+			continue
+
 		case ErrorProcessingFailure:
 			return nil, errorsmod.Wrapf(err, "tx failed and not retried")
 		case ErrorProcessingSwitchingNode:

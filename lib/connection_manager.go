@@ -45,7 +45,6 @@ type ConnectionManager struct {
 	queryMu      sync.RWMutex
 	txMu         sync.RWMutex
 	wallet       *Wallet
-	walletInit   sync.Once
 	walletConfig *WalletConfig
 }
 
@@ -123,19 +122,6 @@ func NewConnectionManager(ctx context.Context, userConfig UserConfig) (*Connecti
 	log.Info().Msgf("Wallet initialized successfully, with account (sequence: %d, accNum: %d)", sequence, accNum)
 
 	return connectionManager, nil
-}
-
-func (connectionManager *ConnectionManager) InitializeWallet(ctx context.Context, walletConfig WalletConfig) error {
-	var initErr error
-	connectionManager.walletInit.Do(func() {
-		wallet, err := NewWalletFromConfig(ctx, walletConfig)
-		if err != nil {
-			initErr = fmt.Errorf("failed to initialize wallet: %w", err)
-			return
-		}
-		connectionManager.wallet = wallet
-	})
-	return initErr
 }
 
 // GetWallet returns the wallet instance, returns error if wallet is not initialized

@@ -31,9 +31,6 @@ var (
 	ErrUnexpectedError   = errorsmod.Register(ErrorCodespace, 100, "unexpected error")
 )
 
-// Marker for ABCI error codes
-const ErrorMessageAbciErrorCodeMarker = "error code:"
-
 // Errors substrings that are not ABCI errors and do not have a specific error code
 const ErrorMessageDataAlreadySubmitted = "already submitted"
 const ErrorMessageCannotUpdateEma = "cannot update EMA"
@@ -48,9 +45,6 @@ const ErrorMessageConnectionRefused = "connection refused"
 const ErrorMessageNoInferencesFoundForTopic = "no inferences found for topic"
 const ErrorContextDeadlineExceeded = "context deadline exceeded"
 
-// Excess correction in gas for txs that are not successful
-const ExcessCorrectionInGas = 20000
-
 // Error processing types
 // - "continue", nil: tx was not successful, but special error type. Handled, ready for retry
 // - "ok", nil: tx was successful, error handled and not re-raised
@@ -61,6 +55,7 @@ const ExcessCorrectionInGas = 20000
 const ErrorProcessingContinue = "continue"
 const ErrorProcessingOk = "ok"
 const ErrorProcessingFees = "fees"
+const ErrorProcessingGas = "gas"
 const ErrorProcessingError = "error"
 const ErrorProcessingFailure = "failure"
 const ErrorProcessingSwitchingNode = "switch"
@@ -75,30 +70,34 @@ var HTTPStatusCodeCodesSwitchingNode = map[int]bool{
 	505: true, // HTTP Version Not Supported
 }
 
+const GAS_EXCESS_CORRECTION uint64 = 20000
+
 // calculateExponentialBackoffDelay returns a duration based on retry count and base delay
 func calculateExponentialBackoffDelaySeconds(baseDelay int64, retryCount int64) int64 {
 	return int64(math.Pow(float64(baseDelay), float64(retryCount)))
 }
 
-// processError handles the error messages.
+// extractErrorCode attempts to extract an ABCI error code from an error message
+// Returns the error code and true if successful, 0 and false otherwise
+func extractErrorCode(errorMessage string) (uint32, bool) {
+	re := regexp.MustCompile(`error code:?\s*'?(\d+)'?:?`)
+	matches := re.FindStringSubmatch(errorMessage)
+	if len(matches) != 2 {
+		return 0, false
+	}
+
+	errorCode, err := strconv.ParseUint(matches[1], 10, 32)
+	if err != nil || errorCode > math.MaxUint32 {
+		return 0, false
+	}
+
+	return uint32(errorCode), true
+}
+
+// ProcessErrorTx handles the error messages.
 func ProcessErrorTx(ctx context.Context, err error, infoMsg string, retryCount, retryMax int64, node *NodeConfig) (string, error) {
-	if strings.Contains(err.Error(), ErrorMessageAbciErrorCodeMarker) {
-		re := regexp.MustCompile(`error code: '(\d+)'`)
-		matches := re.FindStringSubmatch(err.Error())
-		if len(matches) == 2 {
-			errorCode, parseErr := strconv.ParseUint(matches[1], 10, 32)
-			if parseErr != nil {
-				log.Error().Err(parseErr).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Failed to parse ABCI error code, skipping ABCI error code triage")
-			} else {
-				if errorCode > math.MaxUint32 {
-					log.Error().Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Parsed ABCI error code exceeds uint32 bounds, skipping ABCI error code triage")
-				} else {
-					return triageABCIErrorCode(ctx, uint32(errorCode), err, infoMsg, retryCount, retryMax, node) //nolint:gosec // Safe conversion - we check bounds above
-				}
-			}
-		} else {
-			log.Warn().Str("msg", infoMsg).Msg("Unmatched error format, cannot classify as ABCI error")
-		}
+	if errorCode, ok := extractErrorCode(err.Error()); ok {
+		return triageABCIErrorCode(ctx, errorCode, err, infoMsg, retryCount, retryMax, node)
 	}
 
 	// Check if error is HTTP status code
@@ -143,23 +142,25 @@ func triageABCIErrorCode(ctx context.Context, errorCode uint32, err error, infoM
 			Str("msg", infoMsg).
 			Int64("delay", walletConfig.AccountSequenceRetryDelay).
 			Msg("Account sequence mismatch detected, retrying with fixed delay")
-		// Wait a fixed block-related waiting time
-		if DoneOrWait(ctx, walletConfig.AccountSequenceRetryDelay) {
-			return ErrorProcessingError, ctx.Err()
-		}
-		return ErrorProcessingContinue, nil
+		return parseAndSetNewWalletSequence(ctx, err, node, infoMsg)
 	case sdkerrors.ErrInsufficientFee.ABCICode():
 		log.Info().
 			Err(err).
 			Str("msg", infoMsg).
 			Msg("Insufficient fees")
 		return ErrorProcessingFees, nil
+	case sdkerrors.ErrOutOfGas.ABCICode():
+		log.Info().
+			Err(err).
+			Str("msg", infoMsg).
+			Msg("Out of gas - increase your base gas")
+		return ErrorProcessingGas, nil
 	case feemarkettypes.ErrNoFeeCoins.ABCICode():
 		log.Info().
 			Err(err).
 			Str("msg", infoMsg).
 			Msg("No fee coins")
-		return ErrorProcessingFees, nil
+		return ErrorProcessingFailure, nil
 	case sdkerrors.ErrTxTooLarge.ABCICode():
 		return ErrorProcessingError, errorsmod.Wrapf(err, "tx too large")
 	case sdkerrors.ErrTxInMempoolCache.ABCICode():
@@ -209,31 +210,8 @@ func triageStringMatchingError(ctx context.Context, err error, infoMsg string, n
 			Str("msg", infoMsg).
 			Int64("delay", walletConfig.AccountSequenceRetryDelay).
 			Msg("Account sequence mismatch detected, re-fetching sequence")
+		return parseAndSetNewWalletSequence(ctx, err, node, infoMsg)
 
-		expectedSeqNum, currentSeqNum, err := parseSequenceFromAccountMismatchError(err.Error())
-		if err != nil {
-			log.Error().Err(err).
-				Str("rpc", node.ServerAddress).
-				Str("msg", infoMsg).
-				Msg("Failed to parse sequence from error - retrying with regular delay")
-			if DoneOrWait(ctx, walletConfig.RetryDelay) {
-				return ErrorProcessingError, ctx.Err()
-			}
-		}
-		log.Info().
-			Uint64("expected", expectedSeqNum).
-			Uint64("current", currentSeqNum).
-			Msg("Retrying resetting sequence from current to expected")
-		wallet, err := connectionManager.GetWallet()
-		if err != nil {
-			return "", err
-		}
-		wallet.SetSequence(expectedSeqNum)
-
-		if DoneOrWait(ctx, walletConfig.AccountSequenceRetryDelay) {
-			return ErrorProcessingError, ctx.Err()
-		}
-		return ErrorProcessingContinue, nil
 	} else if strings.Contains(err.Error(), ErrorContextDeadlineExceeded) {
 		log.Warn().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Context deadline exceeded, switching to next node")
 		return ErrorProcessingSwitchingNode, err
@@ -290,26 +268,28 @@ func triageHTTPStatusError(err error, node *NodeConfig, infoMsg string) (string,
 	return "", nil
 }
 
-// ParseStatus parses a status code and message from a given text string.
+// ParseHTTPStatus extracts HTTP status code and message from an error string
 func ParseHTTPStatus(input string) (int, string, error) {
-	// Regular expression to match "Status: <code> <message>" or similar patterns in text
-	re := regexp.MustCompile(`(?i)status:\s*(\d+)\s*([^,]*)`)
-
+	// Updated regex to be less greedy and handle the standard HTTP status format
+	re := regexp.MustCompile(`(?i)Status:\s*(\d+)(?:\s+([^-]+))?`)
 	matches := re.FindStringSubmatch(input)
-	if len(matches) < 3 {
-		return 0, "", errors.New("invalid input format")
+
+	if len(matches) < 2 {
+		return 0, "", fmt.Errorf("invalid status format")
 	}
 
-	// Parse the status code
-	statusCode, err := strconv.Atoi(matches[1])
-	if err != nil {
-		return 0, "", fmt.Errorf("invalid status code: %v", err)
+	code, err := strconv.Atoi(matches[1])
+	if err != nil || code < 0 {
+		return 0, "", fmt.Errorf("invalid status code")
 	}
 
-	// Get the status message
-	statusMessage := strings.TrimSpace(matches[2])
+	// Clean up the status message by trimming spaces
+	message := ""
+	if len(matches) > 2 && matches[2] != "" {
+		message = strings.TrimSpace(matches[2])
+	}
 
-	return statusCode, statusMessage, nil
+	return code, message, nil
 }
 
 // Returns true if the error is a switching-node error
@@ -321,9 +301,10 @@ func IsErrorSwitchingNode(err error) bool {
 		errors.Is(err, ErrUnexpectedError)
 }
 
-// Extract expected and current sequence numbers from the error message
+// Extract expected and current sequence numbers from account sequence mismatch error message
 func parseSequenceFromAccountMismatchError(errorMessage string) (uint64, uint64, error) {
-	re := regexp.MustCompile(`account sequence mismatch, expected (\d+), got (\d+)`)
+	// Update regex to handle flexible whitespace
+	re := regexp.MustCompile(`account sequence mismatch,\s*expected\s+(\d+),\s*got\s+(\d+)`)
 	matches := re.FindStringSubmatch(errorMessage)
 
 	if len(matches) == 3 {
@@ -340,4 +321,118 @@ func parseSequenceFromAccountMismatchError(errorMessage string) (uint64, uint64,
 		return expected, current, nil
 	}
 	return 0, 0, fmt.Errorf("sequence numbers not found in error message")
+}
+
+// Extract gasWanted and gasUsed values from out of gas error message
+func parseGasFromOutOfGasError(errorMessage string) (wanted uint64, used uint64, err error) {
+	re := regexp.MustCompile(`gasWanted:\s*(\d+),\s*gasUsed:\s*(\d+)`)
+	matches := re.FindStringSubmatch(errorMessage)
+
+	if len(matches) == 3 {
+		wanted, err := strconv.ParseUint(matches[1], 10, 64)
+		if err != nil {
+			return 0, 0, err
+		}
+
+		used, err := strconv.ParseUint(matches[2], 10, 64)
+		if err != nil {
+			return 0, 0, err
+		}
+
+		return wanted, used, nil
+	}
+	return 0, 0, fmt.Errorf("gas values not found in error message")
+}
+
+// Extract got and required fee values from insufficient fee error message
+func parseInsufficientFeeError(errorMessage, denom string) (got uint64, required uint64, err error) {
+	// Escape denom in case it contains special regex characters
+	escapedDenom := regexp.QuoteMeta(denom)
+	// Updated regex to handle the longer error format
+	re := regexp.MustCompile(fmt.Sprintf(`got:\s*(\d+)%s\s*required:\s*(\d+)%s`, escapedDenom, escapedDenom))
+	matches := re.FindStringSubmatch(errorMessage)
+
+	if len(matches) == 3 {
+		got, err := strconv.ParseUint(matches[1], 10, 64)
+		if err != nil {
+			return 0, 0, fmt.Errorf("failed to parse got fee: %w", err)
+		}
+
+		required, err := strconv.ParseUint(matches[2], 10, 64)
+		if err != nil {
+			return 0, 0, fmt.Errorf("failed to parse required fee: %w", err)
+		}
+
+		return got, required, nil
+	}
+	return 0, 0, fmt.Errorf("fee values not found in error message")
+}
+
+// EstimateRequiredBaseGas calculates the required BaseGas for retry given the actual gasUsed and previous estimation
+// excessCorrectionTimes determines how many times to apply the excess correction
+func EstimateRequiredBaseGas(gasWanted, gasUsed, baseGas uint64, excessCorrectionTimes int64) uint64 {
+	// If gasWanted <= baseGas, return the larger of baseGas and gasUsed
+	if gasWanted <= baseGas {
+		if gasUsed > baseGas {
+			return gasUsed
+		}
+		return baseGas
+	}
+
+	// Calculate data gas estimate
+	dataGasEstimate := gasWanted - baseGas
+
+	// If gasUsed <= dataGasEstimate (shouldn't happen in out-of-gas scenarios)
+	// return the larger value
+	if gasUsed <= dataGasEstimate {
+		if dataGasEstimate > baseGas {
+			return dataGasEstimate
+		}
+		return baseGas
+	}
+
+	// Calculate new base gas
+	newBaseGas := gasUsed - dataGasEstimate
+
+	// Apply excess correction
+	for i := int64(0); i < excessCorrectionTimes; i++ {
+		newBaseGas += GAS_EXCESS_CORRECTION
+	}
+
+	return newBaseGas
+}
+
+func parseAndSetNewWalletSequence(ctx context.Context, err error, node *NodeConfig, infoMsg string) (string, error) {
+	connectionManager := node.ConnectionManager
+	walletConfig, errorWalletConfig := connectionManager.GetWalletConfig()
+	if errorWalletConfig != nil {
+		return "", errorWalletConfig
+	}
+
+	expectedSeqNum, currentSeqNum, err := parseSequenceFromAccountMismatchError(err.Error())
+	if err != nil {
+		log.Error().Err(err).
+			Str("rpc", node.ServerAddress).
+			Str("msg", infoMsg).
+			Msg("Failed to parse sequence from error - retrying with regular delay")
+		if DoneOrWait(ctx, walletConfig.RetryDelay) {
+			return ErrorProcessingError, ctx.Err()
+		}
+	}
+
+	log.Info().
+		Uint64("expected", expectedSeqNum).
+		Uint64("current", currentSeqNum).
+		Msg("Retrying resetting sequence from current to expected")
+
+	wallet, err := connectionManager.GetWallet()
+	if err != nil {
+		return "", err
+	}
+	wallet.SetSequence(expectedSeqNum)
+
+	if DoneOrWait(ctx, walletConfig.AccountSequenceRetryDelay) {
+		return ErrorProcessingError, ctx.Err()
+	}
+	return ErrorProcessingContinue, nil
 }

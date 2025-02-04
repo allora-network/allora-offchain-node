@@ -56,6 +56,9 @@ func QueryDataWithRetry[T any](
 		case ErrorProcessingFees:
 			log.Debug().Msg("Query failed due to fees limit")
 			return result, err
+		case ErrorProcessingGas:
+			log.Debug().Msg("Query failed due to gas limit")
+			return result, err
 		case ErrorProcessingFailure:
 			return result, errorsmod.Wrapf(err, "query failed and not retried")
 		case ErrorProcessingSwitchingNode:
