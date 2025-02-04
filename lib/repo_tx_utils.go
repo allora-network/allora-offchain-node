@@ -33,9 +33,10 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 		PubKey:        wallet.PubKey,
 		TimeoutHeight: timeoutHeight,
 		GasEstimationConfig: types.GasEstimationConfig{
-			BaseGas:     walletConfig.BaseGas,
-			GasPerByte:  walletConfig.GasPerByte,
-			MinGasPrice: gasPrice,
+			BaseGas:      walletConfig.BaseGas,
+			GasPerByte:   walletConfig.GasPerByte,
+			MinGasPrice:  gasPrice,
+			OverrideFees: 0,
 		},
 	}
 

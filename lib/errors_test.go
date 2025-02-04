@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestExtractErrorCode(t *testing.T) {
@@ -102,22 +103,22 @@ func TestParseGasFromOutOfGasError(t *testing.T) {
 			expectedUsed:   1000,
 			expectError:    false,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Invalid format",
 			errorMessage: "some other error",
 			expectError:  true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Empty message",
 			errorMessage: "",
 			expectError:  true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Invalid numbers",
 			errorMessage: "gasWanted: abc, gasUsed: def",
 			expectError:  true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Partial message",
 			errorMessage: "gasWanted: 810",
 			expectError:  true,
@@ -131,7 +132,7 @@ func TestParseGasFromOutOfGasError(t *testing.T) {
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tt.expectedWanted, wanted)
 				assert.Equal(t, tt.expectedUsed, used)
 			}
@@ -175,32 +176,32 @@ func TestParseSequenceFromAccountMismatchError(t *testing.T) {
 			expectedCurr: 888888,
 			expectError:  false,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Invalid format - wrong text",
 			errorMessage: "some other error message",
 			expectError:  true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Invalid format - missing numbers",
 			errorMessage: "account sequence mismatch, expected , got ",
 			expectError:  true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Invalid format - non-numeric values",
 			errorMessage: "account sequence mismatch, expected abc, got def",
 			expectError:  true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Empty message",
 			errorMessage: "",
 			expectError:  true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Partial message - only expected",
 			errorMessage: "account sequence mismatch, expected 5",
 			expectError:  true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Partial message - only got",
 			errorMessage: "account sequence mismatch, got 3",
 			expectError:  true,
@@ -214,7 +215,7 @@ func TestParseSequenceFromAccountMismatchError(t *testing.T) {
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tt.expectedExp, expected)
 				assert.Equal(t, tt.expectedCurr, current)
 			}
@@ -265,27 +266,27 @@ func TestParseHTTPStatus(t *testing.T) {
 			expectedMsg:  "",
 			expectError:  false,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:        "Invalid format - no status code",
 			input:       "Status: Not Found",
 			expectError: true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:        "Invalid format - wrong prefix",
 			input:       "Error: 404 Not Found",
 			expectError: true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:        "Empty string",
 			input:       "",
 			expectError: true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:        "Invalid status code",
 			input:       "Status: abc Not Found",
 			expectError: true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:        "Negative status code",
 			input:       "Status: -404 Not Found",
 			expectError: true,
@@ -299,7 +300,7 @@ func TestParseHTTPStatus(t *testing.T) {
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tt.expectedCode, code, "status code mismatch")
 				assert.Equal(t, tt.expectedMsg, msg, "status message mismatch")
 			}
@@ -364,31 +365,31 @@ func TestParseInsufficientFeeError(t *testing.T) {
 			expectedReq:  9999999,
 			expectError:  false,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Invalid format - wrong text",
 			errorMessage: "some other error message",
 			denom:        "uallo",
 			expectError:  true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Invalid format - missing numbers",
 			errorMessage: "got: uallo required: uallo: insufficient fee",
 			denom:        "uallo",
 			expectError:  true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Invalid format - non-numeric values",
 			errorMessage: "got: abcuallo required: defuallo: insufficient fee",
 			denom:        "uallo",
 			expectError:  true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Empty message",
 			errorMessage: "",
 			denom:        "uallo",
 			expectError:  true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Wrong denom",
 			errorMessage: "got: 163uallo required: 1625uallo: insufficient fee",
 			denom:        "atom",
@@ -402,13 +403,13 @@ func TestParseInsufficientFeeError(t *testing.T) {
 			expectedReq:  1625,
 			expectError:  false,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Missing required part",
 			errorMessage: "got: 163uallo: insufficient fee",
 			denom:        "uallo",
 			expectError:  true,
 		},
-		{
+		{ // nolint:exhaustruct
 			name:         "Missing got part",
 			errorMessage: "required: 1625uallo: insufficient fee",
 			denom:        "uallo",
@@ -431,7 +432,7 @@ func TestParseInsufficientFeeError(t *testing.T) {
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tt.expectedGot, got, "got fee mismatch")
 				assert.Equal(t, tt.expectedReq, required, "required fee mismatch")
 			}

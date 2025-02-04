@@ -72,7 +72,7 @@ func (metrics *Metrics) RegisterMetricsCounters() {
 func (metrics *Metrics) StartMetricsServer(port string) {
 	metrics.serverOnce.Do(func() {
 		http.Handle("/metrics", promhttp.Handler())
-		metrics.server = &http.Server{
+		metrics.server = &http.Server{ // nolint:exhaustruct
 			Addr:              port,
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      30 * time.Second,
