@@ -114,9 +114,9 @@ func NewWalletFromConfig(ctx context.Context, walletConfig WalletConfig) (*Walle
 		}
 
 		// Unarmor and decrypt to obtain the private key.
-		privKey, algo, err := crypto.UnarmorDecryptPrivKey(armored, walletConfig.KeyringPassphrase)
+		privKey, _, err = crypto.UnarmorDecryptPrivKey(armored, walletConfig.KeyringPassphrase)
 		if err != nil {
-			return nil, fmt.Errorf("failed to decrypt private key with algo %s: %w", algo, err)
+			return nil, fmt.Errorf("failed to decrypt private key: %w", err)
 		}
 
 		// Derive the public key and address.
@@ -156,7 +156,7 @@ func NewWalletFromConfig(ctx context.Context, walletConfig WalletConfig) (*Walle
 		DefaultBondDenom: DEFAULT_BOND_DENOM,
 	}
 
-	log.Info().Msgf("Wallet created successfully, %v", wallet)
+	log.Info().Msgf("Wallet created successfully for %s", wallet.Address)
 
 	return wallet, nil
 }

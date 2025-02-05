@@ -195,7 +195,7 @@ func (connectionManager *ConnectionManager) switchToNodeLocked(mode, index int, 
 	log.Debug().
 		Str("from", nodes[oldIndex].ServerAddress).
 		Str("to", nodes[index].ServerAddress).
-		Msg("Switch to next RPC node")
+		Msg("Switch to next node")
 
 	return &nodes[index]
 }
