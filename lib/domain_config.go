@@ -48,8 +48,6 @@ type WalletConfig struct {
 	ChainId                       string                  // chain id
 	KeyringBackend                string                  // keyring backend to use ("test", "os", "file", ...)
 	KeyringPassphrase             string                  // passphrase for the keyring (if needed)
-	Gas                           string                  // gas to use for the allora client
-	GasAdjustment                 float64                 // gas adjustment to use for the allora client
 	GasPrices                     string                  // gas prices to use for the allora client - "auto" for auto-calculated fees
 	GasPriceUpdateInterval        int64                   // number of seconds to wait between updates to the gas price
 	MaxFees                       FlexibleCosmosIntAmount // max fees to pay for a single transaction (as string or number)

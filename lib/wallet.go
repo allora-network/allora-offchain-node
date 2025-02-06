@@ -126,7 +126,7 @@ func NewWalletFromConfig(ctx context.Context, walletConfig WalletConfig) (*Walle
 	}
 
 	// Check if key already exists in keyring
-	log.Info().Msgf("Creating keyring for key %s on backend %s", walletConfig.AddressKeyName, walletConfig.KeyringBackend)
+	log.Info().Msgf("Checking keyring for key %s on backend %s", walletConfig.AddressKeyName, walletConfig.KeyringBackend)
 	_, err = kr.Key(walletConfig.AddressKeyName)
 	if err == nil {
 		log.Info().Msgf("Key %s already exists in keyring, skipping import", walletConfig.AddressKeyName)
