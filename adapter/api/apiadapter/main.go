@@ -30,7 +30,7 @@ func replacePlaceholders(urlTemplate string, params map[string]string) string {
 	return urlTemplate
 }
 
-// Replace placeholders and also the blockheheight
+// Replace placeholders and also the blockheight
 func replaceExtendedPlaceholders(urlTemplate string, params map[string]string, blockHeight int64, topicId uint64) string {
 	// Create a map of default parameters
 	blockHeightAsString := strconv.FormatInt(blockHeight, 10)
