@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"allora_offchain_node/lib"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 )
@@ -25,8 +26,8 @@ func (m *MockAlloraAdapter) CalcForecast(config lib.WorkerConfig, timestamp int6
 	return args.Get(0).([]lib.NodeValue), args.Error(1) // nolint: forcetypeassert
 }
 
-func (m *MockAlloraAdapter) GroundTruth(config lib.ReputerConfig, timestamp int64) (lib.Truth, error) {
-	args := m.Called(config, timestamp)
+func (m *MockAlloraAdapter) GroundTruth(config lib.ReputerConfig, blockTime time.Time) (lib.Truth, error) {
+	args := m.Called(config, blockTime)
 	return args.Get(0).(lib.Truth), args.Error(1) // nolint: forcetypeassert
 }
 

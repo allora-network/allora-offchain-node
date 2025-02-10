@@ -253,7 +253,7 @@ These below are excerpts of the configuration (with some parts omitted for brevi
         "lossFunctionEntrypointName": "apiAdapter",
         "minStake": "100000000",
         "groundTruthParameters": {
-          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockHeight}",
+          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockTime}",
           "Token": "ETHUSD"
         },
         "lossFunctionParameters": {
@@ -290,7 +290,7 @@ These below are excerpts of the configuration (with some parts omitted for brevi
         "lossFunctionEntrypointName": "apiAdapter",
         "minStake": "100000000",
         "groundTruthParameters": {
-          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockHeight}",
+          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockTime}",
           "Token": "ETHUSD"
         },
         "lossFunctionParameters": {

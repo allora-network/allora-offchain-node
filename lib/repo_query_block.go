@@ -2,6 +2,7 @@ package lib
 
 import (
 	"context"
+	"time"
 
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
 	"github.com/cosmos/cosmos-sdk/types/query"
@@ -27,4 +28,12 @@ func (node *NodeConfig) GetReputerValuesAtBlock(ctx context.Context, topicId emi
 	}
 
 	return resp.NetworkInferences, nil
+}
+
+func (node *NodeConfig) GetBlockTime(ctx context.Context, nonce BlockHeight) (time.Time, error) {
+	header, err := node.Chain.Client.RPC.Header(ctx, &nonce)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return header.Header.Time, nil
 }

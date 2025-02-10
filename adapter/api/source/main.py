@@ -29,8 +29,8 @@ def get_forecast():
     return jsonify([nv.__dict__ for nv in node_values])
 
 
-@app.route('/truth/<token>/<blockheight>', methods=['GET'])
-def get_truth(token, blockheight):
+@app.route('/truth/<token>/<blockTime>', methods=['GET'])
+def get_truth(token, blockTime):
     random_float = str(random.uniform(0.0, 100.0))
     return random_float
 

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	alloraMath "github.com/allora-network/allora-chain/math"
 	"github.com/rs/zerolog/log"
@@ -38,6 +39,19 @@ func replaceExtendedPlaceholders(urlTemplate string, params map[string]string, b
 	defaultParams := map[string]string{
 		"BlockHeight": blockHeightAsString,
 		"TopicId":     topicIdAsString,
+	}
+	urlTemplate = replacePlaceholders(urlTemplate, defaultParams)
+	urlTemplate = replacePlaceholders(urlTemplate, params)
+	return urlTemplate
+}
+
+func replaceExtendedPlaceholdersWithTime(urlTemplate string, params map[string]string, blockTime time.Time, topicId uint64) string {
+	blockTimeUnix := blockTime.Unix()
+	blockTimeAsString := strconv.FormatInt(blockTimeUnix, 10)
+	topicIdAsString := strconv.FormatUint(topicId, 10)
+	defaultParams := map[string]string{
+		"BlockTime": blockTimeAsString,
+		"TopicId":   topicIdAsString,
 	}
 	urlTemplate = replacePlaceholders(urlTemplate, defaultParams)
 	urlTemplate = replacePlaceholders(urlTemplate, params)
@@ -130,11 +144,11 @@ func (a *AlloraAdapter) CalcForecast(node lib.WorkerConfig, blockHeight int64) (
 	return nodeValues, nil
 }
 
-func (a *AlloraAdapter) GroundTruth(node lib.ReputerConfig, blockHeight int64) (lib.Truth, error) {
+func (a *AlloraAdapter) GroundTruth(node lib.ReputerConfig, blockTime time.Time) (lib.Truth, error) {
 	log := log.With().Str("actorType", "reputer").Uint64("topicId", node.TopicId).Logger()
 
 	urlTemplate := node.GroundTruthParameters["GroundTruthEndpoint"]
-	url := replaceExtendedPlaceholders(urlTemplate, node.GroundTruthParameters, blockHeight, node.TopicId)
+	url := replaceExtendedPlaceholdersWithTime(urlTemplate, node.GroundTruthParameters, blockTime, node.TopicId)
 	log.Debug().Str("url", url).Msg("Ground truth endpoint")
 	groundTruth, err := requestEndpoint(url)
 	if err != nil {

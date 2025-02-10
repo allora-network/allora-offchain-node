@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	errorsmod "cosmossdk.io/errors"
 	alloraMath "github.com/allora-network/allora-chain/math"
@@ -38,7 +39,19 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 	}
 	valueBundle.Reputer = suite.RPCManager.GetCurrentNode().Wallet.Address
 
-	sourceTruth, err := reputer.GroundTruthEntrypoint.GroundTruth(reputer, nonce)
+	blockTime, err := RunWithNodeRetry(
+		ctx,
+		suite.RPCManager,
+		func(node *lib.NodeConfig) (time.Time, error) {
+			return node.GetBlockTime(ctx, nonce)
+		},
+		"get block time",
+	)
+	if err != nil {
+		return errorsmod.Wrapf(err, "error getting block time, topicId: %d, blockHeight: %d", reputer.TopicId, nonce)
+	}
+
+	sourceTruth, err := reputer.GroundTruthEntrypoint.GroundTruth(reputer, blockTime)
 	if err != nil {
 		return errorsmod.Wrapf(err, "error getting source truth from reputer, topicId: %d, blockHeight: %d", reputer.TopicId, nonce)
 	}

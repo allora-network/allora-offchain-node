@@ -35,7 +35,7 @@ Reputer: []lib.ReputerConfig{
         "loopSeconds": 30,
         "minStake": 100000,
         "groundTruthParameters": {
-          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockHeight}",
+          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockTime}",
           "Token": "ETHUSD"
         },
         "lossFunctionParameters": {
