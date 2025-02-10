@@ -35,7 +35,7 @@ Reputer: []lib.ReputerConfig{
         "loopSeconds": 30,
         "minStake": 100000,
         "groundTruthParameters": {
-          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockHeight}",
+          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockTime}",
           "Token": "ETHUSD"
         },
         "lossFunctionParameters": {
@@ -97,6 +97,7 @@ The URLs support template variables as defined from the Parameters section.
 In addition, it supports two special variables: 
 * TopicId: as defined in WorkerConfig object
 * BlockHeight: the blockheight at which the operation happens
+* BlockTime: the time the block at which the operation happens started
 
 
 ## Usage

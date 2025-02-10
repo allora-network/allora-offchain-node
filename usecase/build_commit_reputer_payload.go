@@ -20,6 +20,13 @@ import (
 func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, nonce lib.BlockHeight) (bool, error) {
 	ctx := context.Background()
 
+	header, err := suite.Node.Chain.Client.RPC.Header(ctx, &nonce)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get blockchain info")
+		return false, err
+	}
+	blockTime := header.Header.Time
+
 	valueBundle, err := suite.Node.GetReputerValuesAtBlock(reputer.TopicId, nonce)
 	if err != nil {
 		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to get reputer values at block")
@@ -30,7 +37,7 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(reputer lib.ReputerConfig, 
 	}
 	valueBundle.Reputer = suite.Node.Wallet.Address
 
-	sourceTruth, err := reputer.GroundTruthEntrypoint.GroundTruth(reputer, nonce)
+	sourceTruth, err := reputer.GroundTruthEntrypoint.GroundTruth(reputer, blockTime)
 	if err != nil {
 		log.Error().Err(err).Uint64("topicId", reputer.TopicId).Msg("Failed to get source truth from reputer")
 		return false, err

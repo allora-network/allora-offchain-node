@@ -158,7 +158,7 @@ These below are excerpts of the configuration (with some parts omitted for brevi
         "loopSeconds": 30,
         "minStake": 100000,
         "groundTruthParameters": {
-          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockHeight}",
+          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockTime}",
           "Token": "ETHUSD"
         },
         "lossFunctionParameters": {
@@ -197,7 +197,7 @@ These below are excerpts of the configuration (with some parts omitted for brevi
         "loopSeconds": 30,
         "minStake": 100000,
         "groundTruthParameters": {
-          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockHeight}",
+          "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockTime}",
           "Token": "ETHUSD"
         },
         "lossFunctionParameters": {
