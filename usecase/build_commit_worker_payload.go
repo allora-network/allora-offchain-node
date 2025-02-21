@@ -149,7 +149,7 @@ func (suite *UseCaseSuite) SignWorkerPayload(workerPayload *emissionstypes.Infer
 	if err != nil {
 		return &emissionstypes.WorkerDataBundle{}, errorsmod.Wrapf(err, "error getting wallet") // nolint: exhaustruct
 	}
-	sig, pk, err := auth.MarshalAndSignByPrivKey(workerPayload, wallet.PrivKey, wallet.AddressSDK)
+	sig, pk, err := auth.MarshalAndSignByPrivKey(workerPayload, wallet.GetPrivKey(), wallet.AddressSDK)
 	if err != nil {
 		return &emissionstypes.WorkerDataBundle{}, errorsmod.Wrapf(err, "error signing the InferenceForecastsBundle message") // nolint: exhaustruct
 	}

@@ -61,7 +61,7 @@ func (suite *UseCaseSuite) RegisterWorkerIdempotently(ctx context.Context, confi
 		return false, err
 	}
 
-	balance, err := queryNode.GetBalance(ctx, wallet.Address, wallet.DefaultBondDenom)
+	balance, err := queryNode.GetBalance(ctx, wallet.Address, wallet.GetDefaultBondDenom())
 	if err != nil {
 		log.Error().Err(err).Msg("Could not check if the node has enough balance to register, skipping")
 		return false, err
@@ -141,7 +141,7 @@ func (suite *UseCaseSuite) RegisterAndStakeReputerIdempotently(ctx context.Conte
 	} else {
 		log.Info().Msg("Node not yet registered. Attempting registration...")
 
-		balance, err := queryNode.GetBalance(ctx, wallet.Address, wallet.DefaultBondDenom)
+		balance, err := queryNode.GetBalance(ctx, wallet.Address, wallet.GetDefaultBondDenom())
 		if err != nil {
 			log.Error().Err(err).Msg("Could not check if the node has enough balance to register, skipping")
 			return false, err

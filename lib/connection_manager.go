@@ -128,7 +128,7 @@ func NewConnectionManager(ctx context.Context, userConfig UserConfig) (*Connecti
 		return nil, fmt.Errorf("failed to get account info: %w", err)
 	}
 	wallet.SetSequence(sequence)
-	wallet.AccountNumber = accNum
+	wallet.SetAccountNumber(accNum)
 	log.Info().Msgf("Wallet initialized successfully, with account (sequence: %d, accNum: %d)", sequence, accNum)
 
 	return connectionManager, nil

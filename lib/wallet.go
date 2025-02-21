@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 
 	crypto "github.com/cosmos/cosmos-sdk/crypto"
@@ -19,18 +20,23 @@ import (
 )
 
 type Wallet struct {
-	Address          string
-	AddressSDK       sdktypes.Address
-	AccountNumber    uint64
+	// Public identifiers
+	Address    string
+	AddressSDK sdktypes.Address
+
+	// Protected fields
+	accountNumber    uint64
 	sequence         atomic.Uint64
-	AddressPrefix    string
-	DefaultBondDenom string
-	PubKey           cryptotypes.PubKey
-	PrivKey          cryptotypes.PrivKey
-	Keyring          keyring.Keyring
+	addressPrefix    string
+	defaultBondDenom string
+	pubKey           cryptotypes.PubKey
+	privKey          cryptotypes.PrivKey
+	keyring          keyring.Keyring
+
+	mu sync.RWMutex
 }
 
-// NewWallet creates a new wallet instance
+// Constructor
 func NewWallet(
 	address string,
 	addressSDK sdktypes.Address,
@@ -42,33 +48,84 @@ func NewWallet(
 	privKey cryptotypes.PrivKey,
 	keyring keyring.Keyring,
 ) *Wallet {
-	w := &Wallet{ // nolint:exhaustruct
+	w := &Wallet{
 		Address:          address,
 		AddressSDK:       addressSDK,
-		AccountNumber:    accountNumber,
-		AddressPrefix:    addressPrefix,
-		DefaultBondDenom: defaultBondDenom,
-		PubKey:           pubKey,
-		PrivKey:          privKey,
-		Keyring:          keyring,
+		accountNumber:    accountNumber,
+		addressPrefix:    addressPrefix,
+		defaultBondDenom: defaultBondDenom,
+		pubKey:           pubKey,
+		privKey:          privKey,
+		keyring:          keyring,
 	}
-	w.sequence.Store(sequence) // Initialize atomic sequence
+	w.sequence.Store(sequence)
 	return w
 }
 
-// GetSequence returns the current sequence number
+// Getters
+func (w *Wallet) GetAccountNumber() uint64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.accountNumber
+}
+
+func (w *Wallet) GetAddressPrefix() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.addressPrefix
+}
+
+func (w *Wallet) GetDefaultBondDenom() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.defaultBondDenom
+}
+
+func (w *Wallet) GetPubKey() cryptotypes.PubKey {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.pubKey
+}
+
+func (w *Wallet) GetPrivKey() cryptotypes.PrivKey {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.privKey
+}
+
+func (w *Wallet) GetKeyring() keyring.Keyring {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.keyring
+}
+
+// Sequence operations (already atomic)
 func (w *Wallet) GetSequence() uint64 {
 	return w.sequence.Load()
 }
 
-// SetSequence updates the sequence number
+func (w *Wallet) SetAccountNumber(accountNumber uint64) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.accountNumber = accountNumber
+}
+
 func (w *Wallet) SetSequence(sequence uint64) {
 	w.sequence.Store(sequence)
 }
 
-// IncrementSequence increments and returns the new sequence number
 func (w *Wallet) IncrementSequence() uint64 {
 	return w.sequence.Add(1)
+}
+
+// Protected operations
+func (w *Wallet) Sign(msg []byte) ([]byte, error) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	if w.privKey == nil {
+		return nil, fmt.Errorf("private key not initialized")
+	}
+	return w.privKey.Sign(msg)
 }
 
 // Creates a new wallet, partially filled with the wallet config
@@ -139,13 +196,13 @@ func NewWalletFromConfig(ctx context.Context, walletConfig WalletConfig) (*Walle
 	}
 
 	wallet := &Wallet{ // nolint: exhaustruct
-		Keyring:          kr,
+		keyring:          kr,
 		Address:          address,
 		AddressSDK:       addressSDK,
-		PrivKey:          privKey,
-		PubKey:           pubKey,
-		AddressPrefix:    ADDRESS_PREFIX,
-		DefaultBondDenom: DEFAULT_BOND_DENOM,
+		privKey:          privKey,
+		pubKey:           pubKey,
+		addressPrefix:    ADDRESS_PREFIX,
+		defaultBondDenom: DEFAULT_BOND_DENOM,
 	}
 
 	log.Info().Msgf("Wallet created successfully for %s", wallet.Address)

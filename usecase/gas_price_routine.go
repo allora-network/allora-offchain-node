@@ -22,7 +22,7 @@ func (suite *UseCaseSuite) UpdateGasPrice(ctx context.Context, wallet *lib.Walle
 					if err != nil {
 						return 0, fmt.Errorf("failed to get current query node: %w", err)
 					}
-					return node.GetBaseFee(ctx, wallet.DefaultBondDenom)
+					return node.GetBaseFee(ctx, wallet.GetDefaultBondDenom())
 				})
 		},
 		"get base fee",

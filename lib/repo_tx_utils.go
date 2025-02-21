@@ -29,9 +29,9 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 		Denom:         DEFAULT_BOND_DENOM,
 		Prefix:        ADDRESS_PREFIX,
 		Sequence:      wallet.GetSequence(),
-		AccNum:        wallet.AccountNumber,
-		PrivKey:       wallet.PrivKey,
-		PubKey:        wallet.PubKey,
+		AccNum:        wallet.GetAccountNumber(),
+		PrivKey:       wallet.GetPrivKey(),
+		PubKey:        wallet.GetPubKey(),
 		TimeoutHeight: timeoutHeight,
 		GasEstimationConfig: types.GasEstimationConfig{
 			BaseGas:      walletConfig.BaseGas,
