@@ -3,6 +3,7 @@ package usecase
 import (
 	lib "allora_offchain_node/lib"
 	auth "allora_offchain_node/lib/auth"
+	metrics "allora_offchain_node/metrics"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -51,13 +52,13 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 	if err != nil {
 		return errorsmod.Wrapf(err, "error getting source truth from reputer, topicId: %d, blockHeight: %d", reputer.TopicId, nonce)
 	}
-	suite.Metrics.IncrementMetricsCounter(lib.TruthRequestCount, wallet.Address, reputer.TopicId)
+	suite.Metrics.IncrementMetricsCounter(metrics.TruthRequestCount, wallet.Address, reputer.TopicId)
 
 	lossBundle, err := suite.ComputeLossBundle(sourceTruth, valueBundle, reputer)
 	if err != nil {
 		return errorsmod.Wrapf(err, "error computing loss bundle, topic: %d, blockHeight: %d", reputer.TopicId, nonce)
 	}
-	suite.Metrics.IncrementMetricsCounter(lib.ReputerDataBuildCount, wallet.Address, reputer.TopicId)
+	suite.Metrics.IncrementMetricsCounter(metrics.ReputerDataBuildCount, wallet.Address, reputer.TopicId)
 
 	signedValueBundle, err := suite.SignReputerValueBundle(&lossBundle)
 	if err != nil {
@@ -84,7 +85,7 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 		if err != nil {
 			return errorsmod.Wrapf(err, "error sending Reputer Data to chain, topic: %d, blockHeight: %d", reputer.TopicId, nonce)
 		}
-		suite.Metrics.IncrementMetricsCounter(lib.ReputerChainSubmissionCount, wallet.Address, reputer.TopicId)
+		suite.Metrics.IncrementMetricsCounter(metrics.ReputerChainSubmissionCount, wallet.Address, reputer.TopicId)
 	} else {
 		log.Info().Msg("SubmitTx=false; Skipping sending Reputer Data to chain")
 	}

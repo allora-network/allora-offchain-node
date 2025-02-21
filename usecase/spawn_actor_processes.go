@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"allora_offchain_node/lib"
+	"allora_offchain_node/metrics"
 	"context"
 	"errors"
 	"math"
@@ -113,7 +114,7 @@ func (suite *UseCaseSuite) Spawn(ctx context.Context) error {
 
 		if lib.DoneOrWait(ctx, walletConfig.LaunchRoutineDelay) {
 			log.Error().Msg("Worker process finished")
-			suite.Metrics.IncrementMetricsCounter(lib.WorkerProcessFinishedCount, wallet.Address, worker.TopicId)
+			suite.Metrics.IncrementMetricsCounter(metrics.WorkerProcessFinishedCount, wallet.Address, worker.TopicId)
 		}
 	}
 
@@ -141,7 +142,7 @@ func (suite *UseCaseSuite) Spawn(ctx context.Context) error {
 
 		if lib.DoneOrWait(ctx, walletConfig.LaunchRoutineDelay) {
 			log.Error().Msg("Reputer process finished")
-			suite.Metrics.IncrementMetricsCounter(lib.ReputerProcessFinishedCount, wallet.Address, reputer.TopicId)
+			suite.Metrics.IncrementMetricsCounter(metrics.ReputerProcessFinishedCount, wallet.Address, reputer.TopicId)
 		}
 	}
 

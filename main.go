@@ -2,6 +2,7 @@ package main
 
 import (
 	"allora_offchain_node/lib"
+	"allora_offchain_node/metrics"
 	usecase "allora_offchain_node/usecase"
 	"context"
 	"encoding/json"
@@ -88,9 +89,9 @@ func main() {
 	log.Info().Msg("Starting allora offchain node...")
 
 	// Metrics
-	lib.InitMetrics(lib.CounterData)
-	metrics := lib.GetMetrics()
-	metrics.StartMetricsServer(":2112")
+	metrics.InitMetrics(metrics.CounterData)
+	metricsServer := metrics.GetMetrics()
+	metricsServer.StartMetricsServer(":2112")
 
 	// Load config and do modifications if needed
 	finalUserConfig := lib.UserConfig{} // nolint: exhaustruct
@@ -154,7 +155,7 @@ func main() {
 		return
 	}
 
-	spawner.Metrics = metrics // cache the metrics object for ease of access on usecase suite
+	spawner.Metrics = metricsServer // cache the metrics object for ease of access on usecase suite
 
 	log.Info().Msg("Starting spawning processes...")
 	go func() {
@@ -167,12 +168,12 @@ func main() {
 
 	<-sigCtx.Done()
 
-	metrics.IncrementMetricsCounter(lib.ApplicationFinishedCount, wallet.Address, 0)
+	metricsServer.IncrementMetricsCounter(metrics.ApplicationFinishedCount, wallet.Address, 0)
 	// shutdown metrics server
 	log.Info().Msg("Shutting down metrics server")
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
-	if err := metrics.Shutdown(shutdownCtx); err != nil {
+	if err := metricsServer.Shutdown(shutdownCtx); err != nil {
 		log.Error().Err(err).Msg("Error shutting down metrics server")
 	}
 

@@ -3,6 +3,7 @@ package usecase
 import (
 	"allora_offchain_node/lib"
 	auth "allora_offchain_node/lib/auth"
+	"allora_offchain_node/metrics"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -42,7 +43,7 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 			return errorsmod.Wrapf(err, "Error computing inference for worker, topicId: %d, blockHeight: %d", worker.TopicId, nonce.BlockHeight)
 		}
 		workerResponse.InfererValue = inference
-		suite.Metrics.IncrementMetricsCounter(lib.InferenceRequestCount, wallet.Address, worker.TopicId)
+		suite.Metrics.IncrementMetricsCounter(metrics.InferenceRequestCount, wallet.Address, worker.TopicId)
 	}
 
 	if worker.ForecastEntrypoint != nil {
@@ -51,14 +52,14 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 			return errorsmod.Wrapf(err, "Error computing forecast for worker, topicId: %d, blockHeight: %d", worker.TopicId, nonce.BlockHeight)
 		}
 		workerResponse.ForecasterValues = forecasts
-		suite.Metrics.IncrementMetricsCounter(lib.ForecastRequestCount, wallet.Address, worker.TopicId)
+		suite.Metrics.IncrementMetricsCounter(metrics.ForecastRequestCount, wallet.Address, worker.TopicId)
 	}
 
 	workerPayload, err := suite.BuildWorkerPayload(workerResponse, nonce.BlockHeight)
 	if err != nil {
 		return errorsmod.Wrapf(err, "Error building worker payload, topicId: %d, blockHeight: %d", worker.TopicId, nonce.BlockHeight)
 	}
-	suite.Metrics.IncrementMetricsCounter(lib.WorkerDataBuildCount, wallet.Address, worker.TopicId)
+	suite.Metrics.IncrementMetricsCounter(metrics.WorkerDataBuildCount, wallet.Address, worker.TopicId)
 
 	workerDataBundle, err := suite.SignWorkerPayload(&workerPayload)
 	if err != nil {
@@ -87,7 +88,7 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 		if err != nil {
 			return errorsmod.Wrapf(err, "Error sending Worker Data to chain, topicId: %d, blockHeight: %d", worker.TopicId, nonce.BlockHeight)
 		}
-		suite.Metrics.IncrementMetricsCounter(lib.WorkerChainSubmissionCount, wallet.Address, worker.TopicId)
+		suite.Metrics.IncrementMetricsCounter(metrics.WorkerChainSubmissionCount, wallet.Address, worker.TopicId)
 	} else {
 		log.Info().Msg("SubmitTx=false; Skipping sending Worker Data to chain")
 	}

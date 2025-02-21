@@ -1,18 +1,68 @@
 package grpcclient
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"allora_offchain_node/metrics"
+
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/encoding"
 	"google.golang.org/grpc/keepalive"
 )
 
+// monitorGRPCConnection monitors the gRPC connection state and attempts to reconnect when needed.
+func monitorGRPCConnection(ctx context.Context, grpcConnnection *grpc.ClientConn, grpcEndpoint string) {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done(): // Graceful shutdown
+			log.Info().Msg("Shutting down gRPC monitoring goroutine.")
+			return
+
+		case <-ticker.C:
+			state := grpcConnnection.GetState()
+			if state == connectivity.TransientFailure || state == connectivity.Shutdown {
+				log.Warn().Msg("gRPC Connection lost, attempting to reconnect...")
+
+				// Exponential backoff for reconnection attempts
+				backoff := time.Second
+				maxBackoff := 30 * time.Second
+
+				for {
+					select {
+					case <-ctx.Done():
+						log.Info().Msg("Stopping reconnection attempts due to shutdown.")
+						return
+
+					default:
+						// Wait for a state change
+						if grpcConnnection.WaitForStateChange(ctx, state) {
+							log.Info().Msg("gRPC connection state changed, resuming normal operation.")
+							metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.GRPCConnectionLostCount, grpcEndpoint)
+							break
+						}
+
+						// Increase backoff exponentially, up to maxBackoff
+						time.Sleep(backoff)
+						if backoff < maxBackoff {
+							backoff *= 2
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 // Initializes a gRPC client for the given endpoint
-func InitializeGRPCClient(grpcEndpoint string) (grpcConnection *grpc.ClientConn, err error) {
+func InitializeGRPCClient(ctx context.Context, grpcEndpoint string) (grpcConnection *grpc.ClientConn, err error) {
 	var dialOptions []grpc.DialOption
 
 	kaOpts := keepalive.ClientParameters{
@@ -44,23 +94,9 @@ func InitializeGRPCClient(grpcEndpoint string) (grpcConnection *grpc.ClientConn,
 		return nil, fmt.Errorf("failed to connect to %s: %w", grpcEndpoint, err)
 	}
 
-	// TODO: Investigate and ecide if we want to keep this
 	// spin up goroutine for monitoring and reconnect purposes - TODO test and configure
-	// go func() {
-	// 	for {
-	// 		state := chain.Client.GRPCClient.GetState()
-	// 		if state == connectivity.TransientFailure || state == connectivity.Shutdown {
-	// 			fmt.Println("GRPC Connection lost, attempting to reconnect...")
-	// 			for {
-	// 				if chain.Client.GRPCClient.WaitForStateChange(context.Background(), state) {
-	// 					break
-	// 				}
-	// 				time.Sleep(10 * time.Second)
-	// 			}
-	// 		}
-	// 		time.Sleep(10 * time.Second)
-	// 	}
-	// }()
+	go monitorGRPCConnection(ctx, grpcConnection, grpcEndpoint)
+
 	return grpcConnection, nil
 }
 

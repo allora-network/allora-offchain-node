@@ -1,4 +1,4 @@
-package lib
+package metrics
 
 import (
 	"context"
@@ -19,8 +19,9 @@ var (
 )
 
 type MetricsCounter struct {
-	Name string
-	Help string
+	Name       string
+	Help       string
+	LabelNames []string
 }
 
 type Metrics struct {
@@ -56,17 +57,43 @@ func (metrics *Metrics) RegisterMetricsCounters() {
 	defer metrics.mu.Unlock()
 
 	for _, counter := range metrics.Counters {
+		labelNames := counter.LabelNames
+		if len(labelNames) == 0 {
+			labelNames = []string{"address", "topic"}
+		}
+
 		counterVec := prometheus.NewCounterVec(
 			prometheus.CounterOpts{ // nolint: exhaustruct
 				Name: counter.Name,
 				Help: counter.Help,
 			},
-			[]string{"address", "topic"},
+			labelNames,
 		)
 
 		prometheus.MustRegister(counterVec)
 		metrics.CounterMap[counter.Name] = counterVec
 	}
+}
+
+// IncrementMetricsCounterWithLabels increments a counter with variable label values
+func (metrics *Metrics) IncrementMetricsCounterWithLabels(counterName string, labelValues ...string) {
+	metrics.mu.RLock()
+	counter := metrics.CounterMap[counterName]
+	defer metrics.mu.RUnlock()
+
+	if counter != nil {
+		counter.WithLabelValues(labelValues...).Inc()
+		log.Debug().
+			Str("counter", counterName).
+			Strs("labels", labelValues).
+			Msg("Incremented counter with labels")
+	}
+}
+
+// IncrementMetricsCounter maintains backward compatibility
+func (metrics *Metrics) IncrementMetricsCounter(counterName string, address string, topic uint64) {
+	topicStr := strconv.FormatUint(topic, 10)
+	metrics.IncrementMetricsCounterWithLabels(counterName, address, topicStr)
 }
 
 func (metrics *Metrics) StartMetricsServer(port string) {
@@ -97,16 +124,4 @@ func (metrics *Metrics) Shutdown(ctx context.Context) error {
 		return metrics.server.Shutdown(ctx)
 	}
 	return nil
-}
-
-func (metrics *Metrics) IncrementMetricsCounter(counterName string, address string, topic uint64) {
-	metrics.mu.RLock()
-	counter := metrics.CounterMap[counterName]
-	defer metrics.mu.RUnlock()
-
-	if counter != nil {
-		topicStr := strconv.FormatUint(topic, 10)
-		counter.WithLabelValues(address, topicStr).Inc()
-		log.Debug().Msgf("Incremented counter %s for address %s and topic %s", counterName, address, topicStr)
-	}
 }

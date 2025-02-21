@@ -1,14 +1,15 @@
 package usecase
 
 import (
-	lib "allora_offchain_node/lib"
+	"allora_offchain_node/lib"
+	"allora_offchain_node/metrics"
 	"context"
 )
 
 type UseCaseSuite struct {
 	UserConfig        lib.UserConfig
 	ConnectionManager lib.ConnectionManagerInterface
-	Metrics           *lib.Metrics
+	Metrics           *metrics.Metrics
 }
 
 // Static method to create a new UseCaseSuite
