@@ -3,6 +3,7 @@ package rpcclient
 import (
 	types "allora_offchain_node/lib/types"
 	"fmt"
+	"math"
 
 	cosmossdk_io_math "cosmossdk.io/math"
 )
@@ -18,11 +19,14 @@ func EstimateGas(txSize int, config types.GasEstimationConfig) (uint64, error) {
 
 	// Total gas is base gas + size gas
 	totalGas := config.BaseGas + sizeGas
+	if totalGas < config.BaseGas {
+		return 0, fmt.Errorf("total gas overflows")
+	}
 
 	return totalGas, nil
 }
 
-// CalculateFees calculates the fee amount based on the estimated gas and the minimum gas price.
+// CalculateFees safely computes the fee amount.
 func CalculateFees(gas uint64, minGasPrice float64) (cosmossdk_io_math.Int, error) {
 	if gas == 0 {
 		return cosmossdk_io_math.NewInt(0), fmt.Errorf("gas cannot be zero")
@@ -31,8 +35,15 @@ func CalculateFees(gas uint64, minGasPrice float64) (cosmossdk_io_math.Int, erro
 		return cosmossdk_io_math.NewInt(0), fmt.Errorf("minimum gas price must be greater than zero")
 	}
 
-	// Convert gas and gas price to fee
-	fee := cosmossdk_io_math.NewIntFromUint64(gas * uint64(minGasPrice))
+	// Convert gas and gas price to fee with rounding
+	floatFee := math.Round(float64(gas) * minGasPrice)
+	if floatFee > math.MaxUint64 {
+		return cosmossdk_io_math.NewInt(0), fmt.Errorf("fee overflows")
+	}
+
+	// Convert to uint safely
+	uintFee := uint64(floatFee)
+	fee := cosmossdk_io_math.NewIntFromUint64(uintFee)
 
 	return fee, nil
 }

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
+	"sync/atomic"
 
 	crypto "github.com/cosmos/cosmos-sdk/crypto"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
@@ -22,14 +22,12 @@ type Wallet struct {
 	Address          string
 	AddressSDK       sdktypes.Address
 	AccountNumber    uint64
-	sequence         uint64
+	sequence         atomic.Uint64
 	AddressPrefix    string
 	DefaultBondDenom string
 	PubKey           cryptotypes.PubKey
 	PrivKey          cryptotypes.PrivKey
 	Keyring          keyring.Keyring
-
-	mu sync.RWMutex
 }
 
 // NewWallet creates a new wallet instance
@@ -44,39 +42,33 @@ func NewWallet(
 	privKey cryptotypes.PrivKey,
 	keyring keyring.Keyring,
 ) *Wallet {
-	return &Wallet{ // nolint:exhaustruct
+	w := &Wallet{ // nolint:exhaustruct
 		Address:          address,
 		AddressSDK:       addressSDK,
 		AccountNumber:    accountNumber,
-		sequence:         sequence,
 		AddressPrefix:    addressPrefix,
 		DefaultBondDenom: defaultBondDenom,
 		PubKey:           pubKey,
 		PrivKey:          privKey,
 		Keyring:          keyring,
 	}
+	w.sequence.Store(sequence) // Initialize atomic sequence
+	return w
 }
 
 // GetSequence returns the current sequence number
 func (w *Wallet) GetSequence() uint64 {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	return w.sequence
+	return w.sequence.Load()
 }
 
 // SetSequence updates the sequence number
 func (w *Wallet) SetSequence(sequence uint64) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.sequence = sequence
+	w.sequence.Store(sequence)
 }
 
 // IncrementSequence increments and returns the new sequence number
 func (w *Wallet) IncrementSequence() uint64 {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.sequence++
-	return w.sequence
+	return w.sequence.Add(1)
 }
 
 // Creates a new wallet, partially filled with the wallet config
@@ -200,7 +192,10 @@ func GetAddressAndKeys(mnemonic string, keyName string) (cryptotypes.PrivKey, cr
 	}
 
 	// Get keys from mnemonic
-	privKey, pubKey, address := GetPrivKey(ADDRESS_PREFIX, []byte(mnemonic))
+	privKey, pubKey, address, err := GetPrivKey(ADDRESS_PREFIX, []byte(mnemonic))
+	if err != nil {
+		return nil, nil, "", nil, fmt.Errorf("failed to generate keys from mnemonic: %w", err)
+	}
 	if privKey == nil || pubKey == nil || address == "" {
 		return nil, nil, "", nil, errors.New("failed to generate keys from mnemonic")
 	}
@@ -215,13 +210,13 @@ func GetAddressAndKeys(mnemonic string, keyName string) (cryptotypes.PrivKey, cr
 }
 
 // Gets the private key, public key and address from a mnemonic
-func GetPrivKey(prefix string, mnemonic []byte) (privKey cryptotypes.PrivKey, pubKey cryptotypes.PubKey, address string) {
+func GetPrivKey(prefix string, mnemonic []byte) (privKey cryptotypes.PrivKey, pubKey cryptotypes.PubKey, address string, err error) {
 	algo := hd.Secp256k1
 
 	hdPath := fmt.Sprintf("m/44'/%d'/0'/0/%d", 118, 0)
 	derivedPriv, err := algo.Derive()(string(mnemonic), "", hdPath)
 	if err != nil {
-		panic(err)
+		return nil, nil, "", fmt.Errorf("failed to derive private key: %w", err)
 	}
 
 	privKey = algo.Generate()(derivedPriv)
@@ -230,8 +225,8 @@ func GetPrivKey(prefix string, mnemonic []byte) (privKey cryptotypes.PrivKey, pu
 	addressbytes := sdktypes.AccAddress(pubKey.Address().Bytes())
 	address, err = sdktypes.Bech32ifyAddressBytes(prefix, addressbytes)
 	if err != nil {
-		panic(err)
+		return nil, nil, "", fmt.Errorf("failed to convert address to Bech32: %w", err)
 	}
 
-	return privKey, pubKey, address
+	return privKey, pubKey, address, nil
 }

@@ -395,10 +395,8 @@ func EstimateRequiredBaseGas(gasWanted, gasUsed, baseGas uint64, excessCorrectio
 	// Calculate new base gas
 	newBaseGas := gasUsed - dataGasEstimate
 
-	// Apply excess correction
-	for i := int64(0); i < excessCorrectionTimes; i++ {
-		newBaseGas += GAS_EXCESS_CORRECTION
-	}
+	// Apply excess corrections
+	newBaseGas += GAS_EXCESS_CORRECTION * uint64(excessCorrectionTimes)
 
 	return newBaseGas
 }

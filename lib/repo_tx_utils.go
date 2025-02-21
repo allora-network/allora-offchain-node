@@ -59,7 +59,7 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 			if txResp != nil {
 				log.Info().Msgf("Transaction sent successfully: %v\n", txResp.Hash.String())
 			} else {
-				log.Error().Msg("Transaction sent successfully but response is nil")
+				log.Warn().Msg("Transaction sent successfully but response is nil")
 			}
 			wallet.IncrementSequence()
 			return txResp, nil

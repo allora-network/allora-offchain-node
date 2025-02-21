@@ -11,7 +11,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/encoding"
 	"google.golang.org/grpc/keepalive"
 )
 
@@ -71,7 +70,7 @@ func InitializeGRPCClient(ctx context.Context, grpcEndpoint string) (grpcConnect
 		PermitWithoutStream: true,
 	}
 
-	customCodec := &customCodec{parentCodec: encoding.GetCodec("proto")}
+	customCodec := &customCodec{}
 	dialOptions = append(dialOptions, grpc.WithKeepaliveParams(kaOpts))
 	dialOptions = append(dialOptions,
 		grpc.WithDefaultCallOptions(
