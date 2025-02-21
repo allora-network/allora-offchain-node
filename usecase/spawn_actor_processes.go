@@ -5,6 +5,7 @@ import (
 	"allora_offchain_node/metrics"
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"strconv"
 	"sync"
@@ -171,7 +172,11 @@ func (suite *UseCaseSuite) processWorkerPayload(ctx context.Context, worker lib.
 	// Get latest nonce with RPC timeout
 	latestOpenWorkerNonce, err := WithTimeoutResult(ctx, time.Duration(walletConfig.TimeoutRPCSecondsQuery)*time.Second,
 		func(ctx context.Context) (*emissionstypes.Nonce, error) {
-			return suite.ConnectionManager.GetCurrentQueryNode().GetLatestOpenWorkerNonceByTopicId(ctx, worker.TopicId)
+			node, err := suite.ConnectionManager.GetCurrentQueryNode()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get current query node: %w", err)
+			}
+			return node.GetLatestOpenWorkerNonceByTopicId(ctx, worker.TopicId)
 		})
 
 	if err != nil {
@@ -183,7 +188,11 @@ func (suite *UseCaseSuite) processWorkerPayload(ctx context.Context, worker lib.
 		// Check whitelist with RPC timeout
 		isWhitelisted, err := WithTimeoutResult(ctx, time.Duration(walletConfig.TimeoutRPCSecondsQuery)*time.Second,
 			func(ctx context.Context) (bool, error) {
-				return suite.ConnectionManager.GetCurrentQueryNode().CanSubmitWorker(ctx, worker.TopicId, wallet.Address)
+				node, err := suite.ConnectionManager.GetCurrentQueryNode()
+				if err != nil {
+					return false, fmt.Errorf("failed to get current query node: %w", err)
+				}
+				return node.CanSubmitWorker(ctx, worker.TopicId, wallet.Address)
 			})
 
 		if err != nil {
@@ -532,7 +541,11 @@ func runActorProcess[T lib.TopicActor](ctx context.Context, suite *UseCaseSuite,
 		// Query the latest block
 		currentBlockHeight, err = WithTimeoutResult(ctx, time.Duration(walletConfig.TimeoutRPCSecondsQuery)*time.Second,
 			func(ctx context.Context) (lib.BlockHeight, error) {
-				return suite.ConnectionManager.GetCurrentQueryNode().GetBlockHeight(ctx, walletConfig)
+				node, err := suite.ConnectionManager.GetCurrentQueryNode()
+				if err != nil {
+					return 0, fmt.Errorf("failed to get current query node: %w", err)
+				}
+				return node.GetBlockHeight(ctx, walletConfig)
 			})
 
 		if err != nil {
@@ -703,7 +716,11 @@ func queryTopicInfo[T lib.TopicActor](
 	topicInfo, err := WithTimeoutResult(ctx,
 		time.Duration(walletConfig.TimeoutRPCSecondsQuery)*time.Second,
 		func(ctx context.Context) (*emissionstypes.Topic, error) {
-			return suite.ConnectionManager.GetCurrentQueryNode().GetTopicInfo(ctx, config.GetTopicId())
+			node, err := suite.ConnectionManager.GetCurrentQueryNode()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get current query node: %w", err)
+			}
+			return node.GetTopicInfo(ctx, config.GetTopicId())
 		})
 	if err != nil {
 		return nil, errorsmod.Wrapf(err, "failed to get topic info")

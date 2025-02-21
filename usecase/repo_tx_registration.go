@@ -20,7 +20,11 @@ func (suite *UseCaseSuite) RegisterWorkerIdempotently(ctx context.Context, confi
 		return false, errorsmod.Wrapf(err, "Error getting wallet config")
 	}
 	connectionManager := suite.ConnectionManager
-	queryNode := connectionManager.GetCurrentQueryNode()
+	queryNode, err := connectionManager.GetCurrentQueryNode()
+	if err != nil {
+		log.Error().Err(err).Msg("Could not get current query node")
+		return false, err
+	}
 	wallet, err := connectionManager.GetWallet()
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get wallet")
@@ -39,7 +43,11 @@ func (suite *UseCaseSuite) RegisterWorkerIdempotently(ctx context.Context, confi
 		log.Info().Msg("Node not yet registered. Attempting registration...")
 	}
 
-	queryNode = connectionManager.SwitchToNextQueryNode()
+	queryNode, err = connectionManager.SwitchToNextQueryNode()
+	if err != nil {
+		log.Error().Err(err).Msg("Could not switch to next query node")
+		return false, err
+	}
 	moduleParams, err := queryNode.Chain.EmissionsQueryClient.GetParams(ctx, &emissionstypes.GetParamsRequest{})
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get chain params")
@@ -47,7 +55,11 @@ func (suite *UseCaseSuite) RegisterWorkerIdempotently(ctx context.Context, confi
 	}
 
 	// Switch to spread the load
-	queryNode = connectionManager.SwitchToNextQueryNode()
+	queryNode, err = connectionManager.SwitchToNextQueryNode()
+	if err != nil {
+		log.Error().Err(err).Msg("Could not switch to next query node")
+		return false, err
+	}
 
 	balance, err := queryNode.GetBalance(ctx, wallet.Address, wallet.DefaultBondDenom)
 	if err != nil {
@@ -107,7 +119,11 @@ func (suite *UseCaseSuite) RegisterAndStakeReputerIdempotently(ctx context.Conte
 		return false, errorsmod.Wrapf(err, "Error getting wallet config")
 	}
 	connectionManager := suite.ConnectionManager
-	queryNode := connectionManager.GetCurrentQueryNode()
+	queryNode, err := connectionManager.GetCurrentQueryNode()
+	if err != nil {
+		log.Error().Err(err).Msg("Could not get current query node")
+		return false, err
+	}
 	wallet, err := connectionManager.GetWallet()
 	if err != nil {
 		log.Error().Err(err).Msg("Could not get wallet")

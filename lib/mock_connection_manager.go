@@ -12,48 +12,48 @@ type MockConnectionManager struct {
 	mock.Mock
 }
 
-func (m *MockConnectionManager) GetCurrentQueryNode() *NodeConfig {
+func (m *MockConnectionManager) GetCurrentQueryNode() (*NodeConfig, error) {
 	args := m.Called()
 	if args.Get(0) == nil {
-		return nil
+		return nil, args.Error(1)
 	}
 	if node, ok := args.Get(0).(*NodeConfig); ok {
-		return node
+		return node, args.Error(1)
 	}
-	return nil
+	return nil, args.Error(1)
 }
 
-func (m *MockConnectionManager) GetCurrentTxNode() *NodeConfig {
+func (m *MockConnectionManager) GetCurrentTxNode() (*NodeConfig, error) {
 	args := m.Called()
 	if args.Get(0) == nil {
-		return nil
+		return nil, args.Error(1)
 	}
 	if node, ok := args.Get(0).(*NodeConfig); ok {
-		return node
+		return node, args.Error(1)
 	}
-	return nil
+	return nil, args.Error(1)
 }
 
-func (m *MockConnectionManager) SwitchToNextQueryNode() *NodeConfig {
+func (m *MockConnectionManager) SwitchToNextQueryNode() (*NodeConfig, error) {
 	args := m.Called()
 	if args.Get(0) == nil {
-		return nil
+		return nil, args.Error(1)
 	}
 	if node, ok := args.Get(0).(*NodeConfig); ok {
-		return node
+		return node, args.Error(1)
 	}
-	return nil
+	return nil, args.Error(1)
 }
 
-func (m *MockConnectionManager) SwitchToNextTxNode() *NodeConfig {
+func (m *MockConnectionManager) SwitchToNextTxNode() (*NodeConfig, error) {
 	args := m.Called()
 	if args.Get(0) == nil {
-		return nil
+		return nil, args.Error(1)
 	}
 	if node, ok := args.Get(0).(*NodeConfig); ok {
-		return node
+		return node, args.Error(1)
 	}
-	return nil
+	return nil, args.Error(1)
 }
 
 func (m *MockConnectionManager) GetStats() (int, map[int]int) {
@@ -119,30 +119,31 @@ func (m *MockConnectionManager) GetCurrentTxIndex() int {
 	return args.Int(0)
 }
 
-func (m *MockConnectionManager) SwitchToQueryNode(index int) *NodeConfig {
+func (m *MockConnectionManager) SwitchToQueryNode(index int) (*NodeConfig, error) {
 	args := m.Called(index)
 	if args.Get(0) == nil {
-		return nil
+		return nil, args.Error(1)
 	}
 	if node, ok := args.Get(0).(*NodeConfig); ok {
-		return node
+		return node, args.Error(1)
 	}
-	return nil
+	return nil, args.Error(1)
 }
 
-func (m *MockConnectionManager) SwitchToTxNode(index int) *NodeConfig {
+func (m *MockConnectionManager) SwitchToTxNode(index int) (*NodeConfig, error) {
 	args := m.Called(index)
 	if args.Get(0) == nil {
-		return nil
+		return nil, args.Error(1)
 	}
 	if node, ok := args.Get(0).(*NodeConfig); ok {
-		return node
+		return node, args.Error(1)
 	}
-	return nil
+	return nil, args.Error(1)
 }
 
 func (m *MockConnectionManager) Close() error {
-	return nil
+	args := m.Called()
+	return args.Error(0)
 }
 
 func (m *MockConnectionManager) GetWallet() (*Wallet, error) {

@@ -4,6 +4,7 @@ import (
 	"allora_offchain_node/lib/transaction"
 	types "allora_offchain_node/lib/types"
 	"context"
+	"fmt"
 
 	errorsmod "cosmossdk.io/errors"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -40,7 +41,14 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 		},
 	}
 
-	txNode := connectionManager.GetCurrentTxNode()
+	txNode, err := connectionManager.GetCurrentTxNode()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get current tx node, switching to next")
+		txNode, err = connectionManager.SwitchToNextTxNode()
+		if err != nil {
+			return nil, fmt.Errorf("failed to switch tx node: %w", err)
+		}
+	}
 
 	for retryCount := int64(0); retryCount <= walletConfig.MaxRetries; retryCount++ {
 		log.Debug().Msgf("SendDataWithRetry iteration started (%d/%d)", retryCount, walletConfig.MaxRetries)

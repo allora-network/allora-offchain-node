@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"allora_offchain_node/lib"
@@ -17,7 +18,11 @@ func (suite *UseCaseSuite) UpdateGasPrice(ctx context.Context, wallet *lib.Walle
 			return WithTimeoutResult(ctx,
 				time.Duration(walletConfig.TimeoutRPCSecondsQuery)*time.Second,
 				func(ctx context.Context) (float64, error) {
-					return suite.ConnectionManager.GetCurrentQueryNode().GetBaseFee(ctx, wallet.DefaultBondDenom)
+					node, err := suite.ConnectionManager.GetCurrentQueryNode()
+					if err != nil {
+						return 0, fmt.Errorf("failed to get current query node: %w", err)
+					}
+					return node.GetBaseFee(ctx, wallet.DefaultBondDenom)
 				})
 		},
 		"get base fee",
