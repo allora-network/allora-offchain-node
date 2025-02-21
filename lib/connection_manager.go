@@ -93,6 +93,9 @@ func NewConnectionManager(ctx context.Context, userConfig UserConfig) (*Connecti
 		nodeConfig.ConnectionManager = connectionManager
 		queryNodes = append(queryNodes, *nodeConfig)
 	}
+	if len(queryNodes) == 0 {
+		return nil, fmt.Errorf("no query nodes initialized")
+	}
 
 	var txNodes []NodeConfig
 
@@ -105,6 +108,9 @@ func NewConnectionManager(ctx context.Context, userConfig UserConfig) (*Connecti
 		}
 		nodeConfig.ConnectionManager = connectionManager
 		txNodes = append(txNodes, *nodeConfig)
+	}
+	if len(txNodes) == 0 {
+		return nil, fmt.Errorf("no tx nodes initialized")
 	}
 
 	connectionManager.queryNodes = queryNodes
@@ -176,9 +182,12 @@ func (connectionManager *ConnectionManager) GetCurrentTxNode() *NodeConfig {
 }
 
 // internal function, switches to a node assuming a lock has been acquired
-func (connectionManager *ConnectionManager) switchToNodeLocked(mode, index int, nodes []NodeConfig) *NodeConfig {
+func (connectionManager *ConnectionManager) switchToNodeLocked(mode, index int, nodes []NodeConfig) (*NodeConfig, error) {
+	if len(nodes) == 0 || index < 0 || index >= len(nodes) {
+		return nil, fmt.Errorf("invalid node index, not switching")
+	}
 	if len(nodes) == 1 {
-		return &nodes[0]
+		return &nodes[0], nil
 	}
 	var oldIndex int
 	if mode == GRPC_MODE {
@@ -189,7 +198,7 @@ func (connectionManager *ConnectionManager) switchToNodeLocked(mode, index int, 
 		connectionManager.txIdx = index
 	} else {
 		log.Error().Int("mode", mode).Msg("Invalid mode, not switching")
-		return nil
+		return nil, fmt.Errorf("invalid mode, not switching")
 	}
 
 	log.Debug().
@@ -197,72 +206,100 @@ func (connectionManager *ConnectionManager) switchToNodeLocked(mode, index int, 
 		Str("to", nodes[index].ServerAddress).
 		Msg("Switch to next node")
 
-	return &nodes[index]
+	return &nodes[index], nil
 }
 
 // SwitchToNextNode switches to the next node in the list.
 // Node change is persistent, so it will be used again in the next call
+// Returns current node if error
 func (connectionManager *ConnectionManager) SwitchToNextQueryNode() *NodeConfig {
 	connectionManager.queryMu.Lock()
 	defer connectionManager.queryMu.Unlock()
 	// Get next node index, wrap around if necessary
 	nextNode := (connectionManager.queryIdx + 1) % len(connectionManager.queryNodes)
-	return connectionManager.switchToNodeLocked(GRPC_MODE, nextNode, connectionManager.queryNodes)
+	node, err := connectionManager.switchToNodeLocked(GRPC_MODE, nextNode, connectionManager.queryNodes)
+	if err != nil {
+		return connectionManager.GetCurrentQueryNode()
+	}
+	return node
 }
 
+// Switches to the next tx node, acquiring a lock, returning current node if error
 func (connectionManager *ConnectionManager) SwitchToNextTxNode() *NodeConfig {
 	connectionManager.txMu.Lock()
 	defer connectionManager.txMu.Unlock()
 	// Get next node index, wrap around if necessary
 	nextNode := (connectionManager.txIdx + 1) % len(connectionManager.txNodes)
-	return connectionManager.switchToNodeLocked(RPC_MODE, nextNode, connectionManager.txNodes)
+	node, err := connectionManager.switchToNodeLocked(RPC_MODE, nextNode, connectionManager.txNodes)
+	if err != nil {
+		return connectionManager.GetCurrentTxNode()
+	}
+	return node
 }
 
-// Switches to a specific node, acquiring a lock
+// Switches to a specific node, acquiring a lock, returning current node if error
 func (connectionManager *ConnectionManager) SwitchToQueryNode(index int) *NodeConfig {
 	connectionManager.queryMu.Lock()
 	defer connectionManager.queryMu.Unlock()
-	return connectionManager.switchToNodeLocked(GRPC_MODE, index, connectionManager.queryNodes)
+	node, err := connectionManager.switchToNodeLocked(GRPC_MODE, index, connectionManager.queryNodes)
+	if err != nil {
+		return connectionManager.GetCurrentQueryNode()
+	}
+	return node
 }
 
+// Switches to a specific node, acquiring a lock, returning current node if error
 func (connectionManager *ConnectionManager) SwitchToTxNode(index int) *NodeConfig {
 	connectionManager.txMu.Lock()
 	defer connectionManager.txMu.Unlock()
-	return connectionManager.switchToNodeLocked(RPC_MODE, index, connectionManager.txNodes)
+	node, err := connectionManager.switchToNodeLocked(RPC_MODE, index, connectionManager.txNodes)
+	if err != nil {
+		return connectionManager.GetCurrentTxNode()
+	}
+	return node
 }
 
 func (connectionManager *ConnectionManager) Close() error {
 	log.Info().Msg("Closing ConnectionManager")
-	// Iterate through all nodes and close them
-	for _, node := range connectionManager.queryNodes {
+	var errors []error
+
+	// Helper function to close a node's clients
+	closeNodeClients := func(node NodeConfig) {
 		if node.Chain.GRPCClient != nil {
-			err := node.Chain.GRPCClient.Close()
-			if err != nil {
-				return err
+			if err := node.Chain.GRPCClient.Close(); err != nil {
+				errors = append(errors, fmt.Errorf("failed to close GRPC client for %s: %w", node.ServerAddress, err))
 			}
 		}
 		if node.Chain.RPCClient != nil && node.Chain.RPCClient.Client != nil {
-			err := node.Chain.RPCClient.Client.Stop()
-			if err != nil {
-				return err
+			if err := node.Chain.RPCClient.Client.Stop(); err != nil {
+				errors = append(errors, fmt.Errorf("failed to stop RPC client for %s: %w", node.ServerAddress, err))
 			}
 		}
 	}
 
-	for _, node := range connectionManager.txNodes {
-		if node.Chain.GRPCClient != nil {
-			err := node.Chain.GRPCClient.Close()
-			if err != nil {
-				return err
-			}
-		}
-		if node.Chain.RPCClient != nil && node.Chain.RPCClient.Client != nil {
-			err := node.Chain.RPCClient.Client.Stop()
-			if err != nil {
-				return err
-			}
-		}
+	// Close all query nodes
+	for _, node := range connectionManager.queryNodes {
+		closeNodeClients(node)
 	}
+
+	// Close all tx nodes
+	for _, node := range connectionManager.txNodes {
+		closeNodeClients(node)
+	}
+
+	// If there were any errors, combine them into a single error message
+	if len(errors) > 0 {
+		var errMsg string
+		for i, err := range errors {
+			if i == 0 {
+				errMsg = err.Error()
+			} else {
+				errMsg += "; " + err.Error()
+			}
+		}
+		return fmt.Errorf("errors while closing connections: %s", errMsg)
+	}
+
 	return nil
 }
 

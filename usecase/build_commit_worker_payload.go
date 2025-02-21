@@ -144,12 +144,12 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 }
 
 func (suite *UseCaseSuite) SignWorkerPayload(workerPayload *emissionstypes.InferenceForecastBundle) (*emissionstypes.WorkerDataBundle, error) {
-	// Marshall and sign the bundle
+	// Marshal and sign the bundle
 	wallet, err := suite.ConnectionManager.GetWallet()
 	if err != nil {
 		return &emissionstypes.WorkerDataBundle{}, errorsmod.Wrapf(err, "error getting wallet") // nolint: exhaustruct
 	}
-	sig, pk, err := auth.MarshallAndSignByPrivKey(workerPayload, wallet.PrivKey, wallet.AddressSDK)
+	sig, pk, err := auth.MarshalAndSignByPrivKey(workerPayload, wallet.PrivKey, wallet.AddressSDK)
 	if err != nil {
 		return &emissionstypes.WorkerDataBundle{}, errorsmod.Wrapf(err, "error signing the InferenceForecastsBundle message") // nolint: exhaustruct
 	}
