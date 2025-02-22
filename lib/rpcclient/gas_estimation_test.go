@@ -8,7 +8,6 @@ import (
 	types "allora_offchain_node/lib/types"
 
 	cosmossdk_io_math "cosmossdk.io/math"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,8 +23,10 @@ func TestEstimateGas(t *testing.T) {
 			name:   "Normal case",
 			txSize: 1000,
 			config: types.GasEstimationConfig{
-				BaseGas:    100000,
-				GasPerByte: 10,
+				BaseGas:      100000,
+				GasPerByte:   10,
+				MinGasPrice:  0,
+				OverrideFees: 0,
 			},
 			expectGas:   110000, // 100000 + (1000 * 10)
 			expectError: false,
@@ -34,8 +35,10 @@ func TestEstimateGas(t *testing.T) {
 			name:   "Zero tx size",
 			txSize: 0,
 			config: types.GasEstimationConfig{
-				BaseGas:    100000,
-				GasPerByte: 10,
+				BaseGas:      100000,
+				GasPerByte:   10,
+				MinGasPrice:  0,
+				OverrideFees: 0,
 			},
 			expectGas:   100000, // just base gas
 			expectError: false,
@@ -44,8 +47,10 @@ func TestEstimateGas(t *testing.T) {
 			name:   "Negative tx size",
 			txSize: -1,
 			config: types.GasEstimationConfig{
-				BaseGas:    100000,
-				GasPerByte: 10,
+				BaseGas:      100000,
+				GasPerByte:   10,
+				MinGasPrice:  0,
+				OverrideFees: 0,
 			},
 			expectGas:   0,
 			expectError: true,
@@ -54,8 +59,10 @@ func TestEstimateGas(t *testing.T) {
 			name:   "Zero base gas",
 			txSize: 1000,
 			config: types.GasEstimationConfig{
-				BaseGas:    0,
-				GasPerByte: 10,
+				BaseGas:      0,
+				GasPerByte:   10,
+				MinGasPrice:  0,
+				OverrideFees: 0,
 			},
 			expectGas:   10000, // just size gas
 			expectError: false,
@@ -64,8 +71,10 @@ func TestEstimateGas(t *testing.T) {
 			name:   "Zero gas per byte",
 			txSize: 1000,
 			config: types.GasEstimationConfig{
-				BaseGas:    100000,
-				GasPerByte: 0,
+				BaseGas:      100000,
+				GasPerByte:   0,
+				MinGasPrice:  0,
+				OverrideFees: 0,
 			},
 			expectGas:   100000, // just base gas
 			expectError: false,
@@ -74,8 +83,10 @@ func TestEstimateGas(t *testing.T) {
 			name:   "Large tx size",
 			txSize: math.MaxInt32,
 			config: types.GasEstimationConfig{
-				BaseGas:    100000,
-				GasPerByte: 10,
+				BaseGas:      100000,
+				GasPerByte:   10,
+				MinGasPrice:  0,
+				OverrideFees: 0,
 			},
 			expectGas:   21474936470, // should overflow
 			expectError: false,
@@ -84,8 +95,10 @@ func TestEstimateGas(t *testing.T) {
 			name:   "Large base gas",
 			txSize: 1000,
 			config: types.GasEstimationConfig{
-				BaseGas:    math.MaxUint64,
-				GasPerByte: 10,
+				BaseGas:      math.MaxUint64,
+				GasPerByte:   10,
+				MinGasPrice:  0,
+				OverrideFees: 0,
 			},
 			expectGas:   0, // should overflow
 			expectError: true,
@@ -96,10 +109,10 @@ func TestEstimateGas(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gas, err := EstimateGas(tt.txSize, tt.config)
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expectGas, gas)
+				require.NoError(t, err)
+				require.Equal(t, tt.expectGas, gas)
 			}
 		})
 	}
@@ -183,11 +196,11 @@ func TestCalculateFees(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fee, err := CalculateFees(tt.gas, tt.minGasPrice)
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				return
 			}
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			require.True(t, tt.expectFee.Sub(fee).LTE(tt.epsilon))
 		})
 	}

@@ -396,7 +396,7 @@ func EstimateRequiredBaseGas(gasWanted, gasUsed, baseGas uint64, excessCorrectio
 	newBaseGas := gasUsed - dataGasEstimate
 
 	// Apply excess corrections
-	newBaseGas += GAS_EXCESS_CORRECTION * uint64(excessCorrectionTimes)
+	newBaseGas += GAS_EXCESS_CORRECTION * uint64(excessCorrectionTimes) // nolint: gosec  // reason: small controlled value
 
 	return newBaseGas
 }

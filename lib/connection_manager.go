@@ -365,9 +365,15 @@ func RunWithNodeRetry[T any](
 	totalNodes := len(nodes)
 	// Force change of initial node
 	if mode == GRPC_MODE {
-		connectionManager.SwitchToNextQueryNode()
+		_, err = connectionManager.SwitchToNextQueryNode()
+		if err != nil {
+			return zeroValue, fmt.Errorf("failed to switch to next query node: %w", err)
+		}
 	} else if mode == RPC_MODE {
-		connectionManager.SwitchToNextTxNode()
+		_, err = connectionManager.SwitchToNextTxNode()
+		if err != nil {
+			return zeroValue, fmt.Errorf("failed to switch to next tx node: %w", err)
+		}
 	}
 
 	for attempts := 0; attempts < totalNodes; attempts++ {
@@ -392,9 +398,15 @@ func RunWithNodeRetry[T any](
 		// Skip if we've already tried this node
 		if triedNodes[currentIdx] {
 			if mode == RPC_MODE {
-				connectionManager.SwitchToNextQueryNode()
+				_, err = connectionManager.SwitchToNextQueryNode()
+				if err != nil {
+					return zeroValue, fmt.Errorf("failed to switch to next query node: %w", err)
+				}
 			} else {
-				connectionManager.SwitchToNextTxNode()
+				_, err = connectionManager.SwitchToNextTxNode()
+				if err != nil {
+					return zeroValue, fmt.Errorf("failed to switch to next tx node: %w", err)
+				}
 			}
 			continue
 		}
@@ -417,9 +429,15 @@ func RunWithNodeRetry[T any](
 				Str("operation", operationName).
 				Msg("Error - Switching to next node")
 			if mode == GRPC_MODE {
-				connectionManager.SwitchToNextQueryNode()
+				_, err = connectionManager.SwitchToNextQueryNode()
+				if err != nil {
+					return zeroValue, fmt.Errorf("failed to switch to next query node: %w", err)
+				}
 			} else {
-				connectionManager.SwitchToNextTxNode()
+				_, err = connectionManager.SwitchToNextTxNode()
+				if err != nil {
+					return zeroValue, fmt.Errorf("failed to switch to next tx node: %w", err)
+				}
 			}
 			continue
 		}
