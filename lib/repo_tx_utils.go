@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"allora_offchain_node/lib/rpcclient"
 	"allora_offchain_node/lib/transaction"
 	types "allora_offchain_node/lib/types"
 	"context"
@@ -24,6 +25,7 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 	if err != nil {
 		return nil, err
 	}
+	// Transaction params are subject to change among the retries.
 	txParams := &types.TransactionParams{
 		ChainID:       walletConfig.ChainId,
 		Denom:         DEFAULT_BOND_DENOM,
@@ -34,10 +36,11 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 		PubKey:        wallet.GetPubKey(),
 		TimeoutHeight: timeoutHeight,
 		GasEstimationConfig: types.GasEstimationConfig{
-			BaseGas:      walletConfig.BaseGas,
-			GasPerByte:   walletConfig.GasPerByte,
-			MinGasPrice:  gasPrice,
-			OverrideFees: 0,
+			BaseGas:       walletConfig.BaseGas,
+			GasPerByte:    walletConfig.GasPerByte,
+			MinGasPrice:   gasPrice,
+			SimulateTx:    walletConfig.SimulateGasFromStart,
+			GasAdjustment: walletConfig.GasAdjustment,
 		},
 	}
 
@@ -49,12 +52,18 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 			return nil, fmt.Errorf("failed to switch tx node: %w", err)
 		}
 	}
-
+	queryNode, err := connectionManager.GetCurrentQueryNode()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get current query node, switching to next")
+		queryNode, err = connectionManager.SwitchToNextQueryNode()
+		if err != nil {
+			return nil, fmt.Errorf("failed to switch query node: %w", err)
+		}
+	}
 	for retryCount := int64(0); retryCount <= walletConfig.MaxRetries; retryCount++ {
 		log.Debug().Msgf("SendDataWithRetry iteration started (%d/%d)", retryCount, walletConfig.MaxRetries)
 
-		// Create tx without fees to simulate tx creation and get estimated gas and seq number
-		txResp, _, errTx := transaction.SendTransactionViaRPC(ctx, txNode.Chain.RPCClient, txNode.ServerAddress, txParams, wallet.GetSequence(), false, req)
+		txResp, _, errTx := SendTransactionViaRPC(ctx, txNode.Chain.RPCClient, txNode.ServerAddress, queryNode, txParams, wallet.GetSequence(), false, req)
 		if errTx == nil {
 			if txResp != nil {
 				log.Info().Msgf("Transaction sent successfully: %v\n", txResp.Hash.String())
@@ -101,13 +110,7 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 			continue
 		case ErrorProcessingGas:
 			log.Info().Msg("Insufficient gas, marking gas recalculation on tx broadcasting for retrial")
-			wanted, used, err := parseGasFromOutOfGasError(errTx.Error())
-			if err != nil {
-				log.Error().Err(err).Msg("Failed to parse out of gas error")
-			}
-			newBaseGas := EstimateRequiredBaseGas(wanted, used, txParams.GasEstimationConfig.BaseGas, retryCount)
-			log.Debug().Msgf("Retrying tx with required gas, wanted %d, used %d; old base gas %d, new base gas %d", wanted, used, txParams.GasEstimationConfig.BaseGas, newBaseGas)
-			txParams.GasEstimationConfig.BaseGas = newBaseGas
+			txParams.GasEstimationConfig.SimulateTx = true
 			continue
 
 		case ErrorProcessingFailure:
@@ -120,4 +123,45 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 	}
 
 	return nil, errorsmod.Wrapf(ErrUnexpectedError, "Tx failed after max retries")
+}
+
+// Sends transaction via RPC, and if configured to do so, simulates the tx gas calculation limit via GRPC query.
+func SendTransactionViaRPC(ctx context.Context,
+	rpcClient *rpcclient.AlloraRPCClient,
+	rpcEndpoint string,
+	queryNode *NodeConfig,
+	txParams *types.TransactionParams,
+	sequence uint64,
+	waitForTx bool,
+	msgs ...sdktypes.Msg,
+) (*coretypes.ResultBroadcastTx, string, error) {
+	log.Debug().Msgf("Sending transaction via RPC to %s", rpcEndpoint)
+	// Build and sign the transaction
+	encodingConfig := transaction.GetEncodingConfig()
+	txBytes, err := transaction.BuildAndSignTransaction(ctx, txParams, sequence, encodingConfig, msgs...)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if txParams.GasEstimationConfig.SimulateTx {
+		gas, err := queryNode.SimulateTxWithFallback(ctx, txBytes)
+		if err != nil {
+			return nil, "", err
+		}
+		log.Debug().Msgf("Simulated gas: %d", gas)
+		txParams.GasEstimationConfig.OverrideGas = gas
+		// Send with overriden gas limit
+		txBytes, err = transaction.BuildAndSignTransaction(ctx, txParams, sequence, encodingConfig, msgs...)
+		if err != nil {
+			return nil, "", err
+		}
+	}
+
+	// Broadcast the transaction via RPC
+	resp, err := rpcClient.BroadcastTx(ctx, txBytes, waitForTx)
+	if err != nil {
+		return resp, string(txBytes), fmt.Errorf("failed to broadcast transaction: %w", err)
+	}
+
+	return resp, string(txBytes), nil
 }

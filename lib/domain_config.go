@@ -7,6 +7,7 @@ import (
 
 	emissions "github.com/allora-network/allora-chain/x/emissions/types"
 	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	auth "github.com/cosmos/cosmos-sdk/x/auth/types"
 	bank "github.com/cosmos/cosmos-sdk/x/bank/types"
 	feemarkettypes "github.com/skip-mev/feemarket/x/feemarket/types"
@@ -26,17 +27,19 @@ const (
 
 // Default values
 const (
-	DefaultTimeoutRPCSecondsQuery        int64  = 60
-	DefaultTimeoutRPCSecondsTx           int64  = 300
-	DefaultTimeoutRPCSecondsRegistration int64  = 300
-	DefaultTimeoutHTTPConnection         int64  = 10
-	DefaultGasPriceUpdateInterval        int64  = 60
-	DefaultLaunchRoutineDelay            int64  = 5
-	DefaultRetryDelay                    int64  = 3
-	DefaultAccountSequenceRetryDelay     int64  = 5
-	DefaultBaseGas                       uint64 = 200000
-	DefaultGasPerByte                    uint64 = 1
-	DefaultKeyringBackend                string = "test"
+	DefaultTimeoutRPCSecondsQuery        int64   = 60
+	DefaultTimeoutRPCSecondsTx           int64   = 300
+	DefaultTimeoutRPCSecondsRegistration int64   = 300
+	DefaultTimeoutHTTPConnection         int64   = 10
+	DefaultGasPriceUpdateInterval        int64   = 60
+	DefaultLaunchRoutineDelay            int64   = 5
+	DefaultRetryDelay                    int64   = 3
+	DefaultAccountSequenceRetryDelay     int64   = 5
+	DefaultBaseGas                       uint64  = 200000
+	DefaultGasPerByte                    uint64  = 1
+	DefaultKeyringBackend                string  = "test"
+	DefaultGasAdjustment                 float64 = 1.2
+	DefaultSimulateGasFromStart          bool    = false
 )
 
 // Properties manually provided by the user as part of UserConfig
@@ -50,6 +53,8 @@ type WalletConfig struct {
 	KeyringPassphrase             string                  // passphrase for the keyring (if needed)
 	GasPrices                     string                  // gas prices to use for the allora client - "auto" for auto-calculated fees
 	GasPriceUpdateInterval        int64                   // number of seconds to wait between updates to the gas price
+	GasAdjustment                 float64                 // adjustment factor for the gas used
+	SimulateGasFromStart          bool                    // true: simulate gas on first try, false: simulate gas on retry only
 	MaxFees                       FlexibleCosmosIntAmount // max fees to pay for a single transaction (as string or number)
 	BaseGas                       uint64                  // base gas to use for the allora client
 	GasPerByte                    uint64                  // gas per byte to use for the allora client
@@ -78,6 +83,7 @@ type ChainConfig struct {
 	AuthQueryClient      auth.QueryClient
 	FeeMarketQueryClient feemarkettypes.QueryClient
 	CometQueryClient     cmtservice.ServiceClient
+	TxServiceClient      txtypes.ServiceClient
 }
 
 type TopicActor interface {
@@ -191,6 +197,9 @@ func (c *UserConfig) CheckAndSetDefaults() {
 	if c.Wallet.KeyringBackend == "" {
 		c.Wallet.KeyringBackend = DefaultKeyringBackend
 	}
+	if c.Wallet.GasAdjustment == 0 {
+		c.Wallet.GasAdjustment = DefaultGasAdjustment
+	}
 }
 
 // Check that each assigned entrypoint in the user config actually can be used
@@ -248,6 +257,9 @@ func (c *UserConfig) ValidateWalletConfig() error {
 	}
 	if c.Wallet.ChainId == "" {
 		return fmt.Errorf("chain id is empty")
+	}
+	if c.Wallet.GasAdjustment <= 0 {
+		return fmt.Errorf("gas adjustment must be greater than 0: %f", c.Wallet.GasAdjustment)
 	}
 	return nil
 }

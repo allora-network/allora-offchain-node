@@ -4,6 +4,7 @@ import (
 	"allora_offchain_node/lib/rpcclient"
 	types "allora_offchain_node/lib/types"
 	"context"
+	gomath "math"
 
 	"cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -40,10 +41,23 @@ func BuildAndSignTransaction(
 		totalTxSize += len(msg.String())
 	}
 
-	// Set gas limit
-	gas, err := rpcclient.EstimateGas(totalTxSize, txParams.GasEstimationConfig)
-	if err != nil {
-		return nil, err
+	var gas uint64
+	if txParams.GasEstimationConfig.OverrideGas > 0 {
+		log.Info().Msgf("Building tx, overriding gas value with: %d", txParams.GasEstimationConfig.OverrideGas)
+		gas = txParams.GasEstimationConfig.OverrideGas
+	} else {
+		// Set gas limit
+		gas, err = rpcclient.EstimateGas(totalTxSize, txParams.GasEstimationConfig)
+		if err != nil {
+			return nil, err
+		}
+		// Apply adjustment safely
+		gasFloat := float64(gas) * txParams.GasEstimationConfig.GasAdjustment
+		if gasFloat < gomath.MaxUint64 {
+			gas = uint64(gasFloat)
+		} else {
+			gas = gomath.MaxUint64
+		}
 	}
 	txBuilder.SetGasLimit(gas)
 	// Calculate fees for tx, potentially override with a fixed value

@@ -21,6 +21,7 @@ import (
 
 	cometrpc "github.com/cometbft/cometbft/rpc/client/http"
 	jsonrpc "github.com/cometbft/cometbft/rpc/jsonrpc/client"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 )
 
 // Used
@@ -87,6 +88,7 @@ func (c *UserConfig) GenerateNodeConfig(ctx context.Context, wallet *Wallet, mod
 		Node.Chain.AuthQueryClient = authtypes.NewQueryClient(grpcConn)
 		Node.Chain.FeeMarketQueryClient = feemarkettypes.NewQueryClient(grpcConn)
 		Node.Chain.CometQueryClient = cmtservice.NewServiceClient(grpcConn)
+		Node.Chain.TxServiceClient = txtypes.NewServiceClient(grpcConn)
 		log.Info().Msgf("GRPC Node initialized successfully %s", endpoint)
 	}
 	return &Node, nil
