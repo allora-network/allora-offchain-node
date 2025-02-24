@@ -14,7 +14,7 @@
       "GasPerByte": 1,
       "BaseGas": 200000,
       "nodeRpcs": ["https://allora-rpc.testnet.allora.network"],
-      "nodegRpcs": ["allora-grpc.testnet.allora.network:443"],
+      "nodegRpcs": ["allora-grpc.testnet.allora.network:443","testnet-allora.lavenderfive.com:443"],
       "maxRetries": 5,
       "retryDelay": 3,
       "accountSequenceRetryDelay": 5,
