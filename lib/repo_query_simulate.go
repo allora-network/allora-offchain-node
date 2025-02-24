@@ -25,7 +25,7 @@ func (node *NodeConfig) SimulateTxWithRetry(
 		walletConfig.MaxRetries,
 		walletConfig.RetryDelay,
 		func(ctx context.Context, req query.PageRequest) (*txtypes.SimulateResponse, error) {
-			simReq := &txtypes.SimulateRequest{
+			simReq := &txtypes.SimulateRequest{ // nolint: exhaustruct // reason: deprecated use of Tx
 				TxBytes: txBytes,
 			}
 			return node.Chain.TxServiceClient.Simulate(ctx, simReq)

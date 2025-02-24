@@ -41,6 +41,8 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 			MinGasPrice:   gasPrice,
 			SimulateTx:    walletConfig.SimulateGasFromStart,
 			GasAdjustment: walletConfig.GasAdjustment,
+			OverrideGas:   0,
+			OverrideFees:  0,
 		},
 	}
 
@@ -150,7 +152,7 @@ func SendTransactionViaRPC(ctx context.Context,
 		}
 		log.Debug().Msgf("Simulated gas: %d", gas)
 		txParams.GasEstimationConfig.OverrideGas = gas
-		// Send with overriden gas limit
+		// Send with overridden gas limit
 		txBytes, err = transaction.BuildAndSignTransaction(ctx, txParams, sequence, encodingConfig, msgs...)
 		if err != nil {
 			return nil, "", err
