@@ -44,7 +44,7 @@ func BuildAndSignTransaction(
 	var gas uint64
 	if txParams.GasEstimationConfig.OverrideGas > 0 {
 		log.Info().Msgf("Building tx, overriding gas value with: %d", txParams.GasEstimationConfig.OverrideGas)
-		gas = txParams.GasEstimationConfig.OverrideGas
+		gas = float64(txParams.GasEstimationConfig.OverrideGas) * txParams.GasEstimationConfig.GasAdjustment
 	} else {
 		// Set gas limit
 		gas, err = rpcclient.EstimateGas(totalTxSize, txParams.GasEstimationConfig)
