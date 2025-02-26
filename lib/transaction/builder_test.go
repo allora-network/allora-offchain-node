@@ -72,6 +72,7 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 					GasAdjustment: 1.2,
 					OverrideGas:   0,
 					OverrideFees:  0,
+					SimulateTx:    false,
 				},
 			},
 			sequence: 0,
@@ -81,7 +82,8 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 				Owner:     addr,
 				IsReputer: false,
 			}},
-			expectErr: false,
+			expectErr:  false,
+			errMessage: "",
 		},
 		{
 			name: "High gas configuration",
@@ -101,6 +103,7 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 					GasAdjustment: 2.0,
 					OverrideGas:   500000,
 					OverrideFees:  0,
+					SimulateTx:    false,
 				},
 			},
 			sequence: 0,
@@ -110,7 +113,8 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 				Owner:     addr,
 				IsReputer: false,
 			}},
-			expectErr: false,
+			expectErr:  false,
+			errMessage: "",
 		},
 		{
 			name: "Override fees configuration",
@@ -140,7 +144,8 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 				Owner:     addr,
 				IsReputer: false,
 			}},
-			expectErr: false,
+			expectErr:  false,
+			errMessage: "",
 		},
 		{
 			name: "Multiple messages transaction",
@@ -178,7 +183,8 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 					IsReputer: false,
 				},
 			},
-			expectErr: false,
+			expectErr:  false,
+			errMessage: "",
 		},
 		{
 			name: "Edge case - zero gas price",
@@ -288,8 +294,12 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 				}
 
 				if tc.txParams.GasEstimationConfig.OverrideFees > 0 {
+					overrideFees := tc.txParams.GasEstimationConfig.OverrideFees
+					if overrideFees > uint64(math.MaxInt64) {
+						t.Fatalf("OverrideFees exceeds MaxInt64")
+					}
 					expectedFee := sdktypes.NewCoin(tc.txParams.Denom,
-						cosmosmath.NewInt(int64(tc.txParams.GasEstimationConfig.OverrideFees)))
+						cosmosmath.NewInt(int64(overrideFees)))
 					require.Equal(t, sdktypes.NewCoins(expectedFee), authTx.GetFee())
 				} else {
 					minFee := sdktypes.NewCoin(tc.txParams.Denom,
