@@ -299,7 +299,7 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 						t.Fatalf("OverrideFees exceeds MaxInt64")
 					}
 					expectedFee := sdktypes.NewCoin(tc.txParams.Denom,
-						cosmosmath.NewInt(int64(overrideFees)))
+						cosmosmath.NewInt(int64(overrideFees))) // nolint: gosec reason: covered above
 					require.Equal(t, sdktypes.NewCoins(expectedFee), authTx.GetFee())
 				} else {
 					minFee := sdktypes.NewCoin(tc.txParams.Denom,
@@ -317,7 +317,7 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 				// Signatures
 				signatures, err := authTx.GetSignaturesV2()
 				require.NoError(t, err)
-				require.Equal(t, 1, len(signatures))
+				require.Len(t, signatures, 1)
 				require.Equal(t, tc.txParams.PrivKey.PubKey().Address().Bytes(), signatures[0].PubKey.Address().Bytes())
 			}
 		})
