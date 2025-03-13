@@ -15,7 +15,7 @@ import (
 )
 
 // monitorGRPCConnection monitors the gRPC connection state and attempts to reconnect when needed.
-func monitorGRPCConnection(ctx context.Context, grpcConnnection *grpc.ClientConn, grpcEndpoint string) {
+func monitorGRPCConnection(ctx context.Context, grpcConnection *grpc.ClientConn, grpcEndpoint string) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
@@ -26,7 +26,7 @@ func monitorGRPCConnection(ctx context.Context, grpcConnnection *grpc.ClientConn
 			return
 
 		case <-ticker.C:
-			state := grpcConnnection.GetState()
+			state := grpcConnection.GetState()
 			if state == connectivity.TransientFailure || state == connectivity.Shutdown {
 				log.Warn().Msg("gRPC Connection lost, attempting to reconnect...")
 
@@ -42,7 +42,7 @@ func monitorGRPCConnection(ctx context.Context, grpcConnnection *grpc.ClientConn
 
 					default:
 						// Wait for a state change
-						if grpcConnnection.WaitForStateChange(ctx, state) {
+						if grpcConnection.WaitForStateChange(ctx, state) {
 							log.Info().Msg("gRPC connection state changed, resuming normal operation.")
 							metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.GRPCConnectionLostCount, grpcEndpoint)
 							break
