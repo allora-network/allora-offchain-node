@@ -74,7 +74,7 @@ var HTTPStatusCodeCodesSwitchingNode = map[int]bool{
 
 const GAS_EXCESS_CORRECTION uint64 = 20000
 
-// calculateExponentialBackoffDelay returns a duration based on retry count and base delay
+// calculateExponentialBackoffDelaySeconds returns a duration based on retry count and base delay
 func calculateExponentialBackoffDelaySeconds(baseDelay int64, retryCount int64) int64 {
 	return int64(math.Pow(float64(baseDelay), float64(retryCount)))
 }
