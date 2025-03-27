@@ -136,6 +136,7 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 				BlockHeight:      nonce,
 				Forecaster:       wallet.Address,
 				ForecastElements: forecasterElements,
+				ExtraData:        nil,
 			}
 			inferenceForecastsBundle.Forecast = forecasterValues
 		}
