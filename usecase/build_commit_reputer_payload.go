@@ -244,6 +244,28 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 			losses.OneInForecasterValues[i] = &emissionstypes.InputWorkerAttributedValue{Worker: val.Worker, Value: boundedLoss}
 		}
 	}
+
+	losses.OneOutInfererForecasterValues = make([]*emissionstypes.InputOneOutInfererForecasterValues, len(vb.OneOutInfererForecasterValues))
+	for i, val := range vb.OneOutInfererForecasterValues {
+		oneOutInfererValues := make([]*emissionstypes.InputWithheldWorkerAttributedValue, len(val.OneOutInfererValues))
+		for j, infererVal := range val.OneOutInfererValues {
+			if loss, err := computeLoss(infererVal.Value, fmt.Sprintf("one out inferer value %d", j)); err != nil {
+				return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for one-out inferer value")
+			} else {
+				boundedLoss, err := alloraMath.NewBoundedExp40Dec(loss)
+				if err != nil {
+					return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error converting naive loss to BoundedExp40Dec")
+				}
+				oneOutInfererValues[j] = &emissionstypes.InputWithheldWorkerAttributedValue{Worker: infererVal.Worker, Value: boundedLoss}
+			}
+		}
+
+		losses.OneOutInfererForecasterValues[i] = &emissionstypes.InputOneOutInfererForecasterValues{
+			Forecaster:          val.Forecaster,
+			OneOutInfererValues: oneOutInfererValues,
+		}
+	}
+
 	return losses, nil
 }
 
