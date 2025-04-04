@@ -3,6 +3,8 @@ package grpcclient
 import (
 	"context"
 	"fmt"
+	"math"
+	"math/rand"
 	"time"
 
 	"allora_offchain_node/metrics"
@@ -21,6 +23,9 @@ func monitorGRPCConnection(ctx context.Context, grpcConnection *grpc.ClientConn,
 
 	maxRetries := 5
 	retryCount := 0
+	initialBackoff := 1 * time.Second
+	maxBackoff := 30 * time.Second
+	backoff := initialBackoff
 
 	for {
 		select {
@@ -37,16 +42,24 @@ func monitorGRPCConnection(ctx context.Context, grpcConnection *grpc.ClientConn,
 				grpcConnection.Connect()
 				if grpcConnection.GetState() != connectivity.Ready {
 					retryCount++
-					log.Warn().Int("retry", retryCount).Msg("Reconnection attempt failed")
+					log.Warn().Int("retry", retryCount).
+						Dur("backoff", backoff).
+						Msg("Reconnection attempt failed")
 
 					if retryCount >= maxRetries {
 						log.Error().Msg("Max reconnection attempts reached, triggering shutdown")
 						return
 					}
+
+					// Exponential backoff with jitter
+					jitter := time.Duration(rand.Int63n(int64(backoff) / 2))
+					time.Sleep(backoff + jitter)
+					backoff = time.Duration(math.Min(float64(backoff*2), float64(maxBackoff)))
 				} else {
 					log.Info().Msg("gRPC connection restored")
 					metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.GRPCConnectionLostCount, grpcEndpoint)
-					retryCount = 0 // Reset counter on success
+					retryCount = 0           // Reset counter on success
+					backoff = initialBackoff // Reset backoff on success
 				}
 			}
 		}
