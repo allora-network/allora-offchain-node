@@ -15,46 +15,38 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
-// monitorGRPCConnection monitors the gRPC connection state and attempts to reconnect when needed.
-func monitorGRPCConnection(ctx context.Context, grpcConnnection *grpc.ClientConn, grpcEndpoint string) {
+func monitorGRPCConnection(ctx context.Context, grpcConnection *grpc.ClientConn, grpcEndpoint string) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
+	maxRetries := 5
+	retryCount := 0
+
 	for {
 		select {
-		case <-ctx.Done(): // Graceful shutdown
+		case <-ctx.Done():
 			log.Info().Msg("Shutting down gRPC monitoring goroutine.")
 			return
-
 		case <-ticker.C:
-			state := grpcConnnection.GetState()
+			state := grpcConnection.GetState()
 			if state == connectivity.TransientFailure || state == connectivity.Shutdown {
 				log.Warn().Msg("gRPC Connection lost, attempting to reconnect...")
 
-				// Exponential backoff for reconnection attempts
-				backoff := time.Second
-				maxBackoff := 30 * time.Second
+				// Force reconnection attempt
+				grpcConnection.ResetConnectBackoff()
+				grpcConnection.Connect()
+				if grpcConnection.GetState() != connectivity.Ready {
+					retryCount++
+					log.Warn().Int("retry", retryCount).Msg("Reconnection attempt failed")
 
-				for {
-					select {
-					case <-ctx.Done():
-						log.Info().Msg("Stopping reconnection attempts due to shutdown.")
+					if retryCount >= maxRetries {
+						log.Error().Msg("Max reconnection attempts reached, triggering shutdown")
 						return
-
-					default:
-						// Wait for a state change
-						if grpcConnnection.WaitForStateChange(ctx, state) {
-							log.Info().Msg("gRPC connection state changed, resuming normal operation.")
-							metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.GRPCConnectionLostCount, grpcEndpoint)
-							break
-						}
-
-						// Increase backoff exponentially, up to maxBackoff
-						time.Sleep(backoff)
-						if backoff < maxBackoff {
-							backoff *= 2
-						}
 					}
+				} else {
+					log.Info().Msg("gRPC connection restored")
+					metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.GRPCConnectionLostCount, grpcEndpoint)
+					retryCount = 0 // Reset counter on success
 				}
 			}
 		}
