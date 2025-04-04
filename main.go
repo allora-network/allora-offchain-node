@@ -65,15 +65,31 @@ func ConvertEntrypointsToInstances(userConfig lib.UserConfig) error {
 
 func main() {
 	// Context tree:
-	// root context (ctx)
-	// ├── NewUseCaseSuite initialization
-	// └── signal context (sigCtx)
-	// 	   └── Spawn process
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// root context (rootCtx)
+	// ├── essential context (essentialCtx) - for connections, wallet, workers, reputers
+	// └── non-essential context (nonEssentialCtx) - for metrics, gas price updates
+	rootCtx, rootCancel := context.WithCancel(context.Background())
+	defer rootCancel()
 
-	sigCtx, sigCancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
-	defer sigCancel()
+	// closed when the root context is cancelled in cascade
+	essentialCtx, essentialCancel := context.WithCancel(rootCtx)
+	nonEssentialCtx, nonEssentialCancel := context.WithCancel(rootCtx)
+
+	// Signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		log.Info().Msg("Received shutdown signal")
+		// Cancel non-essential first
+		nonEssentialCancel()
+		// Give some time for non-essential services to cleanup
+		time.Sleep(time.Second)
+		// Then cancel essential services
+		essentialCancel()
+		// Finally cancel root context
+		rootCancel()
+	}()
 
 	// Initialize logger
 	initLogger()
@@ -91,7 +107,7 @@ func main() {
 	// Metrics
 	metrics.InitMetrics(metrics.CounterData)
 	metricsServer := metrics.GetMetrics()
-	metricsServer.StartMetricsServer(":2112")
+	metricsServer.StartMetricsServer(nonEssentialCtx, ":2112")
 
 	// Load config and do modifications if needed
 	finalUserConfig := lib.UserConfig{} // nolint: exhaustruct
@@ -135,13 +151,12 @@ func main() {
 	// Check and set defaults for the user config if any values are not set
 	finalUserConfig.CheckAndSetDefaults()
 
-	// Creates the ConnectionManager and initialises the NodeConfigs
-	connectionManager, err := lib.NewConnectionManager(sigCtx, finalUserConfig)
+	// Creates the ConnectionManager and initialises the NodeConfigs with essential context
+	connectionManager, err := lib.NewConnectionManager(essentialCtx, finalUserConfig)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to initialize ConnectionManager, exiting")
 		return
 	}
-	// Close the ConnectionManager when the program exits
 	defer connectionManager.Close()
 	wallet, err := connectionManager.GetWallet()
 	if err != nil {
@@ -149,24 +164,23 @@ func main() {
 		return
 	}
 
-	spawner, err := usecase.NewUseCaseSuite(sigCtx, finalUserConfig, connectionManager)
+	// Initialize spawner with both contexts
+	spawner, err := usecase.NewUseCaseSuite(essentialCtx, nonEssentialCtx, metricsServer, finalUserConfig, connectionManager)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize use case, exiting")
 		return
 	}
 
-	spawner.Metrics = metricsServer // cache the metrics object for ease of access on usecase suite
-
 	log.Info().Msg("Starting spawning processes...")
 	go func() {
-		err := spawner.Spawn(sigCtx)
+		err := spawner.Spawn()
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to spawn processes, exiting")
-			cancel()
+			rootCancel()
 		}
 	}()
 
-	<-sigCtx.Done()
+	<-essentialCtx.Done()
 
 	metricsServer.IncrementMetricsCounter(metrics.ApplicationFinishedCount, wallet.Address, 0)
 	// shutdown metrics server
