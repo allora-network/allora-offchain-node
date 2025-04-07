@@ -2,9 +2,10 @@ package grpcclient
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"math"
-	"math/rand"
+	"math/big"
 	"time"
 
 	"allora_offchain_node/metrics"
@@ -39,8 +40,17 @@ func (bc *backoffConfig) nextBackoff(current time.Duration) time.Duration {
 
 	// Apply jitter: randomly subtract up to jitterFrac of the duration
 	jitterRange := float64(next) * bc.jitterFrac
-	jitter := time.Duration(rand.Float64() * jitterRange)
 
+	// Generate cryptographically secure random number between 0 and jitterRange
+	maxJitter := big.NewInt(int64(jitterRange))
+	randomBig, err := rand.Int(rand.Reader, maxJitter)
+	if err != nil {
+		// If we fail to generate random jitter, just return the next backoff without jitter
+		log.Warn().Err(err).Msg("Failed to generate jitter, continuing without it")
+		return next
+	}
+
+	jitter := time.Duration(randomBig.Int64())
 	return next - jitter
 }
 
