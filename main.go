@@ -63,6 +63,36 @@ func ConvertEntrypointsToInstances(userConfig lib.UserConfig) error {
 	return nil
 }
 
+func readConfig() (lib.UserConfig, error) {
+	finalUserConfig := lib.UserConfig{} // nolint: exhaustruct
+	alloraJsonConfig := os.Getenv(lib.ALLORA_OFFCHAIN_NODE_CONFIG_JSON)
+
+	if alloraJsonConfig != "" {
+		log.Info().Msg("Config using JSON env var")
+		if err := json.Unmarshal([]byte(alloraJsonConfig), &finalUserConfig); err != nil {
+			return finalUserConfig, fmt.Errorf("failed to parse JSON config from env var: %w", err)
+		}
+		return finalUserConfig, nil
+	}
+
+	configPath := os.Getenv(lib.ALLORA_OFFCHAIN_NODE_CONFIG_FILE_PATH)
+	if configPath != "" {
+		log.Info().Msg("Config using JSON config file")
+		file, err := os.Open(configPath)
+		if err != nil {
+			return finalUserConfig, fmt.Errorf("failed to open JSON config file: %w", err)
+		}
+		defer file.Close()
+
+		if err := json.NewDecoder(file).Decode(&finalUserConfig); err != nil {
+			return finalUserConfig, fmt.Errorf("failed to parse JSON config file: %w", err)
+		}
+		return finalUserConfig, nil
+	}
+
+	return finalUserConfig, fmt.Errorf("could not find config file. Please create a config.json file and pass as environment variable")
+}
+
 func main() {
 	// Context tree:
 	// root context (rootCtx)
@@ -109,50 +139,27 @@ func main() {
 	metricsServer := metrics.GetMetrics()
 	metricsServer.StartMetricsServer(nonEssentialCtx, ":2112")
 
-	// Load config and do modifications if needed
-	finalUserConfig := lib.UserConfig{} // nolint: exhaustruct
-	alloraJsonConfig := os.Getenv(lib.ALLORA_OFFCHAIN_NODE_CONFIG_JSON)
-	if alloraJsonConfig != "" {
-		log.Info().Msg("Config using JSON env var")
-		// completely reset UserConfig
-		err := json.Unmarshal([]byte(alloraJsonConfig), &finalUserConfig)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to parse JSON config file from Config")
-			return
-		}
-	} else if os.Getenv(lib.ALLORA_OFFCHAIN_NODE_CONFIG_FILE_PATH) != "" {
-		log.Info().Msg("Config using JSON config file")
-		// parse file defined in CONFIG_FILE_PATH into UserConfig
-		file, err := os.Open(os.Getenv(lib.ALLORA_OFFCHAIN_NODE_CONFIG_FILE_PATH))
-		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to open JSON config file")
-			return
-		}
-		defer file.Close()
-		decoder := json.NewDecoder(file)
-		// completely reset UserConfig
-		err = decoder.Decode(&finalUserConfig)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to parse JSON config file")
-			return
-		}
-	} else {
-		log.Fatal().Msg("Could not find config file. Please create a config.json file and pass as environment variable.")
+	// Load config
+	userConfig, err := readConfig()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to read configuration")
+		rootCancel()
 		return
 	}
 
 	// Convert entrypoints to instances of adapters
-	err := ConvertEntrypointsToInstances(finalUserConfig)
+	err = ConvertEntrypointsToInstances(userConfig)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to convert Entrypoints to instances of adapters - wrong entrypoint name?")
+		log.Error().Err(err).Msg("Failed to convert Entrypoints to instances of adapters - wrong entrypoint name?")
+		rootCancel()
 		return
 	}
 
 	// Check and set defaults for the user config if any values are not set
-	finalUserConfig.CheckAndSetDefaults()
+	userConfig.CheckAndSetDefaults()
 
 	// Creates the ConnectionManager and initialises the NodeConfigs with essential context
-	connectionManager, err := lib.NewConnectionManager(essentialCtx, finalUserConfig)
+	connectionManager, err := lib.NewConnectionManager(essentialCtx, userConfig)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to initialize ConnectionManager, exiting")
 		return
@@ -165,7 +172,7 @@ func main() {
 	}
 
 	// Initialize spawner with both contexts
-	spawner, err := usecase.NewUseCaseSuite(essentialCtx, nonEssentialCtx, metricsServer, finalUserConfig, connectionManager)
+	spawner, err := usecase.NewUseCaseSuite(essentialCtx, nonEssentialCtx, metricsServer, userConfig, connectionManager)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize use case, exiting")
 		return
