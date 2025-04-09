@@ -142,16 +142,14 @@ func main() {
 	// Load config
 	userConfig, err := readConfig()
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to read configuration")
-		rootCancel()
+		log.Error().Err(err).Msg("Failed to read configuration, exiting")
 		return
 	}
 
 	// Convert entrypoints to instances of adapters
 	err = ConvertEntrypointsToInstances(userConfig)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to convert Entrypoints to instances of adapters - wrong entrypoint name?")
-		rootCancel()
+		log.Error().Err(err).Msg("Failed to convert Entrypoints to instances of adapters - wrong entrypoint name? Exiting")
 		return
 	}
 
@@ -170,34 +168,24 @@ func main() {
 		log.Error().Err(err).Msg("Failed to get wallet, exiting")
 		return
 	}
+	metricsServer.IncrementMetricsCounter(metrics.ApplicationStartedCount, wallet.Address, 0)
 
 	// Initialize spawner with both contexts
 	spawner, err := usecase.NewUseCaseSuite(essentialCtx, nonEssentialCtx, metricsServer, userConfig, connectionManager)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialize use case, exiting")
+		log.Error().Err(err).Msg("Failed to initialize use case, exiting")
 		return
 	}
 
 	log.Info().Msg("Starting spawning processes...")
 	go func() {
-		err := spawner.Spawn()
+		err := spawner.Start()
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to spawn processes, exiting")
-			rootCancel()
 		}
 	}()
 
 	<-essentialCtx.Done()
 
-	metricsServer.IncrementMetricsCounter(metrics.ApplicationFinishedCount, wallet.Address, 0)
-	// shutdown metrics server
-	log.Info().Msg("Shutting down metrics server")
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer shutdownCancel()
-	if err := metricsServer.Shutdown(shutdownCtx); err != nil {
-		log.Error().Err(err).Msg("Error shutting down metrics server")
-	}
-
-	log.Info().Msg("Stopping...")
-
+	log.Info().Msg("End of application, closing...")
 }

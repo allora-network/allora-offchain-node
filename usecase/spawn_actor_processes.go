@@ -61,7 +61,7 @@ func (suite *UseCaseSuite) launchGasRoutine(ctx context.Context, walletConfig *l
 }
 
 // Spawns the actor processes and any associated non-essential routines
-func (suite *UseCaseSuite) Spawn() error {
+func (suite *UseCaseSuite) Start() error {
 
 	wallet, err := suite.ConnectionManager.GetWallet()
 	if err != nil {
@@ -88,6 +88,7 @@ func (suite *UseCaseSuite) Spawn() error {
 		}
 	}
 
+	// WaitGroup for essential routines
 	var wg sync.WaitGroup
 	essentialDone := make(chan struct{}) // Channel for essential routines to signal when they are done
 
@@ -128,6 +129,7 @@ workerLoop:
 
 	// Run reputer process per topic
 	alreadyStartedReputerForTopic := make(map[emissionstypes.TopicId]bool)
+reputerLoop:
 	for _, reputer := range suite.UserConfig.Reputer {
 		if _, ok := alreadyStartedReputerForTopic[reputer.TopicId]; ok {
 			log.Warn().Uint64("topicId", reputer.TopicId).Msg("Reputer already started for topicId")
@@ -135,18 +137,24 @@ workerLoop:
 		}
 		alreadyStartedReputerForTopic[reputer.TopicId] = true
 
-		wg.Add(1)
-		go func(reputer lib.ReputerConfig) {
-			defer wg.Done()
-			select {
-			case <-suite.essentialCtx.Done():
-				log.Info().Uint64("topicId", reputer.TopicId).Msg("Reputer process received shutdown signal")
-				return
-			default:
-				suite.runReputerProcess(suite.essentialCtx, reputer)
-			}
-			log.Info().Uint64("topicId", reputer.TopicId).Msg("Reputer process finished")
-		}(reputer)
+		select {
+		case <-suite.essentialCtx.Done():
+			log.Info().Msg("Context cancelled, not starting more reputers")
+			break reputerLoop // Exit loop
+		default:
+			wg.Add(1)
+			go func(reputer lib.ReputerConfig) {
+				defer wg.Done()
+				select {
+				case <-suite.essentialCtx.Done():
+					log.Info().Uint64("topicId", reputer.TopicId).Msg("Reputer process received shutdown signal")
+					return
+				default:
+					suite.runReputerProcess(suite.essentialCtx, reputer)
+				}
+				log.Info().Uint64("topicId", reputer.TopicId).Msg("Reputer process finished")
+			}(reputer)
+		}
 
 		if lib.DoneOrWait(suite.essentialCtx, walletConfig.LaunchRoutineDelay) {
 			log.Error().Msg("Reputer process finished")
@@ -159,23 +167,10 @@ workerLoop:
 		wg.Wait()
 		log.Info().Msg("All essential routines finished")
 		close(essentialDone)
-		// Close gRPC connections after essential routines are done
-		if err := suite.ConnectionManager.Close(); err != nil {
-			log.Error().Err(err).Msg("Error closing gRPC connections")
-		}
-	}()
-
-	// Monitor essential context
-	go func() {
-		<-suite.essentialCtx.Done()
-		log.Info().Msg("Essential context cancelled, closing connections")
-		if err := suite.ConnectionManager.Close(); err != nil {
-			log.Error().Err(err).Msg("Error closing gRPC connections")
-		}
 	}()
 
 	<-essentialDone // Block until all essential routines are done
-	log.Info().Msg("All essential routines unblocked")
+	log.Info().Msg("Essential routines channel unblocked")
 	return nil
 }
 
