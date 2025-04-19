@@ -219,7 +219,7 @@ func (connectionManager *ConnectionManager) switchToNodeLocked(mode, index int, 
 	return &nodes[index], nil
 }
 
-// SwitchToNextNode switches to the next node in the list.
+// SwitchToNextQueryNode switches to the next node in the list.
 // Node change is persistent, so it will be used again in the next call
 // Returns current node if error
 func (connectionManager *ConnectionManager) SwitchToNextQueryNode() (*NodeConfig, error) {
