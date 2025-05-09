@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -125,8 +126,8 @@ func TestGenerateRandomJitter(t *testing.T) {
 	tests := []struct {
 		name             string
 		submissionJitter uint64
-		expectedMin      uint64
-		expectedMax      uint64
+		expectedMin      int64
+		expectedMax      int64
 		iterations       int
 	}{
 		{
@@ -171,6 +172,7 @@ func TestGenerateRandomJitter(t *testing.T) {
 
 			for i := 0; i < test.iterations; i++ {
 				result := generateRandomJitter(test.submissionJitter)
+				fmt.Println(result)
 
 				// Check bounds
 				assert.GreaterOrEqual(t, result, test.expectedMin,
