@@ -169,8 +169,7 @@ func TestGenerateRandomJitter(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-
-			for i := 0; i < test.iterations; i++ {
+			for range make([]struct{}, test.iterations) {
 				result := generateRandomJitter(test.submissionJitter)
 				fmt.Println(result)
 
@@ -179,7 +178,6 @@ func TestGenerateRandomJitter(t *testing.T) {
 					"Result should be greater than or equal to the minimum value")
 				assert.LessOrEqual(t, result, test.expectedMax,
 					"Result should be less than or equal to the maximum value")
-
 			}
 		})
 	}
