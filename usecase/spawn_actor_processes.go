@@ -327,14 +327,18 @@ func calculateTimeDistanceInSeconds(distanceUntilNextEpoch int64, blockDurationA
 }
 
 // Generate jitter between 0 and submissionJitter
-func generateRandomJitter(submissionJitter uint64) uint64 {
+func generateRandomJitter(submissionJitter uint64) int64 {
 	if submissionJitter == 0 {
 		return 0
 	}
 	source := rand.NewSource(uint64(time.Now().UnixNano())) // nolint: gosec
 	rng := rand.New(source)
 
-	return rng.Uint64() % submissionJitter
+	maxSafeValue := uint64(math.MaxInt64)
+	if submissionJitter > maxSafeValue {
+		submissionJitter = maxSafeValue
+	}
+	return int64(rng.Uint64() % submissionJitter) //nolint:gosec // using a safe max value
 }
 
 // Runs the worker process for a given worker config
@@ -670,7 +674,7 @@ func runActorProcess[T lib.TopicActor](ctx context.Context, suite *UseCaseSuite,
 			if distanceUntilNextEpoch <= minBlocksToCheck {
 				// Close distance, check more closely until the submission window opens
 				// Introduce a random jitter to avoid thundering herd problem
-				jitter := int64(generateRandomJitter(walletConfig.SubmissionJitter))
+				jitter := generateRandomJitter(walletConfig.SubmissionJitter)
 				closeBlockDistance := distanceUntilNextEpoch + jitter
 				waitingTimeInSeconds, err = calculateTimeDistanceInSeconds(
 					closeBlockDistance,
