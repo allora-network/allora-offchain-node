@@ -27,3 +27,9 @@ go.work.sum
 .env
 .allorad
 config.json
+
+# IDEs
+.idea/
+
+# OS
+.DS_Store
