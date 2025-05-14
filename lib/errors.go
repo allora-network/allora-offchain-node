@@ -150,7 +150,7 @@ func ProcessErrorTx(ctx context.Context, err error, infoMsg string, retryCount, 
 		return processingType, err
 	}
 
-	return triageStringMatchingError(ctx, err, infoMsg, node, retryCount, retryMax)
+	return triageStringMatchingError(ctx, err, infoMsg, node, retryCount)
 }
 
 // triageABCIErrorCode handles specific ABCI error codes and returns appropriate processing instructions
@@ -253,7 +253,7 @@ func triageABCIErrorCode(ctx context.Context, errorCode uint32, err error, infoM
 }
 
 // Triages error by string matching
-func triageStringMatchingError(ctx context.Context, err error, infoMsg string, node *NodeConfig, retryCount, retryMax int64) (string, error) {
+func triageStringMatchingError(ctx context.Context, err error, infoMsg string, node *NodeConfig, retryCount int64) (string, error) {
 	connectionManager := node.ConnectionManager
 	walletConfig, errorWalletConfig := connectionManager.GetWalletConfig()
 	if errorWalletConfig != nil {
