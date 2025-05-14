@@ -191,6 +191,38 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 			errMessage: "",
 		},
 		{
+			name: "Using a fee granter address",
+			txParams: &types.TransactionParams{
+				ChainID:       "test-chain",
+				Denom:         "utest",
+				Prefix:        "test",
+				Sequence:      0,
+				AccNum:        1,
+				PrivKey:       privKey,
+				PubKey:        pubKey,
+				TimeoutHeight: 0,
+				GasEstimationConfig: types.GasEstimationConfig{
+					BaseGas:       2000,
+					GasPerByte:    10,
+					MinGasPrice:   0.1,
+					GasAdjustment: 1.2,
+					OverrideGas:   0,
+					OverrideFees:  0,
+					SimulateTx:    false,
+				},
+				FeeGranterAddress: "allo1urp932djsx64c0suy5r4w5f50teu43c3dgw5me",
+			},
+			sequence: 0,
+			msgs: []sdktypes.Msg{&emissionstypes.RegisterRequest{
+				Sender:    addr,
+				TopicId:   1,
+				Owner:     addr,
+				IsReputer: false,
+			}},
+			expectErr:  false,
+			errMessage: "",
+		},
+		{
 			name: "Edge case - zero gas price",
 			txParams: &types.TransactionParams{
 				ChainID:       "test-chain",
@@ -254,7 +286,43 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 			expectErr:  true,
 			errMessage: "gas overflow",
 		},
+		{
+			name: "Edge case - invalid fee granter address",
+			txParams: &types.TransactionParams{
+				ChainID:       "test-chain",
+				Denom:         "utest",
+				Prefix:        "test",
+				Sequence:      0,
+				AccNum:        1,
+				PrivKey:       privKey,
+				PubKey:        pubKey,
+				TimeoutHeight: 0,
+				GasEstimationConfig: types.GasEstimationConfig{
+					BaseGas:       2000,
+					GasPerByte:    10,
+					MinGasPrice:   0.1,
+					GasAdjustment: 1.2,
+					OverrideGas:   0,
+					OverrideFees:  0,
+					SimulateTx:    false,
+				},
+				FeeGranterAddress: "muah1urp932djsx64c0suy5r4w5f50teu43c3dgw5me",
+			},
+			sequence: 0,
+			msgs: []sdktypes.Msg{&emissionstypes.RegisterRequest{
+				Sender:    addr,
+				TopicId:   1,
+				Owner:     addr,
+				IsReputer: false,
+			}},
+			expectErr:  true,
+			errMessage: "failed to parse fee granter address muah1urp932djsx64c0suy5r4w5f50teu43c3dgw5me: decoding bech32 failed: invalid checksum",
+		},
 	}
+
+	config := sdktypes.GetConfig()
+	config.SetBech32PrefixForAccount("allo", "allo")
+	config.Seal()
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
