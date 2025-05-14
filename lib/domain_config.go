@@ -11,9 +11,10 @@ import (
 // Properties manually provided by the user as part of UserConfig
 type WalletConfig struct {
 	Address                   string // will be overwritten by the keystore. This is the 1 value that is auto-generated in this struct
-	AddressKeyName            string // load a address by key from the keystore
+	AddressKeyName            string // load an address by key from the keystore
 	AddressRestoreMnemonic    string
 	AlloraHomeDir             string  // home directory for the allora keystore
+	FeeGranterAddress         string  // if set, the address from a fee granter will be used to sign transactions (see x/feegranter)
 	Gas                       string  // gas to use for the allora client
 	GasAdjustment             float64 // gas adjustment to use for the allora client
 	NodeRpc                   string  // rpc node for allora chain

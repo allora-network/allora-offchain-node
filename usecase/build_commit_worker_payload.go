@@ -6,11 +6,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/rs/zerolog/log"
 
 	alloraMath "github.com/allora-network/allora-chain/math"
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
-	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 )
 
 func (suite *UseCaseSuite) BuildCommitWorkerPayload(worker lib.WorkerConfig, nonce *emissionstypes.Nonce) (bool, error) {
@@ -140,17 +141,35 @@ func (suite *UseCaseSuite) SignWorkerPayload(workerPayload *emissionstypes.Infer
 	protoBytesIn, err := workerPayload.XXX_Marshal(protoBytesIn, true)
 	if err != nil {
 		log.Error().Err(err).Msg("Error Marshalling workerPayload")
-		return &emissionstypes.WorkerDataBundle{}, err
+		return nil, err
 	}
-	sig, pk, err := suite.Node.Chain.Client.Context().Keyring.Sign(suite.Node.Chain.Account.Name, protoBytesIn, signing.SignMode_SIGN_MODE_DIRECT)
+
+	clientCtx := suite.Node.Chain.Client.Context()
+
+	walletConfig := suite.Node.Wallet
+	if walletConfig.FeeGranterAddress != "" {
+		granterAddr, err := sdktypes.AccAddressFromBech32(walletConfig.FeeGranterAddress)
+		if err != nil {
+			log.Error().Err(err).Msgf("Error parsing FeeGranterAddress %v", walletConfig.FeeGranterAddress)
+			return nil, err
+		}
+		clientCtx.WithFeePayerAddress(granterAddr)
+	}
+
+	sig, pk, err := clientCtx.Keyring.Sign(
+		suite.Node.Chain.Account.Name,
+		protoBytesIn,
+		signing.SignMode_SIGN_MODE_DIRECT,
+	)
+
 	pkStr := hex.EncodeToString(pk.Bytes())
 	if err != nil {
 		log.Error().Err(err).Msg("Error signing the InferenceForecastsBundle message")
-		return &emissionstypes.WorkerDataBundle{}, err
+		return nil, err
 	}
 	// Create workerDataBundle with signature
 	workerDataBundle := &emissionstypes.WorkerDataBundle{
-		Worker:                             suite.Node.Wallet.Address,
+		Worker:                             walletConfig.Address,
 		InferenceForecastsBundle:           workerPayload,
 		InferencesForecastsBundleSignature: sig,
 		Pubkey:                             pkStr,
