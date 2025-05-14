@@ -79,6 +79,15 @@ func BuildAndSignTransaction(
 	feeCoin := sdktypes.NewCoin(txParams.Denom, fees)
 	txBuilder.SetFeeAmount(sdktypes.NewCoins(feeCoin))
 
+	// Set fee granter (optional)
+	if txParams.FeeGranterAddress != "" {
+		granterAddr, err := sdktypes.AccAddressFromBech32(txParams.FeeGranterAddress)
+		if err != nil {
+			return nil, err
+		}
+		txBuilder.SetFeeGranter(granterAddr)
+	}
+
 	// Set memo and timeout height
 	txBuilder.SetMemo(memo)
 	txBuilder.SetTimeoutHeight(txParams.TimeoutHeight)
