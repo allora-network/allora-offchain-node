@@ -42,7 +42,7 @@ const ErrCodeInvalidChainID = 17
 const ErrCodeTxTimeoutHeight = 18
 const ErrCodeWorkerNonceWindowNotAvailable = 19
 const ErrCodeReputerNonceWindowNotAvailable = 20
-const ErrCodeContextDeadlineExceeded = 21
+const ErrCodeContextDeadlineExceededTimeout = 21
 const ErrCodeNoInferencesFoundForTopic = 22
 const ErrCodeNotPermittedToSubmitPayload = 23
 const ErrCodeNotPermittedToAddStake = 24
@@ -51,23 +51,25 @@ const ErrCodeReadPerBytePanic = 26
 const ErrCodeUnexpectedError = 100
 
 var (
-	ErrHTTP                      = errorsmod.Register(ErrorCodespace, ErrCodeHTTP, "http error")
-	ErrNotEnoughBalance          = errorsmod.Register(ErrorCodespace, ErrCodeNotEnoughBalance, "not enough balance")
-	ErrNotRegistered             = errorsmod.Register(ErrorCodespace, ErrCodeNotRegistered, "not registered")
-	ErrStakeBelowMin             = errorsmod.Register(ErrorCodespace, ErrCodeStakeBelowMin, "stake below minimum")
-	ErrFullMempool               = errorsmod.Register(ErrorCodespace, ErrCodeFullMempool, "full mempool")
-	ErrReadPanic                 = errorsmod.Register(ErrorCodespace, ErrCodeReadPanic, "read panic")
-	ErrConnectionRefused         = errorsmod.Register(ErrorCodespace, ErrCodeConnectionRefused, "connection refused")
-	ErrAllNodesExhausted         = errorsmod.Register(ErrorCodespace, ErrCodeAllNodesExhausted, "all available nodes have been tried and exhausted")
-	ErrTxSimulationError         = errorsmod.Register(ErrorCodespace, ErrCodeTxSimulationError, "Tx simulation error")
-	ErrCannotAddStake            = errorsmod.Register(ErrorCodespace, ErrCodeCannotAddStake, "not permitted to add stake")
-	ErrAccountSequenceMismatch   = errorsmod.Register(ErrorCodespace, ErrCodeAccountSequenceMismatch, "account sequence mismatch")
-	ErrInsufficientFees          = errorsmod.Register(ErrorCodespace, ErrCodeInsufficientFees, "insufficient fees")
-	ErrOutOfGas                  = errorsmod.Register(ErrorCodespace, ErrCodeOutOfGas, "out of gas")
-	ErrNoFeeCoins                = errorsmod.Register(ErrorCodespace, ErrCodeNoFeeCoins, "no fee coins (bad tx)")
-	ErrUnexpectedError           = errorsmod.Register(ErrorCodespace, ErrCodeUnexpectedError, "unexpected error")
-	ErrContextDeadlineExceeded   = errorsmod.Register(ErrorCodespace, ErrCodeContextDeadlineExceeded, "context deadline exceeded")
-	ErrNoInferencesFoundForTopic = errorsmod.Register(ErrorCodespace, ErrCodeNoInferencesFoundForTopic, "no inferences found for topic")
+	ErrHTTP                           = errorsmod.Register(ErrorCodespace, ErrCodeHTTP, "http error")
+	ErrNotEnoughBalance               = errorsmod.Register(ErrorCodespace, ErrCodeNotEnoughBalance, "not enough balance")
+	ErrNotRegistered                  = errorsmod.Register(ErrorCodespace, ErrCodeNotRegistered, "not registered")
+	ErrStakeBelowMin                  = errorsmod.Register(ErrorCodespace, ErrCodeStakeBelowMin, "stake below minimum")
+	ErrFullMempool                    = errorsmod.Register(ErrorCodespace, ErrCodeFullMempool, "full mempool")
+	ErrReadPanic                      = errorsmod.Register(ErrorCodespace, ErrCodeReadPanic, "read panic")
+	ErrConnectionRefused              = errorsmod.Register(ErrorCodespace, ErrCodeConnectionRefused, "connection refused")
+	ErrAllNodesExhausted              = errorsmod.Register(ErrorCodespace, ErrCodeAllNodesExhausted, "all available nodes have been tried and exhausted")
+	ErrTxSimulationError              = errorsmod.Register(ErrorCodespace, ErrCodeTxSimulationError, "Tx simulation error")
+	ErrCannotAddStake                 = errorsmod.Register(ErrorCodespace, ErrCodeCannotAddStake, "not permitted to add stake")
+	ErrAccountSequenceMismatch        = errorsmod.Register(ErrorCodespace, ErrCodeAccountSequenceMismatch, "account sequence mismatch")
+	ErrInsufficientFees               = errorsmod.Register(ErrorCodespace, ErrCodeInsufficientFees, "insufficient fees")
+	ErrOutOfGas                       = errorsmod.Register(ErrorCodespace, ErrCodeOutOfGas, "out of gas")
+	ErrNoFeeCoins                     = errorsmod.Register(ErrorCodespace, ErrCodeNoFeeCoins, "no fee coins (bad tx)")
+	ErrUnexpectedError                = errorsmod.Register(ErrorCodespace, ErrCodeUnexpectedError, "unexpected error")
+	ErrContextDeadlineExceededTimeout = errorsmod.Register(ErrorCodespace, ErrCodeContextDeadlineExceededTimeout, "context deadline exceeded timeout")
+	ErrReputerNonceWindowNotAvailable = errorsmod.Register(ErrorCodespace, ErrCodeReputerNonceWindowNotAvailable, "reputer nonce window not available")
+	ErrWorkerNonceWindowNotAvailable  = errorsmod.Register(ErrorCodespace, ErrCodeWorkerNonceWindowNotAvailable, "worker nonce window not available")
+	ErrNoInferencesFoundForTopic      = errorsmod.Register(ErrorCodespace, ErrCodeNoInferencesFoundForTopic, "no inferences found for topic")
 )
 
 // Errors substrings that are not ABCI errors and do not have a specific error code
@@ -83,6 +85,8 @@ const ErrorMessageReadPerBytePanic = "{ReadPerByte}: panic"
 const ErrorMessageConnectionRefused = "connection refused"
 const ErrorMessageNoInferencesFoundForTopic = "no inferences found for topic"
 const ErrorContextDeadlineExceeded = "context deadline exceeded"
+const ErrorReputerNonceWindowNotAvailable = "reputer nonce window not available"
+const ErrorWorkerNonceWindowNotAvailable = "worker nonce window not available"
 
 // Error processing types
 // - "continue", nil: tx was not successful, but special error type. Handled, ready for retry
@@ -267,7 +271,7 @@ func triageStringMatchingError(ctx context.Context, err error, infoMsg string, n
 
 	} else if strings.Contains(err.Error(), ErrorContextDeadlineExceeded) {
 		log.Warn().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Context deadline exceeded, switching to next node")
-		metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.ActorTxErrorCount, node.ConnectionManager.wallet.Address, strconv.Itoa(ErrCodeContextDeadlineExceeded))
+		metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.ActorTxErrorCount, node.ConnectionManager.wallet.Address, strconv.Itoa(ErrCodeContextDeadlineExceededTimeout))
 		return ErrorProcessingSwitchingNode, err
 	} else if strings.Contains(err.Error(), ErrorMessageWaitingForNextBlock) {
 		log.Warn().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Tx accepted in mempool, it will be included in the following block(s) - not retrying")
@@ -299,6 +303,12 @@ func triageStringMatchingError(ctx context.Context, err error, infoMsg string, n
 		log.Warn().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Connection refused, switching to next node")
 		metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.ActorTxErrorCount, node.ConnectionManager.wallet.Address, strconv.Itoa(ErrCodeConnectionRefused))
 		return ErrorProcessingSwitchingNode, ErrConnectionRefused
+	} else if strings.Contains(err.Error(), ErrorReputerNonceWindowNotAvailable) {
+		metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.ActorTxErrorCount, node.ConnectionManager.wallet.Address, strconv.Itoa(ErrCodeReputerNonceWindowNotAvailable))
+		return ErrorProcessingContinue, ErrReputerNonceWindowNotAvailable
+	} else if strings.Contains(err.Error(), ErrorWorkerNonceWindowNotAvailable) {
+		metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.ActorTxErrorCount, node.ConnectionManager.wallet.Address, strconv.Itoa(ErrCodeWorkerNonceWindowNotAvailable))
+		return ErrorProcessingContinue, ErrWorkerNonceWindowNotAvailable
 	}
 	log.Info().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Unknown error")
 	metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.ActorTxErrorCount, node.ConnectionManager.wallet.Address, strconv.Itoa(ErrCodeUnexpectedError))
