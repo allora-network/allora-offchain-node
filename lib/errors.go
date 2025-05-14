@@ -21,7 +21,7 @@ import (
 // Error codes for the module
 const ErrorCodespace = "allora-offchain-lib"
 
-// Error codes for the module and also emitted in metrics
+// Error codes for the module and also emitted in metrics. Some may only be emitted in metrics.
 const ErrCodeHTTP = 1
 const ErrCodeNotEnoughBalance = 2
 const ErrCodeNotRegistered = 3
@@ -48,7 +48,6 @@ const ErrCodeNotPermittedToSubmitPayload = 23
 const ErrCodeNotPermittedToAddStake = 24
 const ErrCodeReadFlatPanic = 25
 const ErrCodeReadPerBytePanic = 26
-
 const ErrCodeUnexpectedError = 100
 
 var (
