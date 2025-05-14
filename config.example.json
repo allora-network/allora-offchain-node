@@ -3,6 +3,7 @@
       "addressKeyName": "testkey",
       "addressRestoreMnemonic": "your mnemonic here",
       "alloraHomeDir": "",
+      "feeGranterAddress": "",
       "gas": "auto",
       "gasAdjustment": 1.5,
       "nodeRpc": "https://allora-rpc.testnet.allora.network",
