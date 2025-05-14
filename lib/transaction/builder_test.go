@@ -74,6 +74,7 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 					OverrideFees:  0,
 					SimulateTx:    false,
 				},
+				FeeGranterAddress: "",
 			},
 			sequence: 0,
 			msgs: []sdktypes.Msg{&emissionstypes.RegisterRequest{
@@ -105,6 +106,7 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 					OverrideFees:  0,
 					SimulateTx:    false,
 				},
+				FeeGranterAddress: "",
 			},
 			sequence: 0,
 			msgs: []sdktypes.Msg{&emissionstypes.RegisterRequest{
@@ -136,6 +138,7 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 					SimulateTx:    false,
 					GasAdjustment: 1.2,
 				},
+				FeeGranterAddress: "",
 			},
 			sequence: 0,
 			msgs: []sdktypes.Msg{&emissionstypes.RegisterRequest{
@@ -167,6 +170,7 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 					OverrideFees:  0,
 					SimulateTx:    false,
 				},
+				FeeGranterAddress: "",
 			},
 			sequence: 0,
 			msgs: []sdktypes.Msg{
@@ -206,6 +210,7 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 					OverrideFees:  0,
 					SimulateTx:    false,
 				},
+				FeeGranterAddress: "",
 			},
 			sequence: 0,
 			msgs: []sdktypes.Msg{&emissionstypes.RegisterRequest{
@@ -237,6 +242,7 @@ func TestBuildAndSignTransactionWithDifferentParams(t *testing.T) {
 					OverrideFees:  0,
 					SimulateTx:    false,
 				},
+				FeeGranterAddress: "",
 			},
 			sequence: 0,
 			msgs: []sdktypes.Msg{&emissionstypes.RegisterRequest{
