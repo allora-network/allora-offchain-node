@@ -3,6 +3,7 @@ package metrics
 // Default labels used by most counters
 var DefaultLabels = []string{"address", "topic"}
 var EndpointLabels = []string{"endpoint"}
+var ErrorCodeLabels = []string{"address", "error_code"}
 
 // metrics
 const (
@@ -19,6 +20,7 @@ const (
 	GRPCConnectionLostCount        string = "allora_grpc_connection_lost_count"
 	GRPCReconnectionCount          string = "allora_grpc_reconnection_count"
 	GRPCConnectionPermanentFailure string = "allora_grpc_connection_permanent_failure"
+	ActorTxErrorCount              string = "allora_actor_tx_error_count"
 )
 
 // A struct that holds the name and help text for a prometheus counter
@@ -36,4 +38,5 @@ var CounterData = []MetricsCounter{
 	{GRPCConnectionLostCount, "The total number of times the GRPC connection is lost", EndpointLabels},
 	{GRPCReconnectionCount, "The total number of times the GRPC connection is successfully reconnected", EndpointLabels},
 	{GRPCConnectionPermanentFailure, "The total number of times the GRPC connection is lost", EndpointLabels},
+	{ActorTxErrorCount, "The total number of errors by error code", ErrorCodeLabels},
 }
