@@ -5,12 +5,12 @@ Allora off-chain nodes publish inferences, forecasts, and losses informed by a c
 ## How to run with docker
 1. Clone the repository
 2. Make sure to remove any .env file so it doesn't clash with the automated environment variables
-3. Copy config.example.json and populate with your variables. You can either populate with your existing wallet or leave it empty for it to be autocreated
+3. Copy config.example.json and populate with your variables. You can either populate with your existing wallet or leave it empty for it to be auto-created
 
 ```shell
 cp config.example.json config.json
 ```
-4. Run command below to load your config.json file to environment
+4. Run the command below to load your config.json file to the environment
 
 ```shell
 chmod +x init.config
@@ -18,14 +18,14 @@ chmod +x init.config
 ```
 
 from the root directory. This will:
-   - Load your config.json file into the environment. Depending on whether you provided your wallet details or not it will also do the following:
-      - Automatically create allora keys for you. You will have to request for some tokens from faucet to be able to register your worker and stake your reputer. You can find your address in ./data/env_file
-      - Automatically export the needed variables from the account created to be used by the offchain node and bundles it with the your provided config.json and then pass them to the node as environment variable
+   - Load your config.json file into the environment. Depending on whether you provided your wallet details or not, it will also do the following:
+      - Automatically create allora keys for you. You will have to get tokens (if testnet, you can request from the faucet) to be able to register your worker and stake your reputer. You can find your address in ./data/env_file
+      - Automatically export the needed variables from the account created to be used by the offchain node and bundle them with your provided config.json and then pass them to the node as environment variables
 
 5. Run `docker compose up --build`. This will:
-   - Run both the offchain node and the source services, communicating through endpoints attached to the internal dns
+   - Run both the offchain node and the source services, communicating through endpoints attached to the internal DNS
 
-Please note that the environment variable will be created as bundle of your config.json and allora account secrets, please make sure to remove every secrets before committing to remote git repository
+Please note that the environment variables will be created as a bundle of your config.json and allora account secrets. Please make sure to remove all secrets before committing to a remote git repository.
 
 
 ## How to run without docker
@@ -44,12 +44,12 @@ go mod download
 cp .env.example .env
 ```
 
-5. Fill in the environment variables in `.env` with your own values
+5. Configure your wallet, network, etc. values. See [How to configure](#how-to-configure) section.
 6. If you're a worker...
-   1. Configure your inference and/or forecast models in `adapters/` and/or another source linked to by adapters in `adapters/` directory.
+   1. Run your inference and/or forecast processes exposing their endpoints, and configure them in `config.json`.
 7. If you're a reputer...
-   1. Configure your repute and/or loss models in `adapters/` and/or another source linked to by adapters in `adapters/` directory.
-8. Map each topic to the appropriate adapter in `config.json`.
+   1. Run your ground truth and loss function processes exposing their endpoints, and configure them in `config.json`.
+8. Map each topic to the appropriate adapter in `config.json` following the `config.example.json` example.
 9. Run the following commands:
 
 ```shell
@@ -59,17 +59,17 @@ chmod +x start.local
 
 ## Prometheus Metrics
 
-Some metrics has been provided for in the node. You can access them with port `:2112/metrics`. Here are the following list of existing metrics:
+Some metrics are provided in the node. You can access them on port `:2112/metrics`. Here is the following list of existing metrics:
 
-- `allora_worker_inference_request_count`: The total number of times worker requests inference from source
-- `allora_worker_forecast_request_count`: The total number of times worker requests forecast from source
-- `allora_reputer_truth_request_count`: The total number of times reputer requests truth from source
+- `allora_worker_inference_request_count`: The total number of times a worker requests inference from source
+- `allora_worker_forecast_request_count`: The total number of times a worker requests forecast from source
+- `allora_reputer_truth_request_count`: The total number of times a reputer requests truth from source
 - `allora_worker_chain_submission_count`: The total number of worker commits to the chain
 - `allora_reputer_chain_submission_count`: The total number of reputer commits to the chain
 - `allora_application_finished_count`: The total number of application runs finished
 - `allora_worker_process_finished_count`: The total number of worker processes finished
 - `allora_reputer_process_finished_count`: The total number of reputer processes finished
-- `allora_application_started_count`: The total number of application started
+- `allora_application_started_count`: The total number of applications started
 - `allora_grpc_connection_lost_count`: The total number of times the GRPC connection is lost
 - `allora_grpc_reconnection_count`: The total number of times the GRPC connection is successfully reconnected  
 - `allora_grpc_connection_permanent_failure`: The total number of times the GRPC connection failed permanently
@@ -83,9 +83,9 @@ Some metrics has been provided for in the node. You can access them with port `:
 
 The Offchain Node is currently separated into two main packages:
 - __lib__: the Allora Client - this may be eventually separated into the Allora Go SDK to use the client separately
-- __usecase__: the particular usecase for the Offchain Node, ie. launching the app, read user config, and launching routines for workers and reputers as configured per user.
+- __usecase__: the particular use case for the Offchain Node, i.e., launching the app, reading user config, and launching routines for workers and reputers as configured per user.
 
-Each routine uses the chain interactions to communicate with the chain, by use of RPC (txs) and GRPC (queries) in each case.
+Each routine uses chain interactions to communicate with the chain, by use of RPC (txs) and GRPC (queries) in each case.
 
 ## Cycle Example
 
@@ -135,27 +135,26 @@ Zone Breakdown (example numbers):
   - Submissions are accepted within the submission window
   - Submission window opens at epoch start
 - Waiting Zone Behavior
-  - The behaviour of the node when waiting for the submission window depends on its nearness to the submission window to reduce likelihood of missing a window.
+  - The behavior of the node when waiting for the submission window depends on its nearness to the submission window to reduce the likelihood of missing a window.
   - Far Zone: Longer intervals between checks, optimized for efficiency
     - This is controlled by `blockDurationEstimated` and `windowCorrectionFactor`
   - Near Zone: More frequent checks with randomization for fair participation
   - Submissions are separated - they must happen within the submission window
 
-### Random offset
+### Jitter
 
-The node introduces a random offset to the submission time to avoid the thundering herd problem alleviating mempool congestion.
+The node introduces a jitter to the submission time to avoid the thundering herd problem, alleviating mempool congestion.
 
 ## How to configure
 
 There are several ways to configure the node. In order of preference, you can do any of these: 
 * Set the `ALLORA_OFFCHAIN_NODE_CONFIG_JSON` env var with a configuration as a JSON string.
-* Set the `ALLORA_OFFCHAIN_NODE_CONFIG_FILE_PATH` env var pointing to a file, which contains configuration as JSON. An example if provided in `config.example.json`.
+* Set the `ALLORA_OFFCHAIN_NODE_CONFIG_FILE_PATH` env var pointing to a file, which contains configuration as JSON. An example is provided in `config.example.json`.
 
-Each option completely overwrites the other options.
 
 This is the entrypoint for the application that simply builds and runs the Go program.
 
-It spins off a distinct processes per role worker, reputer per topic configured in `config.json`.
+It spins off distinct processes per role (worker, reputer) per topic configured in `config.json`.
 
 ## Logging env vars
 
@@ -175,7 +174,7 @@ Please see detailed information in [gas_and_fees.md](gas_and_fees.md).
 The node will use the following timeouts:
 * `timeoutRPCSecondsQuery`: Timeout for RPC queries in seconds, including retries.
 * `timeoutRPCSecondsTx`: Timeout for RPC sending data in seconds, including retries.
-* `timeoutRPCSecondsRegistration`: Timeout for whole RPC registration process in seconds, including retries.
+* `timeoutRPCSecondsRegistration`: Timeout for the whole RPC registration process in seconds, including retries.
 * `timeoutHTTPConnection`: Timeout for HTTP connection (underlying to the RPC client) in seconds.
 
 ### GRPC / RPC connections
@@ -185,7 +184,7 @@ GRPC is used for queries, while RPC is used for transactions. At least one GRPC 
 GRPC nodes are configured in the `nodeGrpcs` array in the config.json file.
 RPC nodes are configured in the `nodeRpcs` array in the config.json file.
 
-The offchain node (via the `ConnectionManager`) will try to connect to the GRPC/RPC nodes in order of appearance in the array and then go switching when appropriate for error handling and spreading the load.
+The offchain node (via the `ConnectionManager`) will try to connect to the GRPC/RPC nodes in order of appearance in the array and then switch when appropriate for error handling and spreading the load.
 
 ### Error handling
 
@@ -195,7 +194,7 @@ Note: the node will check if the actor is whitelisted on worker setup and before
 
 #### Retries and Delays
 
-- `accounSequenceRetryDelay`: For the "account sequence mismatch" error.
+- `accountSequenceRetryDelay`: For the "account sequence mismatch" error.
 - `retryDelay`: For all other errors that need retry delays.
 - `launchRoutineDelay`: The start of the routine performs many chain interactions. This often triggers "429 Too Many Requests" error. This delay is used to avoid this error, and is set to 10 seconds by default.
 
@@ -213,7 +212,7 @@ This can be configured by the following settings in the config.json:
 A complete example is provided in `config.example.json`. 
 These below are excerpts of the configuration (with some parts omitted for brevity) for different setups:
 
-### 1 workers as inferer 
+### 1 worker as inferer 
 
 ```json
 {
@@ -230,7 +229,7 @@ These below are excerpts of the configuration (with some parts omitted for brevi
 }
 ```
 
-###  1 worker as forecaster
+### 1 worker as forecaster
 ```json
 {
    "worker": [
@@ -246,7 +245,7 @@ These below are excerpts of the configuration (with some parts omitted for brevi
 
 ```
 
-###  1 worker as inferer and forecaster
+### 1 worker as inferer and forecaster
 
 ```json
 {
