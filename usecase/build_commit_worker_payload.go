@@ -158,7 +158,7 @@ func (suite *UseCaseSuite) SignWorkerPayload(workerPayload *emissionstypes.Input
 	workerDataBundle := &emissionstypes.InputWorkerDataBundle{ // nolint: exhaustruct
 		Worker:                             wallet.Address,
 		InferenceForecastsBundle:           workerPayload,
-		InferencesForecastsBundleSignature: sig,
+		InferenceForecastsBundleSignature: sig,
 		Pubkey:                             pkStr,
 	}
 
