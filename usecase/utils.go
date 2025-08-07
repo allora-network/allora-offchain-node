@@ -1,6 +1,6 @@
 package usecase
 
-import emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
+import emissionstypes "https://github.com/allora-network/allora-chain/tree/dev/x/emissions/types"
 
 func IsEmpty(vb emissionstypes.ValueBundle) bool {
 	return vb.TopicId == 0 &&
