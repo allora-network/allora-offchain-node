@@ -73,9 +73,9 @@ type WalletConfig struct {
 	BlockDurationEstimated        float64                 // estimated average block duration in seconds
 	RegistrationWaitingBlocks     int64                   // number of blocks to wait for a registration to be included in a block
 	WindowCorrectionFactor        float64                 // correction factor for the time estimation, suggested range 0.7-0.9.
-	TimeoutRPCSecondsQuery        int64                   // timeout for rpc queries in seconds, including retries
-	TimeoutRPCSecondsTx           int64                   // timeout for rpc data send in seconds, including retries
-	TimeoutRPCSecondsRegistration int64                   // timeout for rpc registration in seconds, including retries
+	TimeoutRPCSecondsQuery        int64                   // timeout for RPC queries in seconds, including retries
+	TimeoutRPCSecondsTx           int64                   // timeout for RPC data send in seconds, including retries
+	TimeoutRPCSecondsRegistration int64                   // timeout for RPC registration in seconds, including retries
 	TimeoutHTTPConnection         int64                   // timeout for http connection in seconds
 	GrpcInsecure                  bool                    // use insecure grpc connection
 	SubmissionJitter              uint64                  // number of max seconds to add to the submission time, default: 0
