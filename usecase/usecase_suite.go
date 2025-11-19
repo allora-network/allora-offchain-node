@@ -9,6 +9,7 @@ import (
 type UseCaseSuite struct {
 	UserConfig        lib.UserConfig
 	ConnectionManager lib.ConnectionManagerInterface
+	swm               *lib.SubmissionWindowManager
 	Metrics           *metrics.Metrics
 	essentialCtx      context.Context
 	nonEssentialCtx   context.Context
@@ -29,6 +30,7 @@ func NewUseCaseSuite(
 	return &UseCaseSuite{
 		UserConfig:        userConfig,
 		ConnectionManager: connectionManager,
+		swm:               lib.NewSubmissionWindowManager(connectionManager),
 		Metrics:           Metrics,
 		essentialCtx:      essentialCtx,
 		nonEssentialCtx:   nonEssentialCtx,
