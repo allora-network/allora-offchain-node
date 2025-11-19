@@ -25,6 +25,8 @@ const (
 	WorkerWindow
 )
 
+// WindowWaker allows to watch submissions windows opening events through the comet rpc web socket, and execute the
+// attached waking logic. It allows to watch either reputer or worker windows for a specific topic id.
 type WindowWaker struct {
 	windowType        WindowType
 	connectionManager ConnectionManagerInterface
@@ -66,6 +68,8 @@ func NewWorkerWindowWaker(
 	}
 }
 
+// Start launches the waker by subscribing to the related ws event, and checking if a window is already open (in which
+// case the event has already been missed)
 func (ww *WindowWaker) Start(ctx context.Context) error {
 	ww.logger.Info().Msg("Starting window waker")
 

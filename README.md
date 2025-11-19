@@ -135,10 +135,7 @@ Zone Breakdown (example numbers):
   - Submissions are accepted within the submission window
   - Submission window opens at epoch start
 - Waiting Zone Behavior
-  - The behavior of the node when waiting for the submission window depends on its nearness to the submission window to reduce the likelihood of missing a window.
-  - Far Zone: Longer intervals between checks, optimized for efficiency
-    - This is controlled by `blockDurationEstimated` and `windowCorrectionFactor`
-  - Near Zone: More frequent checks with randomization for fair participation
+  - The node will wait by subscribing to opening window events 
   - Submissions are separated - they must happen within the submission window
 
 ### Jitter
@@ -203,8 +200,6 @@ Note: the node will check if the actor is whitelisted on worker setup and before
 The node will automatically detect the submission window length for each topic on each actor type.
 This can be configured by the following settings in the config.json:
 
-* `blockDurationEstimated`: Estimated network block time in seconds. Minimum is 1.
-* `windowCorrectionFactor`: Correction factor to fine-tune the submission window length. Higher values optimize the number of calls for window checking. Minimum is 0.5.
 * `submissionJitter`: Maximum number of seconds to randomly add to the submission time to avoid the thundering herd problem and reduce mempool congestion. When set to 0, no jitter is applied. Default is 5 seconds.
 
 ## Configuration examples
