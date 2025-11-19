@@ -21,7 +21,6 @@ const (
 )
 
 func (c *AlloraRPCClient) BroadcastTx(ctx context.Context, txBytes []byte, waitForTx bool) (*coretypes.ResultBroadcastTx, error) {
-
 	t := tmtypes.Tx(txBytes)
 	res, err := c.Client.BroadcastTxSync(ctx, t)
 	if err != nil {
