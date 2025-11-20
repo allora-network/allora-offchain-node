@@ -51,6 +51,10 @@ func NewReputerWindowWaker(
 		logger:            log.With().Uint64("topicId", topicID).Int("windowType", int(ReputerWindow)).Logger(),
 		topicID:           topicID,
 		wakeFn:            wakeFn,
+		wsNode:            nil,
+		wsQuery:           "",
+		wsWG:              nil,
+		wsStopCh:          nil,
 	}
 }
 
@@ -65,6 +69,10 @@ func NewWorkerWindowWaker(
 		logger:            log.With().Uint64("topicId", topicID).Int("windowType", int(WorkerWindow)).Logger(),
 		topicID:           topicID,
 		wakeFn:            wakeFn,
+		wsNode:            nil,
+		wsQuery:           "",
+		wsWG:              nil,
+		wsStopCh:          nil,
 	}
 }
 
@@ -177,6 +185,7 @@ func (ww *WindowWaker) subscribeToWindowEvents(ctx context.Context) error {
 
 func (ww *WindowWaker) getOpenNonceAtHeight(ctx context.Context, height int64) (*int64, error) {
 	heightCtx := metadata.AppendToOutgoingContext(ctx, "x-cosmos-block-height", fmt.Sprintf("%d", height))
+	var nonce *int64
 	if ww.windowType == WorkerWindow {
 		window, err := RunWithNodeRetry(
 			ctx,
@@ -185,7 +194,7 @@ func (ww *WindowWaker) getOpenNonceAtHeight(ctx context.Context, height int64) (
 				return emissionstypes.NewQueryServiceClient(node.Chain.GRPCClient).
 					GetWorkerSubmissionWindowStatus(
 						heightCtx,
-						&emissionstypes.GetWorkerSubmissionWindowStatusRequest{TopicId: ww.topicID},
+						&emissionstypes.GetWorkerSubmissionWindowStatusRequest{TopicId: ww.topicID}, //nolint: exhaustruct
 					)
 			},
 			"get current window status",
@@ -195,7 +204,7 @@ func (ww *WindowWaker) getOpenNonceAtHeight(ctx context.Context, height int64) (
 			return nil, err
 		}
 		if window.IsOpen {
-			return &window.CurrentNonceBlockHeight, nil
+			nonce = &window.CurrentNonceBlockHeight
 		}
 	} else {
 		window, err := RunWithNodeRetry(
@@ -205,7 +214,7 @@ func (ww *WindowWaker) getOpenNonceAtHeight(ctx context.Context, height int64) (
 				return emissionstypes.NewQueryServiceClient(node.Chain.GRPCClient).
 					GetReputerSubmissionWindowStatus(
 						heightCtx,
-						&emissionstypes.GetReputerSubmissionWindowStatusRequest{TopicId: ww.topicID},
+						&emissionstypes.GetReputerSubmissionWindowStatusRequest{TopicId: ww.topicID}, //nolint: exhaustruct
 					)
 			},
 			"get current window status",
@@ -215,10 +224,10 @@ func (ww *WindowWaker) getOpenNonceAtHeight(ctx context.Context, height int64) (
 			return nil, err
 		}
 		if window.IsOpen {
-			return &window.CurrentNonceBlockHeight, nil
+			nonce = &window.CurrentNonceBlockHeight
 		}
 	}
-	return nil, nil
+	return nonce, nil
 }
 
 func (ww *WindowWaker) prepareWSQuery() string {
@@ -250,6 +259,7 @@ type SubmissionWindowManager struct {
 func NewSubmissionWindowManager(connectionManager ConnectionManagerInterface) *SubmissionWindowManager {
 	return &SubmissionWindowManager{
 		connectionManager: connectionManager,
+		wakers:            nil,
 	}
 }
 
