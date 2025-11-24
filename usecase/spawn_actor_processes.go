@@ -70,10 +70,13 @@ func (suite *UseCaseSuite) Start() error {
 		}
 	}
 
-	<-suite.essentialCtx.Done()
-	log.Info().Msg("Essential routines channel unblocked")
+	go func() {
+		<-suite.essentialCtx.Done()
+		log.Info().Msg("Essential ctx done, closing")
+		suite.swm.Stop()
+	}()
 
-	suite.swm.Stop()
+	suite.swm.Join()
 	return nil
 }
 

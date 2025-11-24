@@ -27,10 +27,15 @@ func NewUseCaseSuite(
 		return nil, err
 	}
 
+	swm, err := lib.NewSubmissionWindowManager(connectionManager)
+	if err != nil {
+		return nil, err
+	}
+
 	return &UseCaseSuite{
 		UserConfig:        userConfig,
 		ConnectionManager: connectionManager,
-		swm:               lib.NewSubmissionWindowManager(connectionManager),
+		swm:               swm,
 		Metrics:           Metrics,
 		essentialCtx:      essentialCtx,
 		nonEssentialCtx:   nonEssentialCtx,

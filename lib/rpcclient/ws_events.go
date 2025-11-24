@@ -30,7 +30,7 @@ func NewWSEvents(remote, wsEndpoint string, logger zerolog.Logger) (*WSEvents, e
 	var err error
 	w.ws, err = jsonrpcclient.NewWS(remote, wsEndpoint, jsonrpcclient.OnReconnect(func() {
 		w.redoSubscriptions()
-	}), jsonrpcclient.MaxReconnectAttempts(10))
+	}), jsonrpcclient.MaxReconnectAttempts(8))
 	if err != nil {
 		return nil, err
 	}

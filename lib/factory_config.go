@@ -51,10 +51,6 @@ func getAlloraRPCClient(config *UserConfig, rpc string) (alloraRpcClient *rpccli
 		return nil, fmt.Errorf("error creating comet rpc client")
 	}
 
-	if err := cmtCli.Start(); err != nil {
-		return nil, fmt.Errorf("error starting comet rpc client")
-	}
-
 	return &rpcclient.AlloraRPCClient{Client: cmtCli}, nil
 }
 

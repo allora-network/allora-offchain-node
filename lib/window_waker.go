@@ -1,13 +1,13 @@
 package lib
 
 import (
+	"allora_offchain_node/lib/rpcclient"
 	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
-	cometrpc "github.com/cometbft/cometbft/rpc/client/http"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	comettypes "github.com/cometbft/cometbft/types"
 	cosmostypes "github.com/cosmos/cosmos-sdk/types"
@@ -34,7 +34,7 @@ type WindowWaker struct {
 	topicID           emissionstypes.TopicId
 	wakeFn            WindowWakeFn
 
-	wsNode   *cometrpc.HTTP
+	ws       *rpcclient.WSEvents
 	wsQuery  string
 	wsWG     *sync.WaitGroup
 	wsStopCh chan struct{}
@@ -42,6 +42,7 @@ type WindowWaker struct {
 
 func NewReputerWindowWaker(
 	connectionManager ConnectionManagerInterface,
+	ws *rpcclient.WSEvents,
 	topicID emissionstypes.TopicId,
 	wakeFn WindowWakeFn,
 ) *WindowWaker {
@@ -51,7 +52,7 @@ func NewReputerWindowWaker(
 		logger:            log.With().Uint64("topicId", topicID).Int("windowType", int(ReputerWindow)).Logger(),
 		topicID:           topicID,
 		wakeFn:            wakeFn,
-		wsNode:            nil,
+		ws:                ws,
 		wsQuery:           "",
 		wsWG:              nil,
 		wsStopCh:          nil,
@@ -60,6 +61,7 @@ func NewReputerWindowWaker(
 
 func NewWorkerWindowWaker(
 	connectionManager ConnectionManagerInterface,
+	ws *rpcclient.WSEvents,
 	topicID emissionstypes.TopicId,
 	wakeFn WindowWakeFn,
 ) *WindowWaker {
@@ -69,7 +71,7 @@ func NewWorkerWindowWaker(
 		logger:            log.With().Uint64("topicId", topicID).Int("windowType", int(WorkerWindow)).Logger(),
 		topicID:           topicID,
 		wakeFn:            wakeFn,
-		wsNode:            nil,
+		ws:                ws,
 		wsQuery:           "",
 		wsWG:              nil,
 		wsStopCh:          nil,
@@ -112,13 +114,7 @@ func (ww *WindowWaker) Start(ctx context.Context) error {
 }
 
 func (ww *WindowWaker) subscribeToWindowEvents(ctx context.Context) error {
-	node, err := ww.connectionManager.GetCurrentTxNode()
-	if err != nil {
-		return err
-	}
-
-	ww.wsNode = node.Chain.RPCClient.Client
-	evtsChan, err := ww.wsNode.Subscribe(ctx, "", ww.prepareWSQuery())
+	evtsChan, err := ww.ws.Subscribe(ctx, ww.prepareWSQuery())
 	if err != nil {
 		return err
 	}
@@ -244,7 +240,7 @@ func (ww *WindowWaker) prepareWSQuery() string {
 
 func (ww *WindowWaker) Stop(ctx context.Context) {
 	ww.wsStopCh <- struct{}{}
-	if err := ww.wsNode.Unsubscribe(ctx, "", ww.wsQuery); err != nil {
+	if err := ww.ws.Unsubscribe(ctx, ww.wsQuery); err != nil {
 		ww.logger.Err(err).Msg("Failed to unsubscribe comet ws stopping window waker")
 	}
 
@@ -253,18 +249,52 @@ func (ww *WindowWaker) Stop(ctx context.Context) {
 
 type SubmissionWindowManager struct {
 	connectionManager ConnectionManagerInterface
-	wakers            []*WindowWaker
+	ws                *rpcclient.WSEvents
+	wsRunning         bool
+	logger            zerolog.Logger
+	stopCh            chan struct{}
+
+	mtx    sync.Mutex
+	wakers []*WindowWaker
 }
 
-func NewSubmissionWindowManager(connectionManager ConnectionManagerInterface) *SubmissionWindowManager {
-	return &SubmissionWindowManager{
+// NewSubmissionWindowManager creates a new SubmissionWindowManager, initiating the underlying used web socket for
+// subscribing to events, launching the listening routine.
+func NewSubmissionWindowManager(connectionManager ConnectionManagerInterface) (*SubmissionWindowManager, error) {
+	node, err := connectionManager.GetCurrentTxNode()
+	if err != nil {
+		return nil, err
+	}
+
+	ws, err := rpcclient.NewWSEvents(node.ServerAddress, "/websocket", log.With().Logger())
+	if err != nil {
+		return nil, err
+	}
+
+	swm := &SubmissionWindowManager{
 		connectionManager: connectionManager,
+		ws:                ws,
+		wsRunning:         true,
+		logger:            log.With().Logger(),
+		stopCh:            make(chan struct{}),
+		mtx:               sync.Mutex{},
 		wakers:            nil,
 	}
+
+	go swm.wsListen()
+
+	return swm, nil
 }
 
 func (swm *SubmissionWindowManager) WakeOnWorkerWindowOpen(ctx context.Context, topicID emissionstypes.TopicId, wakeFn WindowWakeFn) error {
-	ww := NewWorkerWindowWaker(swm.connectionManager, topicID, wakeFn)
+	swm.mtx.Lock()
+	defer swm.mtx.Unlock()
+
+	if !swm.wsRunning {
+		return fmt.Errorf("ws not running")
+	}
+
+	ww := NewWorkerWindowWaker(swm.connectionManager, swm.ws, topicID, wakeFn)
 	if err := ww.Start(ctx); err != nil {
 		return err
 	}
@@ -274,7 +304,14 @@ func (swm *SubmissionWindowManager) WakeOnWorkerWindowOpen(ctx context.Context, 
 }
 
 func (swm *SubmissionWindowManager) WakeOnReputerWindowOpen(ctx context.Context, topicID emissionstypes.TopicId, wakeFn WindowWakeFn) error {
-	ww := NewReputerWindowWaker(swm.connectionManager, topicID, wakeFn)
+	swm.mtx.Lock()
+	defer swm.mtx.Unlock()
+
+	if !swm.wsRunning {
+		return fmt.Errorf("ws not running")
+	}
+
+	ww := NewReputerWindowWaker(swm.connectionManager, swm.ws, topicID, wakeFn)
 	if err := ww.Start(ctx); err != nil {
 		return err
 	}
@@ -283,7 +320,20 @@ func (swm *SubmissionWindowManager) WakeOnReputerWindowOpen(ctx context.Context,
 	return nil
 }
 
-func (swm *SubmissionWindowManager) Stop() {
+// wsListen let the WSEvent listener to the websocket events in a blocking way, stopping wakers on exit.
+func (swm *SubmissionWindowManager) wsListen() {
+	swm.ws.Listen()
+
+	swm.logger.Info().Msg("WS closed, stopping wakers")
+	swm.mtx.Lock()
+	swm.stopWakers()
+	swm.wsRunning = false
+	swm.mtx.Unlock()
+
+	swm.stopCh <- struct{}{}
+}
+
+func (swm *SubmissionWindowManager) stopWakers() {
 	ctx, cl := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cl()
 
@@ -297,4 +347,17 @@ func (swm *SubmissionWindowManager) Stop() {
 	}
 
 	wg.Wait()
+}
+
+// Join waits for the underlying routine termination, denoting that the web socket is closed as of every WindowWaker.
+// Termination can be provoked by either a call to Stop, or if the web socket connection was lost without being able to
+// reconnect.
+func (swm *SubmissionWindowManager) Join() {
+	<-swm.stopCh
+}
+
+// Stop the web socket and all WindowWaker in a non-blocking manner (i.e. use Join to sync with underlying routines).
+// It stops the web socket client which will stop wakers in cascade.
+func (swm *SubmissionWindowManager) Stop() {
+	swm.ws.Stop()
 }
