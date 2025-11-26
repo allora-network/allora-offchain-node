@@ -176,6 +176,13 @@ func TestParseSequenceFromAccountMismatchError(t *testing.T) {
 			expectedCurr: 888888,
 			expectError:  false,
 		},
+		{
+			name:         "wrapped error (e.g. simulate rpc query)",
+			errorMessage: "rpc error: code = Unknown desc = rpc error: code = Unknown desc = account sequence mismatch, expected 4, got 3: incorrect account sequence [cosmos/cosmos-sdk@v0.50.14/x/auth/ante/sigverify.go:290] with gas used: '14542'",
+			expectedExp:  4,
+			expectedCurr: 3,
+			expectError:  false,
+		},
 		{ // nolint:exhaustruct
 			name:         "Invalid format - wrong text",
 			errorMessage: "some other error message",

@@ -203,22 +203,7 @@ func simulateWithSequenceRetry(
 		}
 
 		if errors.Is(err, ErrTxSimulationError) {
-			expected, current, err := parseSequenceFromAccountMismatchError(err.Error())
-			if err != nil {
-				return 0, nil, err
-			}
-			log.Warn().Msgf("Simulation error, resetting sequence to %d, was %d (retry %d/%d)",
-				expected, current, retryCount, maxRetries)
-
-			wallet, err := queryNode.ConnectionManager.GetWallet()
-			if err != nil {
-				return 0, nil, err
-			}
-			wallet.SetSequence(expected)
-			txParams.Sequence = expected
-
 			// Rebuild tx with new sequence
-			log.Debug().Msgf("Rebuilding tx with new sequence %d", expected)
 			txBytes, err = transaction.BuildAndSignTransaction(ctx, txParams, encodingConfig, msgs...)
 			if err != nil {
 				return 0, nil, err
