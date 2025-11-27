@@ -16,7 +16,7 @@ import (
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
 )
 
-func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker lib.WorkerConfig, nonce *emissionstypes.Nonce, timeoutHeight uint64) error {
+func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker lib.WorkerConfig, nonce emissionstypes.Nonce, timeoutHeight uint64) error {
 	log := log.With().Uint64("topicId", worker.TopicId).Str("actorType", "worker").Logger()
 	log.Info().Msg("Building worker payload")
 
@@ -64,7 +64,7 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 	if err != nil {
 		return errorsmod.Wrapf(err, "Error signing worker payload, topicId: %d, blockHeight: %d", worker.TopicId, nonce.BlockHeight)
 	}
-	workerDataBundle.Nonce = nonce
+	workerDataBundle.Nonce = &nonce
 	workerDataBundle.TopicId = worker.TopicId
 
 	if err := workerDataBundle.Validate(); err != nil {

@@ -178,14 +178,9 @@ func main() {
 	}
 
 	log.Info().Msg("Starting spawning processes...")
-	go func() {
-		err := spawner.Start()
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to spawn processes, exiting")
-		}
-	}()
-
-	<-essentialCtx.Done()
+	if err := spawner.Start(); err != nil {
+		log.Error().Err(err).Msg("Failed to spawn processes, exiting")
+	}
 
 	log.Info().Msg("End of application, closing...")
 }

@@ -53,6 +53,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## v0.13.0
+
+### Added
+
+* [#138](https://github.com/allora-network/allora-offchain-node/pull/138) Detect submission window opening based on events 
+
+### Changed
+
+### Fixed
+
+### Removed
+
+### Security
 
 ## v0.12.0
 
