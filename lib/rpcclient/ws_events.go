@@ -45,31 +45,24 @@ func NewWSEvents(remote, wsEndpoint string, logger zerolog.Logger) (*WSEvents, e
 // Listen start the web socket and route received events to their associated channels. It is blocking until the web socket
 // is stopped.
 func (w *WSEvents) Listen() {
-	for {
-		select {
-		case resp, ok := <-w.ws.ResponsesCh:
-			if !ok {
-				return
-			}
-
-			if resp.Error != nil {
-				w.logger.Err(resp.Error).Msg("WS response error")
-				continue
-			}
-
-			result := new(ctypes.ResultEvent)
-			err := cmtjson.Unmarshal(resp.Result, result)
-			if err != nil {
-				w.logger.Err(err).Msg("Failed to unmarshal WS response")
-				continue
-			}
-
-			w.mtx.RLock()
-			if out, ok := w.subscriptions[result.Query]; ok {
-				out <- *result
-			}
-			w.mtx.RUnlock()
+	for resp := range w.ws.ResponsesCh {
+		if resp.Error != nil {
+			w.logger.Err(resp.Error).Msg("WS response error")
+			continue
 		}
+
+		result := new(ctypes.ResultEvent)
+		err := cmtjson.Unmarshal(resp.Result, result)
+		if err != nil {
+			w.logger.Err(err).Msg("Failed to unmarshal WS response")
+			continue
+		}
+
+		w.mtx.RLock()
+		if out, ok := w.subscriptions[result.Query]; ok {
+			out <- *result
+		}
+		w.mtx.RUnlock()
 	}
 }
 
