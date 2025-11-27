@@ -57,11 +57,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-* [#138](https://github.com/allora-network/allora-offchain-node/pull/138) Detect submission window opening based on events 
-
 ### Changed
 
 ### Fixed
+
+* [#138](https://github.com/allora-network/allora-offchain-node/pull/138) Detect submission window opening based on events
+* [#141](https://github.com/allora-network/allora-offchain-node/pull/141) Handle account sequence issues in tx simulation
 
 ### Removed
 

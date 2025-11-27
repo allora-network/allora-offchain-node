@@ -392,7 +392,7 @@ func IsErrorSwitchingNode(err error) bool {
 // Extract expected and current sequence numbers from account sequence mismatch error message
 func parseSequenceFromAccountMismatchError(errorMessage string) (expected uint64, current uint64, err error) {
 	// Update regex to handle flexible whitespace
-	re := regexp.MustCompile(`account sequence mismatch,\s*expected\s+(\d+),\s*got\s+(\d+)`)
+	re := regexp.MustCompile(`.*account sequence mismatch,\s*expected\s+(\d+),\s*got\s+(\d+).*`)
 	matches := re.FindStringSubmatch(errorMessage)
 
 	if len(matches) == 3 {
