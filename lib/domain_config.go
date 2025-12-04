@@ -36,11 +36,8 @@ const (
 	DefaultLaunchRoutineDelay            int64   = 5
 	DefaultRetryDelay                    int64   = 3
 	DefaultAccountSequenceRetryDelay     int64   = 5
-	DefaultBaseGas                       uint64  = 200000
-	DefaultGasPerByte                    uint64  = 1
 	DefaultKeyringBackend                string  = "test"
 	DefaultGasAdjustment                 float64 = 1.2
-	DefaultSimulateGasFromStart          bool    = false
 	DefaultGrpcInsecure                  bool    = false
 	DefaultRegistrationWaitingBlocks     int64   = 10
 	DefaultSubmissionJitter              uint64  = 5
@@ -59,10 +56,7 @@ type WalletConfig struct {
 	GasPrices                     string                  // gas prices to use for the allora client - "auto" for auto-calculated fees
 	GasPriceUpdateInterval        int64                   // number of seconds to wait between updates to the gas price
 	GasAdjustment                 float64                 // adjustment factor for the gas used
-	SimulateGasFromStart          bool                    // true: simulate gas on first try, false: simulate gas on retry only
 	MaxFees                       FlexibleCosmosIntAmount // max fees to pay for a single transaction (as string or number)
-	BaseGas                       uint64                  // base gas to use for the allora client
-	GasPerByte                    uint64                  // gas per byte to use for the allora client
 	NodeRPCs                      []string                // rpc nodes for allora chain
 	NodeGRPCs                     []string                // grpc nodes for allora chain
 	MaxRetries                    int64                   // retry to get data from chain up to this many times per query or tx
@@ -194,12 +188,6 @@ func (c *UserConfig) CheckAndSetDefaults() {
 	}
 	if c.Wallet.TimeoutHTTPConnection == 0 {
 		c.Wallet.TimeoutHTTPConnection = DefaultTimeoutHTTPConnection
-	}
-	if c.Wallet.BaseGas == 0 {
-		c.Wallet.BaseGas = DefaultBaseGas
-	}
-	if c.Wallet.GasPerByte == 0 {
-		c.Wallet.GasPerByte = DefaultGasPerByte
 	}
 	if c.Wallet.KeyringBackend == "" {
 		c.Wallet.KeyringBackend = DefaultKeyringBackend
