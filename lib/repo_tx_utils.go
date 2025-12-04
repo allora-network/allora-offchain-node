@@ -2,7 +2,6 @@ package lib
 
 import (
 	"allora_offchain_node/lib/rpcclient"
-	"allora_offchain_node/lib/transaction"
 	types "allora_offchain_node/lib/types"
 	"context"
 	"errors"
@@ -10,9 +9,12 @@ import (
 	"strings"
 
 	errorsmod "cosmossdk.io/errors"
+	"cosmossdk.io/math"
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
+	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/types/module/testutil"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"github.com/rs/zerolog/log"
 )
 
@@ -39,12 +41,8 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 		PubKey:        wallet.GetPubKey(),
 		TimeoutHeight: timeoutHeight,
 		GasEstimationConfig: types.GasEstimationConfig{
-			BaseGas:       walletConfig.BaseGas,
-			GasPerByte:    walletConfig.GasPerByte,
 			MinGasPrice:   gasPrice,
-			SimulateTx:    walletConfig.SimulateGasFromStart,
 			GasAdjustment: walletConfig.GasAdjustment,
-			OverrideGas:   0,
 			OverrideFees:  0,
 		},
 		FeeGranterAddress: walletConfig.FeeGranterAddress,
@@ -71,6 +69,7 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 		txParams.Sequence = wallet.GetSequence()
 		txResp, _, errTx := SendTransactionViaRPC(ctx, txNode.Chain.RPCClient, txNode.ServerAddress, queryNode, txParams, false, req)
 		if errTx == nil {
+
 			if txResp != nil {
 				if strings.TrimSpace(txResp.Log) == "" {
 					log.Info().Msgf("Transaction sent successfully: %v\n", txResp.Hash.String())
@@ -82,7 +81,11 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 					errTx = fmt.Errorf("tx failed: %s", txResp.Log)
 				}
 			}
+		}
 
+		if errors.Is(err, ErrTxSimulationError) {
+			// simulation failed, let's retry
+			continue
 		}
 
 		// Handle error on broadcasting
@@ -124,8 +127,7 @@ func (connectionManager *ConnectionManager) SendDataWithRetry(ctx context.Contex
 			}
 			continue
 		case ErrorProcessingGas:
-			log.Info().Msg("Insufficient gas, marking gas recalculation on tx broadcasting for retrial")
-			txParams.GasEstimationConfig.SimulateTx = true
+			log.Info().Msg("Insufficient gas, will re-simulate and retry")
 			continue
 
 		case ErrorProcessingFailure:
@@ -151,26 +153,9 @@ func SendTransactionViaRPC(ctx context.Context,
 ) (*coretypes.ResultBroadcastTx, string, error) {
 	log.Debug().Msgf("Sending transaction via RPC to %s", rpcEndpoint)
 	// Build and sign the transaction to get the bytes
-	encodingConfig := transaction.GetEncodingConfig()
-	txBytes, err := transaction.BuildAndSignTransaction(ctx, txParams, encodingConfig, msgs...)
+	txBytes, err := BuildAndSignTransaction(ctx, queryNode, txParams, msgs...)
 	if err != nil {
 		return nil, "", err
-	}
-
-	var gas uint64
-	if txParams.GasEstimationConfig.SimulateTx {
-		gas, _, err = simulateWithSequenceRetry(ctx,
-			queryNode,
-			txParams,
-			encodingConfig,
-			queryNode.ConnectionManager.walletConfig.MaxRetries,
-			txBytes,
-			msgs...)
-		if err != nil {
-			return nil, "", err
-		}
-		log.Debug().Msgf("Simulated gas: %d", gas)
-		txParams.GasEstimationConfig.OverrideGas = gas
 	}
 
 	// Broadcast the transaction via RPC
@@ -182,38 +167,98 @@ func SendTransactionViaRPC(ctx context.Context,
 	return resp, string(txBytes), nil
 }
 
-// Simulates the tx gas calculation limit via GRPC query.
-// If the simulation fails due to account sequence mismatch, it resets the sequence and retries.
-func simulateWithSequenceRetry(
+func BuildAndSignTransaction(
 	ctx context.Context,
-	queryNode *NodeConfig,
+	node *NodeConfig,
 	txParams *types.TransactionParams,
-	encodingConfig testutil.TestEncodingConfig,
-	maxRetries int64,
-	initialTxBytes []byte,
 	msgs ...sdktypes.Msg,
-) (gas uint64, txBytes []byte, err error) {
+) ([]byte, error) {
+	if err := txParams.Validate(); err != nil {
+		return nil, err
+	}
+	log.Debug().Msgf("Building transaction with sequence %d", txParams.Sequence)
+	// Create a new TxBuilder
+	txBuilder := txConfig.NewTxBuilder()
+	txBuilder.SetTimeoutHeight(txParams.TimeoutHeight)
 
-	txBytes = initialTxBytes
-	for retryCount := int64(0); retryCount <= maxRetries; retryCount++ {
-		log.Debug().Msgf("Simulating tx with sequence retry %d/%d", retryCount, maxRetries)
-		gas, err = queryNode.SimulateTxWithFallback(ctx, txBytes)
-		if err == nil {
-			return gas, txBytes, nil
-		}
-
-		if errors.Is(err, ErrTxSimulationError) {
-			// Rebuild tx with new sequence
-			txBytes, err = transaction.BuildAndSignTransaction(ctx, txParams, encodingConfig, msgs...)
-			if err != nil {
-				return 0, nil, err
-			}
-			continue
-		}
-
-		// For other errors, return immediately
-		return 0, nil, err
+	if err := txBuilder.SetMsgs(msgs...); err != nil {
+		return nil, err
 	}
 
-	return 0, nil, fmt.Errorf("tx simulation failed after %d retries", maxRetries)
+	sigV2 := signing.SignatureV2{
+		PubKey:   txParams.PubKey,
+		Sequence: txParams.Sequence,
+		Data: &signing.SingleSignatureData{ // nolint:exhaustruct
+			SignMode: signing.SignMode_SIGN_MODE_DIRECT,
+		},
+	}
+	if err := txBuilder.SetSignatures(sigV2); err != nil {
+		return nil, err
+	}
+
+	// Gas simulation
+	unsignedTx, err := txConfig.TxEncoder()(txBuilder.GetTx())
+	if err != nil {
+		return nil, err
+	}
+	gas, err := node.SimulateTxWithRetry(ctx, unsignedTx)
+	if err != nil {
+		return nil, err
+	}
+	if txParams.GasEstimationConfig.GasAdjustment > 0 {
+		gas = uint64(float64(gas) * txParams.GasEstimationConfig.GasAdjustment)
+	}
+	txBuilder.SetGasLimit(gas)
+
+	// Calculate fees for tx, potentially override with a fixed value
+	var fees math.Int
+	if txParams.GasEstimationConfig.OverrideFees > 0 {
+		// Set the gas price to the override value
+		fees = math.NewIntFromUint64(txParams.GasEstimationConfig.OverrideFees)
+	} else {
+		// Calculate using gas limit and min gas price
+		fees, err = rpcclient.CalculateFees(gas, txParams.GasEstimationConfig.MinGasPrice)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// Set fees for tx
+	txBuilder.SetFeeAmount(sdktypes.NewCoins(sdktypes.NewCoin(txParams.Denom, fees)))
+
+	// Set fee granter (optional)
+	if txParams.FeeGranterAddress != "" {
+		granterAddr, err := sdktypes.AccAddressFromBech32(txParams.FeeGranterAddress)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse fee granter address %v: %w", txParams.FeeGranterAddress, err)
+		}
+		txBuilder.SetFeeGranter(granterAddr)
+	}
+
+	signerData := authsigning.SignerData{ // nolint:exhaustruct
+		ChainID:       txParams.ChainID,
+		AccountNumber: txParams.AccNum,
+		Sequence:      txParams.Sequence,
+	}
+
+	// Sign the transaction with the private key
+	sigV2, err = tx.SignWithPrivKey(
+		ctx,
+		signing.SignMode_SIGN_MODE_DIRECT,
+		signerData,
+		txBuilder,
+		txParams.PrivKey,
+		txConfig,
+		txParams.Sequence,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set the signed signature back to the txBuilder
+	if err := txBuilder.SetSignatures(sigV2); err != nil {
+		return nil, err
+	}
+
+	// Encode the transaction
+	return txConfig.TxEncoder()(txBuilder.GetTx())
 }
