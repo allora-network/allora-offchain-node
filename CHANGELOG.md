@@ -63,6 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [#138](https://github.com/allora-network/allora-offchain-node/pull/138) Detect submission window opening based on events
 * [#141](https://github.com/allora-network/allora-offchain-node/pull/141) Handle account sequence issues in tx simulation
+* [#142](https://github.com/allora-network/allora-offchain-node/pull/142) Enforces the use of simulated gas in tx
 
 ### Removed
 
