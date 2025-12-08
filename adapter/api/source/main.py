@@ -37,12 +37,12 @@ def get_truth(token, blockheight):
 
 @app.route('/is_never_negative', methods=['POST'])
 def is_never_negative():
-    return True
+    return jsonify({"is_never_negative":True})
 
 
 @app.route('/calculate', methods=['POST'])
 def calculate_loss():
-    return "1.0"
+    return jsonify({"loss":"1.0"})
 
 
 if __name__ == '__main__':
