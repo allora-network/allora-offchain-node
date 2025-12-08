@@ -27,12 +27,16 @@ func DefaultTxConfig() (sdkclient.TxConfig, error) {
 	interfaceRegistry, err := codectypes.NewInterfaceRegistryWithOptions(codectypes.InterfaceRegistryOptions{
 		ProtoFiles: proto.HybridResolver,
 		SigningOptions: signing.Options{
+			FileResolver: nil,
+			TypeResolver: nil,
 			AddressCodec: address.Bech32Codec{
 				Bech32Prefix: sdk.GetConfig().GetBech32AccountAddrPrefix(),
 			},
 			ValidatorAddressCodec: address.Bech32Codec{
 				Bech32Prefix: sdk.GetConfig().GetBech32ValidatorAddrPrefix(),
 			},
+			CustomGetSigners:  nil,
+			MaxRecursionDepth: 0,
 		},
 	})
 	if err != nil {
