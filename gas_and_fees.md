@@ -11,18 +11,12 @@ Allora Network implements the [Feemarket](https://github.com/skip-mev/feemarket)
 
 ## Settings
 
-### Manual or Simulation
-
-- `simulateGasFromStart` (bool): if set to `true`, the node will simulate the gas on the first try, otherwise it will only simulate the tx on the retries. Making it false will reduce the number of simulations, and be based on configuration gas estimation. When gas simulation is enabled, the node will apply a gas adjustment factor to the gas price, and `BaseGas` and `GasPerByte` are ignored.
-In any case, simulation is used on retries if such settings fail due to an `out of gas` error. 
-Recommended: `true`. Set it to false for finer grain control, e.g. to ensure tx gets in at the risk paying more.
-
 
 ### Gas calculation
+
+The amount of gas is estimated by performing a transaction simulation against an rpc node, the estimated gas is then adjusted using the configured factor.
+
 - `gasAdjustment` (float): is the adjustment factor for the gas used. This is used to increase the factor provided by the chain to account for the actual gas price in the chain. Recommended: `1.2`.
-- `simulateGasFromStart` (bool): When `simulateGasFromStart` is set to `true`, the node will use the simulated value, applyiung the gas adjustment factor, and `BaseGas` and `GasPerByte` are ignored. When `simulateGasFromStart` is set to `false`, the node will use the following settings to calculate the gas and fees on the first run:
-- `BaseGas` (int): set the base gas for a transaction. This is the minimum gas that will be used for a transaction. Recommended: `200000`.
-- `GasPerByte` (int): set the gas price per byte for a transaction. This is the price of the transaction in `uallo` per byte. Recommended: `1`.
 
 
 ### Gas Prices

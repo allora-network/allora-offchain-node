@@ -50,29 +50,3 @@ func (node *NodeConfig) SimulateTxWithRetry(
 
 	return estimatedGas, nil
 }
-
-// SimulateTxWithFallback attempts simulation across multiple nodes
-func (node *NodeConfig) SimulateTxWithFallback(
-	ctx context.Context,
-	txBytes []byte,
-) (uint64, error) {
-	gas, err := node.SimulateTxWithRetry(ctx, txBytes)
-	if err == nil {
-		return gas, nil
-	}
-
-	// Try fallback nodes if primary fails
-	log.Debug().
-		Str("rpc", node.ServerAddress).
-		Err(err).
-		Msg("Primary node simulation failed, trying fallback nodes")
-
-	// Get next available node
-	nextNode, err := node.ConnectionManager.SwitchToNextQueryNode()
-	if err != nil {
-		return 0, errorsmod.Wrapf(err, "failed to switch to next node after simulation failure")
-	}
-
-	// Try simulation on new node
-	return nextNode.SimulateTxWithRetry(ctx, txBytes)
-}
