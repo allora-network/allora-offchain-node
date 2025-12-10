@@ -13,6 +13,9 @@ Allora Network implements the [Feemarket](https://github.com/skip-mev/feemarket)
 
 
 ### Gas calculation
+
+The amount of gas is estimated by performing a transaction simulation against an rpc node, the estimated gas is then adjusted using the configured factor.
+
 - `gasAdjustment` (float): is the adjustment factor for the gas used. This is used to increase the factor provided by the chain to account for the actual gas price in the chain. Recommended: `1.2`.
 
 
