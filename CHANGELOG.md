@@ -53,6 +53,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## v0.13.1
+
+### Added
+
+### Changed
+
+* [#144](https://github.com/allora-network/allora-offchain-node/pull/144) Upgrade to v0.15.1 chain dependencies
+
+### Fixed
+
+### Removed
+
+### Security
+
+
 ## v0.13.0
 
 ### Added
