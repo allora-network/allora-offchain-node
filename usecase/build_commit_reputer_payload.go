@@ -1,19 +1,21 @@
 package usecase
 
 import (
-	lib "allora_offchain_node/lib"
-	auth "allora_offchain_node/lib/auth"
-	metrics "allora_offchain_node/metrics"
 	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 
+	"allora_offchain_node/lib"
+	"allora_offchain_node/lib/auth"
+	"allora_offchain_node/metrics"
+
 	errorsmod "cosmossdk.io/errors"
+	"github.com/rs/zerolog/log"
+
 	alloraMath "github.com/allora-network/allora-chain/math"
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
-	"github.com/rs/zerolog/log"
 )
 
 // Get the reputer's values at the block from the chain
@@ -31,10 +33,10 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 		return errorsmod.Wrapf(err, "Error getting wallet config")
 	}
 
-	valueBundle, err := lib.RunWithNodeRetry(
+	networkInferenceBundle, err := lib.RunWithNodeRetry(
 		ctx,
 		suite.ConnectionManager,
-		func(node *lib.NodeConfig) (*emissionstypes.ValueBundle, error) {
+		func(node *lib.NodeConfig) (*emissionstypes.NetworkInferenceBundle, error) {
 			return node.GetReputerValuesAtBlock(ctx, reputer.TopicId, nonce)
 		},
 		"get reputer values",
@@ -43,18 +45,25 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 	if err != nil {
 		return errorsmod.Wrapf(err, "error getting reputer values, topic: %d, blockHeight: %d", reputer.TopicId, nonce)
 	}
-	valueBundle.ReputerRequestNonce = &emissionstypes.ReputerRequestNonce{
-		ReputerNonce: &emissionstypes.Nonce{BlockHeight: nonce},
-	}
-	valueBundle.Reputer = wallet.Address
+	networkInferenceBundle.Nonce = nonce
 
-	sourceTruth, err := reputer.GroundTruthEntrypoint.GroundTruth(reputer, nonce)
-	if err != nil {
-		return errorsmod.Wrapf(err, "error getting source truth from reputer, topicId: %d, blockHeight: %d", reputer.TopicId, nonce)
+	var sourceTruth []lib.Truth
+	if _, ok := reputer.GroundTruthParameters["LabeledGroundTruthEndpoint"]; ok {
+		sourceTruth, err = reputer.GroundTruthEntrypoint.LabeledGroundTruth(reputer, nonce)
+		if err != nil {
+			return errorsmod.Wrapf(err, "error getting labeled source truth from reputer, topicId: %d, blockHeight: %d", reputer.TopicId, nonce)
+		}
+		suite.Metrics.IncrementMetricsCounter(metrics.TruthRequestCount, wallet.Address, reputer.TopicId)
+	} else {
+		truth, err := reputer.GroundTruthEntrypoint.GroundTruth(reputer, nonce)
+		if err != nil {
+			return errorsmod.Wrapf(err, "error getting source truth from reputer, topicId: %d, blockHeight: %d", reputer.TopicId, nonce)
+		}
+		sourceTruth = append(sourceTruth, truth)
+		suite.Metrics.IncrementMetricsCounter(metrics.TruthRequestCount, wallet.Address, reputer.TopicId)
 	}
-	suite.Metrics.IncrementMetricsCounter(metrics.TruthRequestCount, wallet.Address, reputer.TopicId)
 
-	lossBundle, err := suite.ComputeLossBundle(sourceTruth, valueBundle, reputer)
+	lossBundle, err := suite.ComputeLossBundle(sourceTruth, networkInferenceBundle, reputer)
 	if err != nil {
 		return errorsmod.Wrapf(err, "error computing loss bundle, topic: %d, blockHeight: %d", reputer.TopicId, nonce)
 	}
@@ -92,7 +101,7 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 	return nil
 }
 
-func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionstypes.ValueBundle, reputer lib.ReputerConfig) (emissionstypes.InputValueBundle, error) {
+func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissionstypes.NetworkInferenceBundle, reputer lib.ReputerConfig) (emissionstypes.InputValueBundle, error) {
 	if vb == nil {
 		return emissionstypes.InputValueBundle{}, errors.New("nil ValueBundle")
 	}
@@ -100,10 +109,13 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 	if IsEmpty(*vb) {
 		return emissionstypes.InputValueBundle{}, errors.New("empty ValueBundle")
 	}
-	if err := emissionstypes.ValidateDec(vb.CombinedValue); err != nil {
+
+	combinedValues := emissionstypes.ConvertLabeledValuesToDecArray(vb.CombinedValue)
+	if err := emissionstypes.ValidateDecs(combinedValues); err != nil {
 		return emissionstypes.InputValueBundle{}, errors.New("ValueBundle - invalid CombinedValue")
 	}
-	if err := emissionstypes.ValidateDec(vb.NaiveValue); err != nil {
+	naiveValues := emissionstypes.ConvertLabeledValuesToDecArray(vb.NaiveValue)
+	if err := emissionstypes.ValidateDecs(naiveValues); err != nil {
 		return emissionstypes.InputValueBundle{}, errors.New("ValueBundle - invalid NaiveValue")
 	}
 
@@ -122,17 +134,41 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 		reputer.LossFunctionParameters.IsNeverNegative = &isNeverNegative
 	}
 
-	losses := emissionstypes.InputValueBundle{ // nolint: exhaustruct
-		TopicId:             vb.TopicId,
-		ReputerRequestNonce: vb.ReputerRequestNonce,
-		Reputer:             vb.Reputer,
-		ExtraData:           vb.ExtraData,
+	wallet, _ := suite.ConnectionManager.GetWallet()
+	losses := emissionstypes.InputValueBundle{ //nolint:exhaustruct
+		TopicId: vb.TopicId,
+		ReputerRequestNonce: &emissionstypes.ReputerRequestNonce{
+			ReputerNonce: &emissionstypes.Nonce{
+				BlockHeight: vb.Nonce,
+			},
+		},
+		Reputer: wallet.Address,
 	}
 
-	computeLoss := func(value alloraMath.Dec, description string) (alloraMath.Dec, error) {
-		lossStr, err := reputer.LossFunctionEntrypoint.LossFunction(reputer, sourceTruth, value.String(), lossMethodOptions)
-		if err != nil {
-			return alloraMath.Dec{}, errorsmod.Wrapf(err, "error computing loss for %s", description)
+	computeLoss := func(value alloraMath.DecArray, description string) (alloraMath.Dec, error) {
+		lenValue := len(value)
+		if lenValue == 0 {
+			return alloraMath.Dec{}, errors.New("no values provided to compute loss")
+		}
+		valuesStr := make([]string, lenValue)
+		for i := range value {
+			valuesStr[i] = value[i].String()
+		}
+
+		var (
+			lossStr string
+			err     error
+		)
+		if reputer.LossFunctionParameters.LabeledLossFunctionService != "" {
+			lossStr, err = reputer.LossFunctionEntrypoint.LabeledLossFunction(reputer, sourceTruth, valuesStr, lossMethodOptions)
+			if err != nil {
+				return alloraMath.Dec{}, errorsmod.Wrapf(err, "error computing labeled loss for %s", description)
+			}
+		} else {
+			lossStr, err = reputer.LossFunctionEntrypoint.LossFunction(reputer, sourceTruth[0], valuesStr[0], lossMethodOptions)
+			if err != nil {
+				return alloraMath.Dec{}, errorsmod.Wrapf(err, "error computing loss for %s", description)
+			}
 		}
 
 		loss, err := alloraMath.NewDecFromString(lossStr)
@@ -155,7 +191,7 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 	}
 
 	// Combined Value
-	if combinedLoss, err := computeLoss(vb.CombinedValue, "combined value"); err != nil {
+	if combinedLoss, err := computeLoss(combinedValues, "combined value"); err != nil {
 		return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for combined value")
 	} else {
 		losses.CombinedValue, err = alloraMath.NewBoundedExp40Dec(combinedLoss)
@@ -165,7 +201,7 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 	}
 
 	// Naive Value
-	if naiveLoss, err := computeLoss(vb.NaiveValue, "naive value"); err != nil {
+	if naiveLoss, err := computeLoss(naiveValues, "naive value"); err != nil {
 		return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for naive value")
 	} else {
 		losses.NaiveValue, err = alloraMath.NewBoundedExp40Dec(naiveLoss)
@@ -177,7 +213,8 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 	// Inferer Values
 	losses.InfererValues = make([]*emissionstypes.InputWorkerAttributedValue, len(vb.InfererValues))
 	for i, val := range vb.InfererValues {
-		if loss, err := computeLoss(val.Value, fmt.Sprintf("inferer value %d", i)); err != nil {
+		values := emissionstypes.ConvertLabeledValuesToDecArray(val.Values)
+		if loss, err := computeLoss(values, fmt.Sprintf("inferer value %d", i)); err != nil {
 			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for inferer value")
 		} else {
 			boundedLoss, err := alloraMath.NewBoundedExp40Dec(loss)
@@ -191,7 +228,8 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 	// Forecaster Values
 	losses.ForecasterValues = make([]*emissionstypes.InputWorkerAttributedValue, len(vb.ForecasterValues))
 	for i, val := range vb.ForecasterValues {
-		if loss, err := computeLoss(val.Value, fmt.Sprintf("forecaster value %d", i)); err != nil {
+		values := emissionstypes.ConvertLabeledValuesToDecArray(val.Values)
+		if loss, err := computeLoss(values, fmt.Sprintf("forecaster value %d", i)); err != nil {
 			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for forecaster value")
 		} else {
 			boundedLoss, err := alloraMath.NewBoundedExp40Dec(loss)
@@ -205,58 +243,60 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 	// One Out Inferer Values
 	losses.OneOutInfererValues = make([]*emissionstypes.InputWithheldWorkerAttributedValue, len(vb.OneOutInfererValues))
 	for i, val := range vb.OneOutInfererValues {
-		if loss, err := computeLoss(val.Value, fmt.Sprintf("one out inferer value %d", i)); err != nil {
+		values := emissionstypes.ConvertLabeledValuesToDecArray(val.CombinedInference)
+		if loss, err := computeLoss(values, fmt.Sprintf("one out inferer value %d", i)); err != nil {
 			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for one-out inferer value")
 		} else {
 			boundedLoss, err := alloraMath.NewBoundedExp40Dec(loss)
 			if err != nil {
 				return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error converting naive loss to BoundedExp40Dec")
 			}
-			losses.OneOutInfererValues[i] = &emissionstypes.InputWithheldWorkerAttributedValue{Worker: val.Worker, Value: boundedLoss}
+			losses.OneOutInfererValues[i] = &emissionstypes.InputWithheldWorkerAttributedValue{Worker: val.WithheldInferer, Value: boundedLoss}
 		}
 	}
 
 	// One Out Forecaster Values
 	losses.OneOutForecasterValues = make([]*emissionstypes.InputWithheldWorkerAttributedValue, len(vb.OneOutForecasterValues))
 	for i, val := range vb.OneOutForecasterValues {
-		if loss, err := computeLoss(val.Value, fmt.Sprintf("one out forecaster value %d", i)); err != nil {
+		values := emissionstypes.ConvertLabeledValuesToDecArray(val.CombinedInference)
+		if loss, err := computeLoss(values, fmt.Sprintf("one out forecaster value %d", i)); err != nil {
 			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for one-out forecaster value")
 		} else {
 			boundedLoss, err := alloraMath.NewBoundedExp40Dec(loss)
 			if err != nil {
 				return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error converting naive loss to BoundedExp40Dec")
 			}
-			losses.OneOutForecasterValues[i] = &emissionstypes.InputWithheldWorkerAttributedValue{Worker: val.Worker, Value: boundedLoss}
+			losses.OneOutForecasterValues[i] = &emissionstypes.InputWithheldWorkerAttributedValue{Worker: val.WithheldForecaster, Value: boundedLoss}
 		}
 	}
 
 	// One In Forecaster Values
 	losses.OneInForecasterValues = make([]*emissionstypes.InputWorkerAttributedValue, len(vb.OneInForecasterValues))
 	for i, val := range vb.OneInForecasterValues {
-		if loss, err := computeLoss(val.Value, fmt.Sprintf("one in forecaster value %d", i)); err != nil {
+		values := emissionstypes.ConvertLabeledValuesToDecArray(val.CombinedInference)
+		if loss, err := computeLoss(values, fmt.Sprintf("one in forecaster value %d", i)); err != nil {
 			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for one-in forecaster value")
 		} else {
 			boundedLoss, err := alloraMath.NewBoundedExp40Dec(loss)
 			if err != nil {
 				return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error converting naive loss to BoundedExp40Dec")
 			}
-			losses.OneInForecasterValues[i] = &emissionstypes.InputWorkerAttributedValue{Worker: val.Worker, Value: boundedLoss}
+			losses.OneInForecasterValues[i] = &emissionstypes.InputWorkerAttributedValue{Worker: val.Forecaster, Value: boundedLoss}
 		}
 	}
 
 	losses.OneOutInfererForecasterValues = make([]*emissionstypes.InputOneOutInfererForecasterValues, len(vb.OneOutInfererForecasterValues))
 	for i, val := range vb.OneOutInfererForecasterValues {
-		oneOutInfererValues := make([]*emissionstypes.InputWithheldWorkerAttributedValue, len(val.OneOutInfererValues))
-		for j, infererVal := range val.OneOutInfererValues {
-			if loss, err := computeLoss(infererVal.Value, fmt.Sprintf("one out inferer value %d", j)); err != nil {
-				return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for one-out inferer value")
-			} else {
-				boundedLoss, err := alloraMath.NewBoundedExp40Dec(loss)
-				if err != nil {
-					return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error converting naive loss to BoundedExp40Dec")
-				}
-				oneOutInfererValues[j] = &emissionstypes.InputWithheldWorkerAttributedValue{Worker: infererVal.Worker, Value: boundedLoss}
+		oneOutInfererValues := make([]*emissionstypes.InputWithheldWorkerAttributedValue, len(vb.OneOutInfererForecasterValues)) // TODO: fix!
+		values := emissionstypes.ConvertLabeledValuesToDecArray(val.CombinedInference)
+		if loss, err := computeLoss(values, fmt.Sprintf("one out inferer value %d", i)); err != nil {
+			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for one-out inferer value")
+		} else {
+			boundedLoss, err := alloraMath.NewBoundedExp40Dec(loss)
+			if err != nil {
+				return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error converting naive loss to BoundedExp40Dec")
 			}
+			oneOutInfererValues[i] = &emissionstypes.InputWithheldWorkerAttributedValue{Worker: val.WithheldInferer, Value: boundedLoss} // TODO: fix!
 		}
 
 		losses.OneOutInfererForecasterValues[i] = &emissionstypes.InputOneOutInfererForecasterValues{
@@ -271,11 +311,11 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth string, vb *emissionsty
 func (suite *UseCaseSuite) SignReputerValueBundle(valueBundle *emissionstypes.InputValueBundle) (*emissionstypes.InputReputerValueBundle, error) {
 	wallet, err := suite.ConnectionManager.GetWallet()
 	if err != nil {
-		return &emissionstypes.InputReputerValueBundle{}, errorsmod.Wrapf(err, "error getting wallet") // nolint: exhaustruct
+		return &emissionstypes.InputReputerValueBundle{}, errorsmod.Wrapf(err, "error getting wallet") //nolint:exhaustruct
 	}
 	sig, pk, err := auth.MarshalAndSignByPrivKey(valueBundle, wallet.GetPrivKey(), wallet.AddressSDK)
 	if err != nil {
-		return &emissionstypes.InputReputerValueBundle{}, errorsmod.Wrapf(err, "error signing the InferenceForecastsBundle message") // nolint: exhaustruct
+		return &emissionstypes.InputReputerValueBundle{}, errorsmod.Wrapf(err, "error signing the InferenceForecastsBundle message") //nolint:exhaustruct
 	}
 	pkStr := hex.EncodeToString(pk)
 	reputerValueBundle := &emissionstypes.InputReputerValueBundle{

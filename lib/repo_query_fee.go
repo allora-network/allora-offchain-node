@@ -37,7 +37,7 @@ func (node *NodeConfig) GetBaseFee(ctx context.Context, denom string) (float64, 
 		func(ctx context.Context, req query.PageRequest) (*feemarkettypes.GasPriceResponse, error) {
 			return node.Chain.FeeMarketQueryClient.GasPrice(ctx, &feemarkettypes.GasPriceRequest{Denom: denom})
 		},
-		query.PageRequest{}, // nolint:exhaustruct
+		query.PageRequest{}, //nolint:exhaustruct
 		"get base fee",
 		node,
 	)

@@ -57,9 +57,9 @@ func getAlloraRPCClient(config *UserConfig, rpc string) (alloraRpcClient *rpccli
 func (c *UserConfig) GenerateNodeConfig(ctx context.Context, wallet *Wallet, mode int, endpoint string) (nodeConfig *NodeConfig, err error) {
 	log.Info().Str("endpoint", endpoint).Str("address", wallet.Address).Msg("Allora client created successfully")
 
-	Node := NodeConfig{ // nolint: exhaustruct
+	Node := NodeConfig{ //nolint:exhaustruct
 		ServerAddress: endpoint,
-		Chain:         ChainConfig{}, // nolint: exhaustruct
+		Chain:         ChainConfig{}, //nolint:exhaustruct
 	}
 
 	// Get RPC allora client

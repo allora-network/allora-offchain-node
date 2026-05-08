@@ -1,19 +1,21 @@
 package lib
 
 import (
-	"allora_offchain_node/lib/rpcclient"
 	"context"
 	"fmt"
 	"sync"
 	"time"
 
-	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
+	"allora_offchain_node/lib/rpcclient"
+
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	comettypes "github.com/cometbft/cometbft/types"
 	cosmostypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/metadata"
+
+	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
 )
 
 type WindowWakeFn func(context.Context, emissionstypes.Nonce, int64)
@@ -190,7 +192,7 @@ func (ww *WindowWaker) getOpenNonceAtHeight(ctx context.Context, height int64) (
 				return emissionstypes.NewQueryServiceClient(node.Chain.GRPCClient).
 					GetWorkerSubmissionWindowStatus(
 						heightCtx,
-						&emissionstypes.GetWorkerSubmissionWindowStatusRequest{TopicId: ww.topicID}, //nolint: exhaustruct
+						&emissionstypes.GetWorkerSubmissionWindowStatusRequest{TopicId: ww.topicID}, //nolint:exhaustruct
 					)
 			},
 			"get current window status",
@@ -210,7 +212,7 @@ func (ww *WindowWaker) getOpenNonceAtHeight(ctx context.Context, height int64) (
 				return emissionstypes.NewQueryServiceClient(node.Chain.GRPCClient).
 					GetReputerSubmissionWindowStatus(
 						heightCtx,
-						&emissionstypes.GetReputerSubmissionWindowStatusRequest{TopicId: ww.topicID}, //nolint: exhaustruct
+						&emissionstypes.GetReputerSubmissionWindowStatusRequest{TopicId: ww.topicID}, //nolint:exhaustruct
 					)
 			},
 			"get current window status",
@@ -229,9 +231,9 @@ func (ww *WindowWaker) getOpenNonceAtHeight(ctx context.Context, height int64) (
 func (ww *WindowWaker) prepareWSQuery() string {
 	var qFormat string
 	if ww.windowType == ReputerWindow {
-		qFormat = "tm.event='NewBlockEvents' AND emissions.v9.EventReputerSubmissionWindowOpened.topic_id='\"%d\"'"
+		qFormat = "tm.event='NewBlockEvents' AND emissions.v10.EventReputerSubmissionWindowOpened.topic_id='\"%d\"'"
 	} else {
-		qFormat = "tm.event='NewBlockEvents' AND emissions.v9.EventWorkerSubmissionWindowOpened.topic_id='\"%d\"'"
+		qFormat = "tm.event='NewBlockEvents' AND emissions.v10.EventWorkerSubmissionWindowOpened.topic_id='\"%d\"'"
 	}
 	ww.wsQuery = fmt.Sprintf(qFormat, ww.topicID)
 

@@ -24,7 +24,7 @@ func (node *NodeConfig) GetTopicInfo(ctx context.Context, topicId emissionstypes
 				TopicId: topicId,
 			})
 		},
-		query.PageRequest{}, // nolint: exhaustruct
+		query.PageRequest{}, //nolint:exhaustruct
 		"get topic info",
 		node,
 	)

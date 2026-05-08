@@ -24,7 +24,7 @@ func (node *NodeConfig) GetBalance(ctx context.Context, inAddress string, denom 
 				Denom:   denom,
 			})
 		},
-		query.PageRequest{}, // nolint: exhaustruct
+		query.PageRequest{}, //nolint:exhaustruct
 		"get balance",
 		node,
 	)

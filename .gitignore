@@ -30,3 +30,4 @@ config.json
 
 .DS_Store
 **/__debug*
+.idea/

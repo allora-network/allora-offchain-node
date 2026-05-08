@@ -180,7 +180,7 @@ func generateRandomJitter(submissionJitter uint64) int64 {
 	if submissionJitter == 0 {
 		return 0
 	}
-	source := rand.NewSource(uint64(time.Now().UnixNano())) // nolint: gosec
+	source := rand.NewSource(uint64(time.Now().UnixNano())) //nolint:gosec
 	rng := rand.New(source)
 
 	maxSafeValue := uint64(math.MaxInt64)

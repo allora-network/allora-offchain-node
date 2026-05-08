@@ -24,7 +24,7 @@ func (node *NodeConfig) GetAccountInfo(ctx context.Context, inAddress string) (a
 		func(ctx context.Context, req query.PageRequest) (*auth.QueryAccountInfoResponse, error) {
 			return node.Chain.AuthQueryClient.AccountInfo(ctx, &auth.QueryAccountInfoRequest{Address: inAddress})
 		},
-		query.PageRequest{}, // nolint:exhaustruct
+		query.PageRequest{}, //nolint:exhaustruct
 		"get account info",
 		node,
 	)

@@ -188,7 +188,7 @@ func BuildAndSignTransaction(
 	sigV2 := signing.SignatureV2{
 		PubKey:   txParams.PubKey,
 		Sequence: txParams.Sequence,
-		Data: &signing.SingleSignatureData{ // nolint:exhaustruct
+		Data: &signing.SingleSignatureData{ //nolint:exhaustruct
 			SignMode: signing.SignMode_SIGN_MODE_DIRECT,
 		},
 	}
@@ -234,7 +234,7 @@ func BuildAndSignTransaction(
 		txBuilder.SetFeeGranter(granterAddr)
 	}
 
-	signerData := authsigning.SignerData{ // nolint:exhaustruct
+	signerData := authsigning.SignerData{ //nolint:exhaustruct
 		ChainID:       txParams.ChainID,
 		AccountNumber: txParams.AccNum,
 		Sequence:      txParams.Sequence,

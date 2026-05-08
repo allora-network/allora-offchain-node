@@ -8,6 +8,7 @@ var ErrorCodeLabels = []string{"address", "error_code"}
 // metrics
 const (
 	InferenceRequestCount          string = "allora_worker_inference_request_count"
+	LabeledInferenceRequestCount   string = "allora_worker_labeled_inference_request_count"
 	ForecastRequestCount           string = "allora_worker_forecast_request_count"
 	TruthRequestCount              string = "allora_reputer_truth_request_count"
 	WorkerChainSubmissionCount     string = "allora_worker_chain_submission_count"
@@ -24,6 +25,7 @@ const (
 // A struct that holds the name and help text for a prometheus counter
 var CounterData = []MetricsCounter{
 	{InferenceRequestCount, "The total number of times worker requests inference from source", DefaultLabels},
+	{LabeledInferenceRequestCount, "The total number of times worker requests labeled inference from source", DefaultLabels},
 	{ForecastRequestCount, "The total number of times worker requests forecast from source", DefaultLabels},
 	{TruthRequestCount, "The total number of times reputer requests truth from source", DefaultLabels},
 	{WorkerChainSubmissionCount, "The total number of worker commits to the chain", DefaultLabels},
