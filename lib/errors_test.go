@@ -249,7 +249,7 @@ func TestParseHTTPStatus(t *testing.T) {
 			name:         "With extra text",
 			input:        "Error occurred - Status: 500 Internal Server Error - more details",
 			expectedCode: 500,
-			expectedMsg:  "Internal Server Error",
+			expectedMsg:  "Internal Server Error - more details",
 			expectError:  false,
 		},
 		{
@@ -270,6 +270,28 @@ func TestParseHTTPStatus(t *testing.T) {
 			name:         "No message",
 			input:        "Status: 200",
 			expectedCode: 200,
+			expectedMsg:  "",
+			expectError:  false,
+		},
+		// --- gRPC transport phrasing (real production strings from Cloudflare-fronted gRPC) ---
+		{
+			name:         "gRPC 502 Bad Gateway from upstream",
+			input:        `rpc error: code = Unavailable desc = unexpected HTTP status code received from server: 502 (Bad Gateway); transport: received unexpected content-type "text/html"`,
+			expectedCode: 502,
+			expectedMsg:  "Bad Gateway",
+			expectError:  false,
+		},
+		{
+			name:         "gRPC 503 Service Unavailable in parens",
+			input:        `rpc error: code = Unavailable desc = unexpected HTTP status code received from server: 503 (Service Unavailable)`,
+			expectedCode: 503,
+			expectedMsg:  "Service Unavailable",
+			expectError:  false,
+		},
+		{
+			name:         "gRPC status without reason",
+			input:        `rpc error: code = Unavailable desc = unexpected HTTP status code received from server: 504`,
+			expectedCode: 504,
 			expectedMsg:  "",
 			expectError:  false,
 		},
