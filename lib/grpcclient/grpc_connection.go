@@ -60,12 +60,19 @@ func monitorGRPCConnection(ctx context.Context, grpcConnection *grpc.ClientConn,
 		return
 	}
 
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(5 * time.Second) // halved from 10s — faster reaction to upstream stream resets
 	defer ticker.Stop()
 
 	bc := newBackoffConfig()
 	retryCount := 0
 	backoff := bc.initial
+	// Track how long we've observed Idle. grpc-go transitions to Idle when
+	// the underlying HTTP/2 stream is killed but the conn object hasn't been
+	// declared TransientFailure yet (notably after CDN/LB half-closes). A
+	// transient Idle is normal (just no traffic); a sustained one means we're
+	// stuck and the next RPC will fail.
+	const idleGraceTicks = 6 // 6 ticks * 5s = 30s of idle before we treat it as stuck
+	idleTicks := 0
 
 	for {
 		select {
@@ -75,12 +82,24 @@ func monitorGRPCConnection(ctx context.Context, grpcConnection *grpc.ClientConn,
 		case <-ticker.C:
 			state := grpcConnection.GetState()
 
-			// Only attempt reconnection if we're in a failed state
-			if state != connectivity.TransientFailure && state != connectivity.Shutdown {
+			// Track Idle separately. If we stay Idle for too long, treat it
+			// the same as a TransientFailure for reconnect purposes.
+			if state == connectivity.Idle {
+				idleTicks++
+				if idleTicks < idleGraceTicks {
+					continue
+				}
+				log.Warn().Int("idle_seconds", idleTicks*5).Str("endpoint", grpcEndpoint).Msg("gRPC connection has been Idle past grace window, forcing reconnect")
+			} else {
+				idleTicks = 0
+			}
+
+			// Only attempt reconnection for failed states (plus sustained Idle handled above)
+			if state != connectivity.TransientFailure && state != connectivity.Shutdown && state != connectivity.Idle {
 				continue
 			}
 			metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.GRPCConnectionLostCount, grpcEndpoint)
-			log.Warn().Msg("gRPC Connection lost, attempting to reconnect...")
+			log.Warn().Str("state", state.String()).Msg("gRPC Connection lost, attempting to reconnect...")
 			if err := attemptReconnection(ctx, grpcConnection, &retryCount, &backoff, bc, grpcEndpoint); err != nil {
 				return // Monitor shutdown due to max retries or context cancellation
 			}
@@ -133,8 +152,17 @@ func attemptReconnection(
 	}
 }
 
-// InitializeGRPCClient initializes a gRPC client for the given endpoint with proper connection monitoring
-func InitializeGRPCClient(ctx context.Context, grpcEndpoint string, insecureFlag bool) (*grpc.ClientConn, error) {
+// InitializeGRPCClient initializes a gRPC client for the given endpoint with proper connection monitoring.
+//
+// Returns:
+//   - the gRPC client connection
+//   - a cancel function that stops the per-connection monitor goroutine.
+//     Callers MUST invoke this cancel before discarding the returned conn
+//     (typically right before grpcConnection.Close()) to avoid leaking the
+//     monitor goroutine. If the parent ctx is cancelled the monitor will
+//     also exit naturally, so passing a context.Background()-derived parent
+//     here is only safe when the caller manages cancel explicitly.
+func InitializeGRPCClient(ctx context.Context, grpcEndpoint string, insecureFlag bool) (*grpc.ClientConn, context.CancelFunc, error) {
 	dialOptions := []grpc.DialOption{
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			Time:                10 * time.Second,
@@ -167,13 +195,18 @@ func InitializeGRPCClient(ctx context.Context, grpcEndpoint string, insecureFlag
 		dialOptions...,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to %s: %w", grpcEndpoint, err)
+		return nil, nil, fmt.Errorf("failed to connect to %s: %w", grpcEndpoint, err)
 	}
 
-	// Start connection monitoring in a separate goroutine
-	go monitorGRPCConnection(ctx, grpcConnection, grpcEndpoint)
+	// Per-connection child context so the caller can cancel JUST this monitor
+	// (e.g. when forcing a reconnect that replaces the conn) without taking
+	// down the whole process.
+	monitorCtx, cancelMonitor := context.WithCancel(ctx)
 
-	return grpcConnection, nil
+	// Start connection monitoring in a separate goroutine
+	go monitorGRPCConnection(monitorCtx, grpcConnection, grpcEndpoint)
+
+	return grpcConnection, cancelMonitor, nil
 }
 
 // An interceptor that logs the gRPC request, for debugging purposes

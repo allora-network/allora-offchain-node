@@ -295,6 +295,13 @@ func closeOld(n *NodeConfig, mode int) {
 		return
 	}
 	if mode == GRPC_MODE && n.Chain.GRPCClient != nil {
+		// Stop the per-connection monitor goroutine first, otherwise it will
+		// keep ticking against the closed conn until parent ctx is cancelled
+		// (i.e. process exit) and quietly leak.
+		if n.Chain.GRPCMonitorCancel != nil {
+			n.Chain.GRPCMonitorCancel()
+			n.Chain.GRPCMonitorCancel = nil
+		}
 		if err := n.Chain.GRPCClient.Close(); err != nil {
 			log.Debug().Err(err).Str("endpoint", n.ServerAddress).Msg("Closing old gRPC client returned error (likely already broken)")
 		}
