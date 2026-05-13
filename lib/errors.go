@@ -48,6 +48,7 @@ const ErrCodeNotPermittedToSubmitPayload = 23
 const ErrCodeNotPermittedToAddStake = 24
 const ErrCodeReadFlatPanic = 25
 const ErrCodeReadPerBytePanic = 26
+const ErrCodeGRPCTransport = 27
 const ErrCodeUnexpectedError = 100
 
 var (
@@ -70,6 +71,7 @@ var (
 	ErrReputerNonceWindowNotAvailable = errorsmod.Register(ErrorCodespace, ErrCodeReputerNonceWindowNotAvailable, "reputer nonce window not available")
 	ErrWorkerNonceWindowNotAvailable  = errorsmod.Register(ErrorCodespace, ErrCodeWorkerNonceWindowNotAvailable, "worker nonce window not available")
 	ErrNoInferencesFoundForTopic      = errorsmod.Register(ErrorCodespace, ErrCodeNoInferencesFoundForTopic, "no inferences found for topic")
+	ErrGRPCTransport                  = errorsmod.Register(ErrorCodespace, ErrCodeGRPCTransport, "grpc transport failure")
 )
 
 // Errors substrings that are not ABCI errors and do not have a specific error code
@@ -83,6 +85,11 @@ const ErrorMessageNotPermittedToAddStake = "not permitted to add stake"
 const ErrorMessageReadFlatPanic = "{ReadFlat}: panic"
 const ErrorMessageReadPerBytePanic = "{ReadPerByte}: panic"
 const ErrorMessageConnectionRefused = "connection refused"
+const ErrorMessageConnectionReset = "connection reset by peer"
+const ErrorMessageConnectionTimedOut = "read: connection timed out"
+const ErrorMessageGRPCUnavailableTransport = "code = Unavailable desc ="
+const ErrorMessageReadingFromServer = "error reading from server"
+const ErrorMessageGRPCEOF = "code = Unavailable desc = unexpected EOF"
 const ErrorMessageNoInferencesFoundForTopic = "no inferences found for topic"
 const ErrorContextDeadlineExceeded = "context deadline exceeded"
 const ErrorReputerNonceWindowNotAvailable = "reputer nonce window not available"
@@ -303,6 +310,17 @@ func triageStringMatchingError(ctx context.Context, err error, infoMsg string, n
 		log.Warn().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Connection refused, switching to next node")
 		metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.ActorTxErrorCount, node.ConnectionManager.wallet.Address, strconv.Itoa(ErrCodeConnectionRefused))
 		return ErrorProcessingSwitchingNode, ErrConnectionRefused
+	} else if isGRPCTransportError(err) {
+		// Catches mid-stream gRPC transport failures that don't carry a parseable
+		// HTTP status: connection-reset-by-peer, "unexpected EOF", and the broad
+		// "code = Unavailable desc = ... transport:" family. These typically come
+		// from a CDN/load balancer in front of the chain gRPC endpoint half-closing
+		// long-lived HTTP/2 streams. Without an explicit handler these previously
+		// fell through to the info-level catch-all and the node-switching path
+		// (which is what actually forces a fresh dial) never fired.
+		log.Warn().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("gRPC transport failure, switching to next node")
+		metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.ActorTxErrorCount, node.ConnectionManager.wallet.Address, strconv.Itoa(ErrCodeGRPCTransport))
+		return ErrorProcessingSwitchingNode, ErrGRPCTransport
 	} else if strings.Contains(err.Error(), ErrorReputerNonceWindowNotAvailable) {
 		metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.ActorTxErrorCount, node.ConnectionManager.wallet.Address, strconv.Itoa(ErrCodeReputerNonceWindowNotAvailable))
 		log.Warn().
@@ -393,12 +411,37 @@ func ParseHTTPStatus(input string) (int, string, error) {
 	return code, message, nil
 }
 
+// isGRPCTransportError returns true if err looks like a grpc-go transport-layer
+// failure that warrants treating the connection as dead and forcing a re-dial.
+//
+// The grpc-go client surfaces several flavours of mid-stream failure with no
+// parseable HTTP status code:
+//   - "connection reset by peer" (TCP RST from peer or middlebox)
+//   - "read: connection timed out" (idle close)
+//   - "code = Unavailable desc = unexpected EOF" (half-closed HTTP/2 stream)
+//   - "code = Unavailable desc = error reading from server: ..." (generic read failure)
+//
+// All of these mean the client's persistent grpc.ClientConn is in a state where
+// the next call will fail the same way until the connection is replaced.
+func isGRPCTransportError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	return strings.Contains(s, ErrorMessageConnectionReset) ||
+		strings.Contains(s, ErrorMessageConnectionTimedOut) ||
+		strings.Contains(s, ErrorMessageGRPCEOF) ||
+		(strings.Contains(s, ErrorMessageGRPCUnavailableTransport) &&
+			strings.Contains(s, ErrorMessageReadingFromServer))
+}
+
 // Returns true if the error is a switching-node error
 func IsErrorSwitchingNode(err error) bool {
 	return errors.Is(err, ErrHTTP) ||
 		errors.Is(err, ErrFullMempool) ||
 		errors.Is(err, ErrReadPanic) ||
 		errors.Is(err, ErrConnectionRefused) ||
+		errors.Is(err, ErrGRPCTransport) ||
 		errors.Is(err, ErrUnexpectedError)
 }
 
