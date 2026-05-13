@@ -34,7 +34,7 @@ func QueryDataWithRetry[T any](
 		}
 
 		// Log the error for each retry.
-		log.Info().Err(err).Msgf("Query failed, retrying... (Retry %d/%d): %s", retryCount, maxRetries, infoMsg)
+		log.Warn().Err(err).Msgf("Query failed, retrying... (Retry %d/%d): %s", retryCount, maxRetries, infoMsg)
 
 		errorResponse, err := ProcessErrorTx(ctx, err, infoMsg, retryCount, walletConfig.MaxRetries, node)
 		switch errorResponse {

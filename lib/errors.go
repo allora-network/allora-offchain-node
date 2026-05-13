@@ -344,7 +344,7 @@ func triageStringMatchingError(ctx context.Context, err error, infoMsg string, n
 		}
 		return ErrorProcessingContinue, nil
 	}
-	log.Info().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Unknown error")
+	log.Error().Err(err).Str("rpc", node.ServerAddress).Str("msg", infoMsg).Msg("Unknown error - no specific handler matched")
 	metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.ActorTxErrorCount, node.ConnectionManager.wallet.Address, strconv.Itoa(ErrCodeUnexpectedError))
 	return ErrorProcessingError, errorsmod.Wrap(ErrUnexpectedError, err.Error())
 }
