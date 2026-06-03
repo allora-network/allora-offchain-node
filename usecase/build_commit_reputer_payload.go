@@ -47,20 +47,9 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 	}
 	networkInferenceBundle.Nonce = nonce
 
-	var sourceTruth []lib.Truth
-	if _, ok := reputer.GroundTruthParameters["LabeledGroundTruthEndpoint"]; ok {
-		sourceTruth, err = reputer.GroundTruthEntrypoint.LabeledGroundTruth(reputer, nonce)
-		if err != nil {
-			return errorsmod.Wrapf(err, "error getting labeled source truth from reputer, topicId: %d, blockHeight: %d", reputer.TopicId, nonce)
-		}
-		suite.Metrics.IncrementMetricsCounter(metrics.TruthRequestCount, wallet.Address, reputer.TopicId)
-	} else {
-		truth, err := reputer.GroundTruthEntrypoint.GroundTruth(reputer, nonce)
-		if err != nil {
-			return errorsmod.Wrapf(err, "error getting source truth from reputer, topicId: %d, blockHeight: %d", reputer.TopicId, nonce)
-		}
-		sourceTruth = append(sourceTruth, truth)
-		suite.Metrics.IncrementMetricsCounter(metrics.TruthRequestCount, wallet.Address, reputer.TopicId)
+	sourceTruth, err := suite.getSourceTruth(reputer, nonce, wallet.Address)
+	if err != nil {
+		return err
 	}
 
 	lossBundle, err := suite.ComputeLossBundle(sourceTruth, networkInferenceBundle, reputer)
@@ -101,6 +90,29 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 	return nil
 }
 
+// getSourceTruth fetches the reputer's source of truth from the configured
+// entrypoint. It dispatches on whether the reputer is configured for multi-label
+// (vector) ground truth via the LabeledGroundTruthEndpoint parameter: when present
+// it fetches the labeled ground truth, otherwise the scalar one (returned as a
+// single-element slice).
+func (suite *UseCaseSuite) getSourceTruth(reputer lib.ReputerConfig, nonce lib.BlockHeight, walletAddress string) ([]lib.Truth, error) {
+	if _, ok := reputer.GroundTruthParameters["LabeledGroundTruthEndpoint"]; ok {
+		sourceTruth, err := reputer.GroundTruthEntrypoint.LabeledGroundTruth(reputer, nonce)
+		if err != nil {
+			return nil, errorsmod.Wrapf(err, "error getting labeled source truth from reputer, topicId: %d, blockHeight: %d", reputer.TopicId, nonce)
+		}
+		suite.Metrics.IncrementMetricsCounter(metrics.TruthRequestCount, walletAddress, reputer.TopicId)
+		return sourceTruth, nil
+	}
+
+	truth, err := reputer.GroundTruthEntrypoint.GroundTruth(reputer, nonce)
+	if err != nil {
+		return nil, errorsmod.Wrapf(err, "error getting source truth from reputer, topicId: %d, blockHeight: %d", reputer.TopicId, nonce)
+	}
+	suite.Metrics.IncrementMetricsCounter(metrics.TruthRequestCount, walletAddress, reputer.TopicId)
+	return []lib.Truth{truth}, nil
+}
+
 func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissionstypes.NetworkInferenceBundle, reputer lib.ReputerConfig) (emissionstypes.InputValueBundle, error) {
 	if vb == nil {
 		return emissionstypes.InputValueBundle{}, errors.New("nil ValueBundle")
@@ -120,21 +132,11 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 	}
 
 	lossMethodOptions := reputer.LossFunctionParameters.LossMethodOptions
-	// Use the cached IsNeverNegative value
-	isNeverNegative := false
-	if reputer.LossFunctionParameters.IsNeverNegative != nil {
-		isNeverNegative = *reputer.LossFunctionParameters.IsNeverNegative
-	} else {
-		var err error
-		isNeverNegative, err = reputer.LossFunctionEntrypoint.IsLossFunctionNeverNegative(reputer, lossMethodOptions)
-		if err != nil {
-			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "failed to determine if loss function is never negative")
-		}
-		// cache the result
-		reputer.LossFunctionParameters.IsNeverNegative = &isNeverNegative
-	}
 
-	wallet, _ := suite.ConnectionManager.GetWallet()
+	wallet, err := suite.ConnectionManager.GetWallet()
+	if err != nil {
+		return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "failed to get wallet")
+	}
 	losses := emissionstypes.InputValueBundle{ //nolint:exhaustruct
 		TopicId: vb.TopicId,
 		ReputerRequestNonce: &emissionstypes.ReputerRequestNonce{
@@ -143,6 +145,23 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 			},
 		},
 		Reputer: wallet.Address,
+	}
+
+	// resolveIsNeverNegative determines, and caches on the reputer config, whether
+	// the loss function served at the given endpoint is never negative. The scalar
+	// and labeled loss services may differ, so the right endpoint is only known
+	// once we know whether a given value vector is single- or multi-label.
+	resolveIsNeverNegative := func(serviceEndpoint string) (bool, error) {
+		if reputer.LossFunctionParameters.IsNeverNegative != nil {
+			return *reputer.LossFunctionParameters.IsNeverNegative, nil
+		}
+		isNeverNegative, err := reputer.LossFunctionEntrypoint.IsLossFunctionNeverNegative(reputer, lossMethodOptions, serviceEndpoint)
+		if err != nil {
+			return false, err
+		}
+		// cache the result
+		reputer.LossFunctionParameters.IsNeverNegative = &isNeverNegative
+		return isNeverNegative, nil
 	}
 
 	computeLoss := func(value alloraMath.DecArray, description string) (alloraMath.Dec, error) {
@@ -155,20 +174,42 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 			valuesStr[i] = value[i].String()
 		}
 
-		var (
-			lossStr string
-			err     error
-		)
-		if reputer.LossFunctionParameters.LabeledLossFunctionService != "" {
-			lossStr, err = reputer.LossFunctionEntrypoint.LabeledLossFunction(reputer, sourceTruth, valuesStr, lossMethodOptions)
+		var lossStr string
+		// serviceEndpoint is the loss service used for this value vector; it also
+		// determines which endpoint the never-negative check is made against.
+		var serviceEndpoint string
+		switch {
+		case len(value) > 1:
+			// Multi-label: requires the labeled loss service.
+			if reputer.LossFunctionParameters.LabeledLossFunctionService == "" {
+				return alloraMath.Dec{}, errorsmod.Wrapf(
+					emissionstypes.ErrInvalidValue,
+					"multi-label values (%d) for %s require a LabeledLossFunctionService, but none is configured",
+					len(value), description)
+			}
+			serviceEndpoint = reputer.LossFunctionParameters.LabeledLossFunctionService
+			lossStr, err = reputer.LossFunctionEntrypoint.LabeledLossFunction(
+				reputer, sourceTruth, valuesStr, lossMethodOptions)
 			if err != nil {
 				return alloraMath.Dec{}, errorsmod.Wrapf(err, "error computing labeled loss for %s", description)
 			}
-		} else {
-			lossStr, err = reputer.LossFunctionEntrypoint.LossFunction(reputer, sourceTruth[0], valuesStr[0], lossMethodOptions)
+		case len(value) == 1:
+			if len(sourceTruth) == 0 {
+				return alloraMath.Dec{}, errorsmod.Wrapf(
+					emissionstypes.ErrInvalidValue,
+					"single-label value for %s but no source truth provided", description)
+			}
+			serviceEndpoint = reputer.LossFunctionParameters.LossFunctionService
+			lossStr, err = reputer.LossFunctionEntrypoint.LossFunction(
+				reputer, sourceTruth[0], valuesStr[0], lossMethodOptions)
 			if err != nil {
 				return alloraMath.Dec{}, errorsmod.Wrapf(err, "error computing loss for %s", description)
 			}
+		default:
+			// len(value) == 0 — already guarded by the lenValue check above, but
+			// keep the switch total.
+			return alloraMath.Dec{}, errorsmod.Wrapf(
+				emissionstypes.ErrInvalidValue, "no values to compute loss for %s", description)
 		}
 
 		loss, err := alloraMath.NewDecFromString(lossStr)
@@ -176,6 +217,10 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 			return alloraMath.Dec{}, errorsmod.Wrapf(err, "error parsing loss value for %s", description)
 		}
 
+		isNeverNegative, err := resolveIsNeverNegative(serviceEndpoint)
+		if err != nil {
+			return alloraMath.Dec{}, errorsmod.Wrapf(err, "failed to determine if loss function is never negative for %s", description)
+		}
 		if isNeverNegative {
 			loss, err = alloraMath.Log10(loss)
 			if err != nil {
@@ -285,24 +330,45 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 		}
 	}
 
-	losses.OneOutInfererForecasterValues = make([]*emissionstypes.InputOneOutInfererForecasterValues, len(vb.OneOutInfererForecasterValues))
+	// vb.OneOutInfererForecasterValues is flat: one entry per (forecaster, withheld
+	// inferer) pair, each carrying a multi-label CombinedInference vector. The
+	// target type is nested: one entry per forecaster, holding per-inferer scalar
+	// losses. So we regroup by forecaster, preserving first-seen order.
+	groupOrder := make([]string, 0)
+	grouped := make(map[string][]*emissionstypes.InputWithheldWorkerAttributedValue)
+
 	for i, val := range vb.OneOutInfererForecasterValues {
-		oneOutInfererValues := make([]*emissionstypes.InputWithheldWorkerAttributedValue, len(vb.OneOutInfererForecasterValues)) // TODO: fix!
 		values := emissionstypes.ConvertLabeledValuesToDecArray(val.CombinedInference)
-		if loss, err := computeLoss(values, fmt.Sprintf("one out inferer value %d", i)); err != nil {
-			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for one-out inferer value")
-		} else {
-			boundedLoss, err := alloraMath.NewBoundedExp40Dec(loss)
-			if err != nil {
-				return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error converting naive loss to BoundedExp40Dec")
-			}
-			oneOutInfererValues[i] = &emissionstypes.InputWithheldWorkerAttributedValue{Worker: val.WithheldInferer, Value: boundedLoss} // TODO: fix!
+
+		loss, err := computeLoss(values, fmt.Sprintf("one-out inferer-forecaster value %d", i))
+		if err != nil {
+			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err,
+				"error computing loss for one-out inferer-forecaster value")
 		}
 
-		losses.OneOutInfererForecasterValues[i] = &emissionstypes.InputOneOutInfererForecasterValues{
-			Forecaster:          val.Forecaster,
-			OneOutInfererValues: oneOutInfererValues,
+		boundedLoss, err := alloraMath.NewBoundedExp40Dec(loss)
+		if err != nil {
+			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err,
+				"error converting one-out inferer-forecaster loss to BoundedExp40Dec")
 		}
+
+		if _, seen := grouped[val.Forecaster]; !seen {
+			groupOrder = append(groupOrder, val.Forecaster)
+		}
+		grouped[val.Forecaster] = append(grouped[val.Forecaster],
+			&emissionstypes.InputWithheldWorkerAttributedValue{
+				Worker: val.WithheldInferer,
+				Value:  boundedLoss,
+			})
+	}
+
+	losses.OneOutInfererForecasterValues = make([]*emissionstypes.InputOneOutInfererForecasterValues, 0, len(groupOrder))
+	for _, forecaster := range groupOrder {
+		losses.OneOutInfererForecasterValues = append(losses.OneOutInfererForecasterValues,
+			&emissionstypes.InputOneOutInfererForecasterValues{
+				Forecaster:          forecaster,
+				OneOutInfererValues: grouped[forecaster],
+			})
 	}
 
 	return losses, nil

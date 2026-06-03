@@ -100,7 +100,6 @@ type WorkerConfig struct {
 	ForecastEntrypointName  string
 	ForecastEntrypoint      AlloraAdapter     // seconds to wait between attempts to get next worker nonce
 	Parameters              map[string]string // Map for variable configuration values
-	Address                 Address
 }
 
 // Implement TopicActor interface for WorkerConfig

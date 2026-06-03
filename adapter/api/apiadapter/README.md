@@ -69,7 +69,8 @@ They can be used to pass additional parameters to the loss function service. For
 `InferenceEndpoint` is required if `InferenceEntrypoint` is defined.
 `ForecastEndpoint` is required if `ForecastEntrypoint` is defined.
 
-`InferenceEndpoint`: provides the inference endpoint to hit. It supports URL template variables.
+`InferenceEndpoint`: provides the scalar inference endpoint to hit. It returns a single scalar value as plain text. It supports URL template variables.
+`LabeledInferenceEndpoint`: provides the multi-label (vector) inference endpoint to hit, used for example by classification models. It supports URL template variables. When this parameter is present, the adapter fetches a labeled inference instead of a scalar one (see "Scalar vs multi-label" below).
 `ForecastEndpoint`: provides the forecast endpoint to hit. It supports URL template variables.
 
 If it is not desired to send inferences or forecasts, it can be configured by setting that specific entrypoint to nil. Example, for not sending inferences:
@@ -79,9 +80,30 @@ InferenceEntrypoint: nil
 
 ### Reputer
 
-Two endpoints are required:
-* `GroundTruthEndpoint`: provides the ground truth endpoint to hit. It does support template variables.
-* `LossFunctionService`: provides the loss function service to hit on loss calculation and the endpoint to know whether the loss function is never negative. These are appended to create `/calculate` and `/is_never_negative` endpoints respectively. They do not support template variables.
+The following endpoints are used:
+* `GroundTruthEndpoint`: provides the scalar ground truth endpoint to hit. It returns a single scalar value as plain text. It does support template variables.
+* `LabeledGroundTruthEndpoint`: provides the multi-label (vector) ground truth endpoint to hit. It supports template variables. When this parameter is present, the adapter fetches a labeled ground truth instead of a scalar one (see "Scalar vs multi-label" below).
+* `LossFunctionService`: provides the scalar loss function service to hit on loss calculation and the endpoint to know whether the loss function is never negative. These are appended to create `/calculate` and `/is_never_negative` endpoints respectively. They do not support template variables.
+* `LabeledLossFunctionService`: provides the multi-label loss function service. Like `LossFunctionService`, it is appended with `/calculate` and `/is_never_negative`. It is required when reputing on multi-label values. It does not support template variables.
+
+### Scalar vs multi-label
+
+The adapter supports both scalar (single-value) and multi-label (vector) payloads, such as classification where the payload is a dictionary of `Label:value` pairs.
+
+* Worker: if `LabeledInferenceEndpoint` is set, the labeled inference path is used; otherwise the scalar `InferenceEndpoint` path is used.
+* Reputer: if `LabeledGroundTruthEndpoint` is set, the labeled ground truth path is used; otherwise the scalar `GroundTruthEndpoint` path is used. When the values being reputed are multi-label, the `LabeledLossFunctionService` is used to compute loss and to check whether the loss function is never negative; for single-label values the scalar `LossFunctionService` is used.
+
+The multi-label inference and ground truth endpoints must return a JSON array of `{"label", "value"}` objects, e.g.:
+```
+[
+  {"label": "UP",   "value": "0.3"},
+  {"label": "MID",  "value": "0.4"},
+  {"label": "DOWN", "value": "0.3"}
+]
+```
+The `value` may be encoded either as a JSON string (`"0.3"`) or as a JSON number (`0.3`). The array ordering is preserved.
+
+The labeled loss service's `/calculate` endpoint receives `y_true` and `y_pred` as positional arrays of value strings (aligned by index), alongside `options`.
 
 
 ### Additional Parameters 

@@ -34,35 +34,9 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 		return errors.New("Worker has no valid Inference or Forecast entrypoints")
 	}
 
-	var workerResponse = lib.WorkerResponse{ //nolint:exhaustruct
-		WorkerConfig: worker,
-	}
-
-	if worker.InferenceEntrypoint != nil {
-		if _, ok := worker.Parameters["LabeledInferenceEndpoint"]; ok {
-			labeledInference, err := worker.InferenceEntrypoint.CalcLabeledInference(worker, nonce.BlockHeight)
-			if err != nil {
-				return errorsmod.Wrapf(err, "Error computing labeled inference for worker, topicId: %d, blockHeight: %d", worker.TopicId, nonce.BlockHeight)
-			}
-			workerResponse.InfererValues = labeledInference
-			suite.Metrics.IncrementMetricsCounter(metrics.LabeledInferenceRequestCount, wallet.Address, worker.TopicId)
-		} else {
-			inference, err := worker.InferenceEntrypoint.CalcInference(worker, nonce.BlockHeight)
-			if err != nil {
-				return errorsmod.Wrapf(err, "Error computing inference for worker, topicId: %d, blockHeight: %d", worker.TopicId, nonce.BlockHeight)
-			}
-			workerResponse.InfererValue = inference
-			suite.Metrics.IncrementMetricsCounter(metrics.InferenceRequestCount, wallet.Address, worker.TopicId)
-		}
-	}
-
-	if worker.ForecastEntrypoint != nil {
-		forecasts, err := worker.ForecastEntrypoint.CalcForecast(worker, nonce.BlockHeight)
-		if err != nil {
-			return errorsmod.Wrapf(err, "Error computing forecast for worker, topicId: %d, blockHeight: %d", worker.TopicId, nonce.BlockHeight)
-		}
-		workerResponse.ForecasterValues = forecasts
-		suite.Metrics.IncrementMetricsCounter(metrics.ForecastRequestCount, wallet.Address, worker.TopicId)
+	workerResponse, err := suite.getWorkerResponse(worker, nonce.BlockHeight, wallet.Address)
+	if err != nil {
+		return err
 	}
 
 	workerPayload, err := suite.BuildWorkerPayload(workerResponse, nonce.BlockHeight)
@@ -104,6 +78,45 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 	return nil
 }
 
+// getWorkerResponse gathers the worker's inference and forecast payloads from the
+// configured entrypoints. The inference path dispatches on whether the worker is
+// configured for multi-label (vector) inference via the LabeledInferenceEndpoint
+// parameter: when present it fetches a labeled inference, otherwise a scalar one.
+func (suite *UseCaseSuite) getWorkerResponse(worker lib.WorkerConfig, blockHeight int64, walletAddress string) (lib.WorkerResponse, error) {
+	workerResponse := lib.WorkerResponse{ //nolint:exhaustruct
+		WorkerConfig: worker,
+	}
+
+	if worker.InferenceEntrypoint != nil {
+		if _, ok := worker.Parameters["LabeledInferenceEndpoint"]; ok {
+			labeledInference, err := worker.InferenceEntrypoint.CalcLabeledInference(worker, blockHeight)
+			if err != nil {
+				return lib.WorkerResponse{}, errorsmod.Wrapf(err, "Error computing labeled inference for worker, topicId: %d, blockHeight: %d", worker.TopicId, blockHeight) //nolint:exhaustruct
+			}
+			workerResponse.InfererValues = labeledInference
+			suite.Metrics.IncrementMetricsCounter(metrics.LabeledInferenceRequestCount, walletAddress, worker.TopicId)
+		} else {
+			inference, err := worker.InferenceEntrypoint.CalcInference(worker, blockHeight)
+			if err != nil {
+				return lib.WorkerResponse{}, errorsmod.Wrapf(err, "Error computing inference for worker, topicId: %d, blockHeight: %d", worker.TopicId, blockHeight) //nolint:exhaustruct
+			}
+			workerResponse.InfererValue = inference
+			suite.Metrics.IncrementMetricsCounter(metrics.InferenceRequestCount, walletAddress, worker.TopicId)
+		}
+	}
+
+	if worker.ForecastEntrypoint != nil {
+		forecasts, err := worker.ForecastEntrypoint.CalcForecast(worker, blockHeight)
+		if err != nil {
+			return lib.WorkerResponse{}, errorsmod.Wrapf(err, "Error computing forecast for worker, topicId: %d, blockHeight: %d", worker.TopicId, blockHeight) //nolint:exhaustruct
+		}
+		workerResponse.ForecasterValues = forecasts
+		suite.Metrics.IncrementMetricsCounter(metrics.ForecastRequestCount, walletAddress, worker.TopicId)
+	}
+
+	return workerResponse, nil
+}
+
 func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse, nonce emissionstypes.BlockHeight) (emissionstypes.InputInferenceForecastBundle, error) {
 	wallet, err := suite.ConnectionManager.GetWallet()
 	if err != nil {
@@ -111,11 +124,6 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 	}
 
 	inferenceForecastsBundle := emissionstypes.InputInferenceForecastBundle{} //nolint:exhaustruct
-
-	address := workerResponse.Address
-	if address == "" {
-		address = wallet.Address
-	}
 
 	if workerResponse.InfererValue != "" || len(workerResponse.InfererValues) > 0 {
 		// legacy - remove at some point
@@ -139,7 +147,7 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 		}
 		builtInference := &emissionstypes.InputInference{ //nolint:exhaustruct
 			TopicId:     workerResponse.TopicId,
-			Inferer:     address,
+			Inferer:     wallet.Address,
 			Value:       infererValue,
 			Values:      infererValues,
 			BlockHeight: nonce,
@@ -164,7 +172,7 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 			forecasterValues := &emissionstypes.InputForecast{ //nolint:exhaustruct
 				TopicId:          workerResponse.TopicId,
 				BlockHeight:      nonce,
-				Forecaster:       address,
+				Forecaster:       wallet.Address,
 				ForecastElements: forecasterElements,
 				ExtraData:        nil,
 			}
@@ -186,14 +194,8 @@ func (suite *UseCaseSuite) SignWorkerPayload(workerPayload *emissionstypes.Input
 	}
 	pkStr := hex.EncodeToString(pk)
 	// Create workerDataBundle with signature
-	var worker string
-	if workerPayload.Inference != nil {
-		worker = workerPayload.Inference.Inferer
-	} else {
-		worker = workerPayload.Forecast.Forecaster
-	}
 	workerDataBundle := &emissionstypes.InputWorkerDataBundle{ //nolint:exhaustruct
-		Worker:                             worker,
+		Worker:                             wallet.Address,
 		InferenceForecastsBundle:           workerPayload,
 		InferencesForecastsBundleSignature: sig,
 		Pubkey:                             pkStr,

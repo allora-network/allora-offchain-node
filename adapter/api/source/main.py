@@ -19,6 +19,20 @@ def get_inference(token):
     return random_float
 
 
+# Multi-label (e.g. classification) inference. Returns a JSON array of
+# {"label", "value"} objects whose values form a probability distribution
+# over the labels (they sum to 1.0).
+@app.route('/labeled-inference/<token>', methods=['GET'])
+def get_labeled_inference(token):
+    labels = ["UP", "MID", "DOWN"]
+    weights = [random.random() for _ in labels]
+    total = sum(weights) or 1.0
+    return jsonify([
+        {"label": label, "value": str(weight / total)}
+        for label, weight in zip(labels, weights)
+    ])
+
+
 @app.route('/forecast', methods=['GET'])
 def get_forecast():
     node_values = [
@@ -33,6 +47,18 @@ def get_forecast():
 def get_truth(token, blockheight):
     random_float = str(random.uniform(0.0, 100.0))
     return random_float
+
+
+# Multi-label ground truth. Returns a JSON array of {"label", "value"} objects,
+# here a one-hot vector marking the realized class.
+@app.route('/labeled-truth/<token>/<blockheight>', methods=['GET'])
+def get_labeled_truth(token, blockheight):
+    labels = ["UP", "MID", "DOWN"]
+    winner = random.randrange(len(labels))
+    return jsonify([
+        {"label": label, "value": "1.0" if i == winner else "0.0"}
+        for i, label in enumerate(labels)
+    ])
 
 
 @app.route('/is_never_negative', methods=['POST'])
