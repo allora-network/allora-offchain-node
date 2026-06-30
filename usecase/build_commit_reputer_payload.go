@@ -113,6 +113,46 @@ func (suite *UseCaseSuite) getSourceTruth(reputer lib.ReputerConfig, nonce lib.B
 	return []lib.Truth{truth}, nil
 }
 
+// buildLabeledPredictions converts the predicted labeled values into a
+// []lib.LabeledValue and verifies that the prediction labels match the ground
+// truth labels exactly (same set, no missing/extra/duplicate labels on either
+// side). Carrying labels lets the loss service join predictions to ground truth
+// by label rather than by array position, and the strict validation fails loudly
+// on a label mismatch instead of silently computing a wrong loss.
+func buildLabeledPredictions(values []*emissionstypes.LabeledValue, sourceTruth []lib.Truth) ([]lib.LabeledValue, error) {
+	truthLabels := make(map[string]struct{}, len(sourceTruth))
+	for _, t := range sourceTruth {
+		if _, dup := truthLabels[t.Label]; dup {
+			return nil, fmt.Errorf("duplicate label %q in ground truth", t.Label)
+		}
+		truthLabels[t.Label] = struct{}{}
+	}
+
+	predictions := make([]lib.LabeledValue, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, v := range values {
+		if v == nil {
+			return nil, errors.New("nil predicted value")
+		}
+		if _, dup := seen[v.LabelName]; dup {
+			return nil, fmt.Errorf("duplicate label %q in predicted values", v.LabelName)
+		}
+		seen[v.LabelName] = struct{}{}
+		if _, ok := truthLabels[v.LabelName]; !ok {
+			return nil, fmt.Errorf("predicted label %q has no matching ground truth label", v.LabelName)
+		}
+		predictions = append(predictions, lib.LabeledValue{Label: v.LabelName, Value: v.Value.String()})
+	}
+
+	if len(predictions) != len(sourceTruth) {
+		return nil, fmt.Errorf(
+			"label count mismatch: %d predicted labels vs %d ground truth labels",
+			len(predictions), len(sourceTruth))
+	}
+
+	return predictions, nil
+}
+
 func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissionstypes.NetworkInferenceBundle, reputer lib.ReputerConfig) (emissionstypes.InputValueBundle, error) {
 	if vb == nil {
 		return emissionstypes.InputValueBundle{}, errors.New("nil ValueBundle")
@@ -164,14 +204,10 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 		return isNeverNegative, nil
 	}
 
-	computeLoss := func(value alloraMath.DecArray, description string) (alloraMath.Dec, error) {
-		lenValue := len(value)
+	computeLoss := func(values []*emissionstypes.LabeledValue, description string) (alloraMath.Dec, error) {
+		lenValue := len(values)
 		if lenValue == 0 {
 			return alloraMath.Dec{}, errors.New("no values provided to compute loss")
-		}
-		valuesStr := make([]string, lenValue)
-		for i := range value {
-			valuesStr[i] = value[i].String()
 		}
 
 		var lossStr string
@@ -179,21 +215,29 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 		// determines which endpoint the never-negative check is made against.
 		var serviceEndpoint string
 		switch {
-		case len(value) > 1:
+		case lenValue > 1:
 			// Multi-label: requires the labeled loss service.
 			if reputer.LossFunctionParameters.LabeledLossFunctionService == "" {
 				return alloraMath.Dec{}, errorsmod.Wrapf(
 					emissionstypes.ErrInvalidValue,
 					"multi-label values (%d) for %s require a LabeledLossFunctionService, but none is configured",
-					len(value), description)
+					lenValue, description)
+			}
+			// Carry labels through to the loss service and verify the predicted
+			// labels match the ground-truth labels exactly. This makes the loss a
+			// per-label computation instead of relying on the array order of the
+			// value bundle and the ground-truth source, which can diverge.
+			labeledPredictions, err := buildLabeledPredictions(values, sourceTruth)
+			if err != nil {
+				return alloraMath.Dec{}, errorsmod.Wrapf(err, "error aligning labeled values for %s", description)
 			}
 			serviceEndpoint = reputer.LossFunctionParameters.LabeledLossFunctionService
 			lossStr, err = reputer.LossFunctionEntrypoint.LabeledLossFunction(
-				reputer, sourceTruth, valuesStr, lossMethodOptions)
+				reputer, sourceTruth, labeledPredictions, lossMethodOptions)
 			if err != nil {
 				return alloraMath.Dec{}, errorsmod.Wrapf(err, "error computing labeled loss for %s", description)
 			}
-		case len(value) == 1:
+		case lenValue == 1:
 			if len(sourceTruth) == 0 {
 				return alloraMath.Dec{}, errorsmod.Wrapf(
 					emissionstypes.ErrInvalidValue,
@@ -201,12 +245,12 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 			}
 			serviceEndpoint = reputer.LossFunctionParameters.LossFunctionService
 			lossStr, err = reputer.LossFunctionEntrypoint.LossFunction(
-				reputer, sourceTruth[0], valuesStr[0], lossMethodOptions)
+				reputer, sourceTruth[0], values[0].Value.String(), lossMethodOptions)
 			if err != nil {
 				return alloraMath.Dec{}, errorsmod.Wrapf(err, "error computing loss for %s", description)
 			}
 		default:
-			// len(value) == 0 — already guarded by the lenValue check above, but
+			// lenValue == 0 — already guarded by the lenValue check above, but
 			// keep the switch total.
 			return alloraMath.Dec{}, errorsmod.Wrapf(
 				emissionstypes.ErrInvalidValue, "no values to compute loss for %s", description)
@@ -236,7 +280,7 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 	}
 
 	// Combined Value
-	if combinedLoss, err := computeLoss(combinedValues, "combined value"); err != nil {
+	if combinedLoss, err := computeLoss(vb.CombinedValue, "combined value"); err != nil {
 		return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for combined value")
 	} else {
 		losses.CombinedValue, err = alloraMath.NewBoundedExp40Dec(combinedLoss)
@@ -246,7 +290,7 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 	}
 
 	// Naive Value
-	if naiveLoss, err := computeLoss(naiveValues, "naive value"); err != nil {
+	if naiveLoss, err := computeLoss(vb.NaiveValue, "naive value"); err != nil {
 		return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for naive value")
 	} else {
 		losses.NaiveValue, err = alloraMath.NewBoundedExp40Dec(naiveLoss)
@@ -258,8 +302,7 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 	// Inferer Values
 	losses.InfererValues = make([]*emissionstypes.InputWorkerAttributedValue, len(vb.InfererValues))
 	for i, val := range vb.InfererValues {
-		values := emissionstypes.ConvertLabeledValuesToDecArray(val.Values)
-		if loss, err := computeLoss(values, fmt.Sprintf("inferer value %d", i)); err != nil {
+		if loss, err := computeLoss(val.Values, fmt.Sprintf("inferer value %d", i)); err != nil {
 			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for inferer value")
 		} else {
 			boundedLoss, err := alloraMath.NewBoundedExp40Dec(loss)
@@ -273,8 +316,7 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 	// Forecaster Values
 	losses.ForecasterValues = make([]*emissionstypes.InputWorkerAttributedValue, len(vb.ForecasterValues))
 	for i, val := range vb.ForecasterValues {
-		values := emissionstypes.ConvertLabeledValuesToDecArray(val.Values)
-		if loss, err := computeLoss(values, fmt.Sprintf("forecaster value %d", i)); err != nil {
+		if loss, err := computeLoss(val.Values, fmt.Sprintf("forecaster value %d", i)); err != nil {
 			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for forecaster value")
 		} else {
 			boundedLoss, err := alloraMath.NewBoundedExp40Dec(loss)
@@ -288,8 +330,7 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 	// One Out Inferer Values
 	losses.OneOutInfererValues = make([]*emissionstypes.InputWithheldWorkerAttributedValue, len(vb.OneOutInfererValues))
 	for i, val := range vb.OneOutInfererValues {
-		values := emissionstypes.ConvertLabeledValuesToDecArray(val.CombinedInference)
-		if loss, err := computeLoss(values, fmt.Sprintf("one out inferer value %d", i)); err != nil {
+		if loss, err := computeLoss(val.CombinedInference, fmt.Sprintf("one out inferer value %d", i)); err != nil {
 			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for one-out inferer value")
 		} else {
 			boundedLoss, err := alloraMath.NewBoundedExp40Dec(loss)
@@ -303,8 +344,7 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 	// One Out Forecaster Values
 	losses.OneOutForecasterValues = make([]*emissionstypes.InputWithheldWorkerAttributedValue, len(vb.OneOutForecasterValues))
 	for i, val := range vb.OneOutForecasterValues {
-		values := emissionstypes.ConvertLabeledValuesToDecArray(val.CombinedInference)
-		if loss, err := computeLoss(values, fmt.Sprintf("one out forecaster value %d", i)); err != nil {
+		if loss, err := computeLoss(val.CombinedInference, fmt.Sprintf("one out forecaster value %d", i)); err != nil {
 			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for one-out forecaster value")
 		} else {
 			boundedLoss, err := alloraMath.NewBoundedExp40Dec(loss)
@@ -318,8 +358,7 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 	// One In Forecaster Values
 	losses.OneInForecasterValues = make([]*emissionstypes.InputWorkerAttributedValue, len(vb.OneInForecasterValues))
 	for i, val := range vb.OneInForecasterValues {
-		values := emissionstypes.ConvertLabeledValuesToDecArray(val.CombinedInference)
-		if loss, err := computeLoss(values, fmt.Sprintf("one in forecaster value %d", i)); err != nil {
+		if loss, err := computeLoss(val.CombinedInference, fmt.Sprintf("one in forecaster value %d", i)); err != nil {
 			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err, "error computing loss for one-in forecaster value")
 		} else {
 			boundedLoss, err := alloraMath.NewBoundedExp40Dec(loss)
@@ -338,9 +377,7 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 	grouped := make(map[string][]*emissionstypes.InputWithheldWorkerAttributedValue)
 
 	for i, val := range vb.OneOutInfererForecasterValues {
-		values := emissionstypes.ConvertLabeledValuesToDecArray(val.CombinedInference)
-
-		loss, err := computeLoss(values, fmt.Sprintf("one-out inferer-forecaster value %d", i))
+		loss, err := computeLoss(val.CombinedInference, fmt.Sprintf("one-out inferer-forecaster value %d", i))
 		if err != nil {
 			return emissionstypes.InputValueBundle{}, errorsmod.Wrapf(err,
 				"error computing loss for one-out inferer-forecaster value")

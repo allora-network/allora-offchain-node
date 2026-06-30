@@ -25,7 +25,7 @@ require (
 	google.golang.org/grpc v1.70.0
 )
 
-replace github.com/allora-network/allora-chain => ../allora-chain
+replace github.com/allora-network/allora-chain => github.com/allora-network/allora-chain v0.16.1-0.20260602135805-81f3d7a7ea69
 
 require (
 	cosmossdk.io/api v0.7.6 // indirect

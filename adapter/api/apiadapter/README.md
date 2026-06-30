@@ -103,7 +103,14 @@ The multi-label inference and ground truth endpoints must return a JSON array of
 ```
 The `value` may be encoded either as a JSON string (`"0.3"`) or as a JSON number (`0.3`). The array ordering is preserved.
 
-The labeled loss service's `/calculate` endpoint receives `y_true` and `y_pred` as positional arrays of value strings (aligned by index), alongside `options`.
+The labeled loss service's `/calculate` endpoint receives `y_true` and `y_pred` as arrays of `{"label", "value"}` objects, alongside `options`. Carrying the labels lets the service join each prediction to its ground truth by label rather than by array position. The offchain node also validates, before calling the service, that the predicted labels match the ground-truth labels exactly (same set, no missing/extra/duplicate labels) and fails loudly on a mismatch instead of computing a loss against misaligned classes. Example payload:
+```
+{
+  "y_true": [{"label": "up", "value": "1.0"}, {"label": "down", "value": "0.0"}],
+  "y_pred": [{"label": "up", "value": "0.7"}, {"label": "down", "value": "0.3"}],
+  "options": {"method": "sqe"}
+}
+```
 
 
 ### Additional Parameters 

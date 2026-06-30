@@ -46,7 +46,7 @@ func (m *MockAlloraAdapter) LossFunction(node lib.ReputerConfig, sourceTruth lib
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockAlloraAdapter) LabeledLossFunction(node lib.ReputerConfig, sourceTruth []lib.Truth, inferenceValues []string, options map[string]string) (string, error) {
+func (m *MockAlloraAdapter) LabeledLossFunction(node lib.ReputerConfig, sourceTruth []lib.Truth, inferenceValues []lib.LabeledValue, options map[string]string) (string, error) {
 	args := m.Called(node, sourceTruth, inferenceValues, options)
 	return args.String(0), args.Error(1)
 }

@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"allora_offchain_node/lib"
@@ -73,6 +74,17 @@ func TestComputeLossBundle(t *testing.T) {
 				LabelName: p[0],
 				Value:     dec,
 			})
+		}
+		return out
+	}
+
+	// Helper: build the labeled prediction slice that computeLoss passes to
+	// LabeledLossFunction. Labels are label_0, label_1, ... matching the order in
+	// which the value bundles are built above.
+	lv := func(vals ...string) []lib.LabeledValue {
+		out := make([]lib.LabeledValue, len(vals))
+		for i, v := range vals {
+			out[i] = lib.LabeledValue{Label: fmt.Sprintf("label_%d", i), Value: v}
 		}
 		return out
 	}
@@ -155,24 +167,24 @@ func TestComputeLossBundle(t *testing.T) {
 			},
 			reputerConfig: multiLabelConfig,
 			mockSetup: func(m *MockAlloraAdapter) {
-				// The labeled loss function receives the full truth slice and
-				// the full value-string slice; one call per field.
+				// The labeled loss function receives the full truth slice and the
+				// labeled prediction slice (label-carrying); one call per field.
 				m.On("LabeledLossFunction",
 					mock.AnythingOfType("lib.ReputerConfig"),
 					mock.AnythingOfType("[]lib.Truth"),
-					[]string{"0.7", "0.2", "0.1"}, reputerOptions).Return("0.30", nil)
+					lv("0.7", "0.2", "0.1"), reputerOptions).Return("0.30", nil)
 				m.On("LabeledLossFunction",
 					mock.AnythingOfType("lib.ReputerConfig"),
 					mock.AnythingOfType("[]lib.Truth"),
-					[]string{"0.6", "0.3", "0.1"}, reputerOptions).Return("0.40", nil)
+					lv("0.6", "0.3", "0.1"), reputerOptions).Return("0.40", nil)
 				m.On("LabeledLossFunction",
 					mock.AnythingOfType("lib.ReputerConfig"),
 					mock.AnythingOfType("[]lib.Truth"),
-					[]string{"0.8", "0.1", "0.1"}, reputerOptions).Return("0.20", nil)
+					lv("0.8", "0.1", "0.1"), reputerOptions).Return("0.20", nil)
 				m.On("LabeledLossFunction",
 					mock.AnythingOfType("lib.ReputerConfig"),
 					mock.AnythingOfType("[]lib.Truth"),
-					[]string{"0.5", "0.4", "0.1"}, reputerOptions).Return("0.50", nil)
+					lv("0.5", "0.4", "0.1"), reputerOptions).Return("0.50", nil)
 			},
 			assertResult: func(t *testing.T, result emissionstypes.InputValueBundle) {
 				// Each field collapses its multi-label vector to one scalar loss.
@@ -224,22 +236,22 @@ func TestComputeLossBundle(t *testing.T) {
 			},
 			reputerConfig: multiLabelConfig,
 			mockSetup: func(m *MockAlloraAdapter) {
-				labeledLoss := func(values []string, ret string) {
+				labeledLoss := func(values []lib.LabeledValue, ret string) {
 					m.On("LabeledLossFunction",
 						mock.AnythingOfType("lib.ReputerConfig"),
 						mock.AnythingOfType("[]lib.Truth"),
 						values, reputerOptions).Return(ret, nil)
 				}
-				labeledLoss([]string{"0.6", "0.4"}, "0.10")   // combined
-				labeledLoss([]string{"0.5", "0.5"}, "0.10")   // naive
-				labeledLoss([]string{"0.7", "0.3"}, "0.71")   // one-out inferer inf_a
-				labeledLoss([]string{"0.8", "0.2"}, "0.72")   // one-out inferer inf_b
-				labeledLoss([]string{"0.55", "0.45"}, "0.73") // one-out forecaster fc_a
-				labeledLoss([]string{"0.65", "0.35"}, "0.74") // one-in forecaster fc_a
-				labeledLoss([]string{"0.11", "0.89"}, "0.81") // OOIF fc_a/inf_a
-				labeledLoss([]string{"0.22", "0.78"}, "0.82") // OOIF fc_a/inf_b
-				labeledLoss([]string{"0.33", "0.67"}, "0.83") // OOIF fc_b/inf_a
-				labeledLoss([]string{"0.44", "0.56"}, "0.84") // OOIF fc_b/inf_b
+				labeledLoss(lv("0.6", "0.4"), "0.10")   // combined
+				labeledLoss(lv("0.5", "0.5"), "0.10")   // naive
+				labeledLoss(lv("0.7", "0.3"), "0.71")   // one-out inferer inf_a
+				labeledLoss(lv("0.8", "0.2"), "0.72")   // one-out inferer inf_b
+				labeledLoss(lv("0.55", "0.45"), "0.73") // one-out forecaster fc_a
+				labeledLoss(lv("0.65", "0.35"), "0.74") // one-in forecaster fc_a
+				labeledLoss(lv("0.11", "0.89"), "0.81") // OOIF fc_a/inf_a
+				labeledLoss(lv("0.22", "0.78"), "0.82") // OOIF fc_a/inf_b
+				labeledLoss(lv("0.33", "0.67"), "0.83") // OOIF fc_b/inf_a
+				labeledLoss(lv("0.44", "0.56"), "0.84") // OOIF fc_b/inf_b
 			},
 			assertResult: func(t *testing.T, result emissionstypes.InputValueBundle) {
 				// One-out inferer values: flat, scalar loss per withheld inferer.
@@ -457,8 +469,8 @@ func TestComputeLossBundle(t *testing.T) {
 			},
 			reputerConfig: multiLabelConfigUncached,
 			mockSetup: func(m *MockAlloraAdapter) {
-				m.On("LabeledLossFunction", mock.AnythingOfType("lib.ReputerConfig"), mock.AnythingOfType("[]lib.Truth"), []string{"0.7", "0.3"}, reputerOptions).Return("0.30", nil)
-				m.On("LabeledLossFunction", mock.AnythingOfType("lib.ReputerConfig"), mock.AnythingOfType("[]lib.Truth"), []string{"0.6", "0.4"}, reputerOptions).Return("0.40", nil)
+				m.On("LabeledLossFunction", mock.AnythingOfType("lib.ReputerConfig"), mock.AnythingOfType("[]lib.Truth"), lv("0.7", "0.3"), reputerOptions).Return("0.30", nil)
+				m.On("LabeledLossFunction", mock.AnythingOfType("lib.ReputerConfig"), mock.AnythingOfType("[]lib.Truth"), lv("0.6", "0.4"), reputerOptions).Return("0.40", nil)
 				m.On("IsLossFunctionNeverNegative", mock.AnythingOfType("lib.ReputerConfig"), reputerOptions, "labeled-loss-svc").Return(false, nil).Once()
 			},
 			assertResult: func(t *testing.T, result emissionstypes.InputValueBundle) {

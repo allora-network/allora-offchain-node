@@ -309,7 +309,7 @@ func (a *AlloraAdapter) LossFunction(node lib.ReputerConfig, groundTruth lib.Tru
 	return result.Loss, nil
 }
 
-func (a *AlloraAdapter) LabeledLossFunction(node lib.ReputerConfig, groundTruth []lib.Truth, inferenceValue []string, options map[string]string) (string, error) {
+func (a *AlloraAdapter) LabeledLossFunction(node lib.ReputerConfig, groundTruth []lib.Truth, inferenceValue []lib.LabeledValue, options map[string]string) (string, error) {
 	log := log.With().Str("actorType", "reputer").Uint64("topicId", node.TopicId).Logger()
 
 	url := node.LossFunctionParameters.LabeledLossFunctionService
@@ -320,10 +320,12 @@ func (a *AlloraAdapter) LabeledLossFunction(node lib.ReputerConfig, groundTruth 
 	url = fmt.Sprintf("%s/calculate", url)
 	log.Debug().Str("url", url).Msg("Labeled loss function endpoint")
 
-	// y_true and y_pred are sent as positional arrays of value strings, aligned by index.
-	trueValues := make([]string, len(groundTruth))
+	// y_true and y_pred carry explicit labels (as [{"label","value"}] arrays) so the
+	// loss service joins predictions to ground truth by label, rather than relying on
+	// the array position of the two vectors, which can differ between sources.
+	trueValues := make([]lib.LabeledValue, len(groundTruth))
 	for i := range groundTruth {
-		trueValues[i] = groundTruth[i].Value
+		trueValues[i] = lib.LabeledValue{Label: groundTruth[i].Label, Value: groundTruth[i].Value}
 	}
 
 	// Prepare the request payload
