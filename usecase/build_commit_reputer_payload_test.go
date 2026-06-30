@@ -70,7 +70,7 @@ func TestComputeLossBundle(t *testing.T) {
 			dec, err := alloraMath.NewDecFromString(p[1])
 			require.NoError(t, err)
 			out = append(out, &emissionstypes.LabeledValue{
-				LabelId:   uint32(i + 1),
+				LabelId:   uint32(i + 1), //nolint:gosec // loop index is small and non-negative
 				LabelName: p[0],
 				Value:     dec,
 			})
@@ -588,7 +588,7 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 			name:       "scalar ground truth dispatch - no LabeledGroundTruthEndpoint",
 			parameters: map[string]string{"GroundTruthEndpoint": "http://x/gt"},
 			mockSetup: func(m *MockAlloraAdapter) {
-				m.On("GroundTruth", mock.AnythingOfType("lib.ReputerConfig"), int64(nonce)).
+				m.On("GroundTruth", mock.AnythingOfType("lib.ReputerConfig"), nonce).
 					Return(lib.Truth{Value: "0.5"}, nil).Once()
 			},
 			assertResult: func(t *testing.T, truths []lib.Truth) {
@@ -602,7 +602,7 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 			name:       "multi-label ground truth dispatch - LabeledGroundTruthEndpoint present",
 			parameters: map[string]string{"LabeledGroundTruthEndpoint": "http://x/labeled-gt"},
 			mockSetup: func(m *MockAlloraAdapter) {
-				m.On("LabeledGroundTruth", mock.AnythingOfType("lib.ReputerConfig"), int64(nonce)).
+				m.On("LabeledGroundTruth", mock.AnythingOfType("lib.ReputerConfig"), nonce).
 					Return([]lib.Truth{{Label: "UP", Value: "1.0"}, {Label: "DOWN", Value: "0.0"}}, nil).Once()
 			},
 			assertResult: func(t *testing.T, truths []lib.Truth) {
@@ -618,7 +618,7 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 			name:       "scalar ground truth error propagates",
 			parameters: map[string]string{},
 			mockSetup: func(m *MockAlloraAdapter) {
-				m.On("GroundTruth", mock.AnythingOfType("lib.ReputerConfig"), int64(nonce)).
+				m.On("GroundTruth", mock.AnythingOfType("lib.ReputerConfig"), nonce).
 					Return(lib.Truth{}, errors.New("gt endpoint down")).Once()
 			},
 			expectError:   true,
@@ -628,7 +628,7 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 			name:       "labeled ground truth error propagates",
 			parameters: map[string]string{"LabeledGroundTruthEndpoint": "http://x/labeled-gt"},
 			mockSetup: func(m *MockAlloraAdapter) {
-				m.On("LabeledGroundTruth", mock.AnythingOfType("lib.ReputerConfig"), int64(nonce)).
+				m.On("LabeledGroundTruth", mock.AnythingOfType("lib.ReputerConfig"), nonce).
 					Return([]lib.Truth(nil), errors.New("labeled gt endpoint down")).Once()
 			},
 			expectError:   true,
