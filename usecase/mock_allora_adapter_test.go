@@ -22,7 +22,7 @@ func (m *MockAlloraAdapter) CalcInference(config lib.WorkerConfig, timestamp int
 
 func (m *MockAlloraAdapter) CalcLabeledInference(config lib.WorkerConfig, timestamp int64) ([]lib.LabeledValue, error) {
 	args := m.Called(config, timestamp)
-	return args.Get(0).([]lib.LabeledValue), args.Error(1)
+	return args.Get(0).([]lib.LabeledValue), args.Error(1) //nolint:forcetypeassert
 }
 
 func (m *MockAlloraAdapter) CalcForecast(config lib.WorkerConfig, timestamp int64) ([]lib.NodeValue, error) {

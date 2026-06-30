@@ -233,7 +233,7 @@ func (a *AlloraAdapter) GroundTruth(node lib.ReputerConfig, blockHeight int64) (
 		}
 	}
 	log.Info().Str("url", url).Str("groundTruth", groundTruthDec.String()).Msg("Ground truth")
-	return lib.Truth{Value: groundTruthDec.String()}, nil
+	return lib.Truth{Value: groundTruthDec.String()}, nil //nolint:exhaustruct
 }
 
 // Expects a multi-label ground truth as a json array of {"label": ..., "value": ...} objects

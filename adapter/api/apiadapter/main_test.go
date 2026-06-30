@@ -12,6 +12,8 @@ import (
 // TestParseJSONToLabeledValues covers the accepted wire formats (string and numeric
 // values, with order preserved and whitespace trimmed) and the local pre-validation
 // that rejects malformed model output before it can reach the chain.
+//
+//nolint:exhaustruct
 func TestParseJSONToLabeledValues(t *testing.T) {
 	tests := []struct {
 		name          string
