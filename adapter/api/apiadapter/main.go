@@ -133,7 +133,7 @@ func parseJSONToLabeledValues(jsonStr string) ([]lib.LabeledValue, error) {
 func (a *AlloraAdapter) CalcInference(node lib.WorkerConfig, blockHeight int64) (string, error) {
 	log := log.With().Str("actorType", "worker").Uint64("topicId", node.TopicId).Logger()
 
-	urlTemplate := node.Parameters["InferenceEndpoint"]
+	urlTemplate := node.Parameters[lib.ParamInferenceEndpoint]
 	url := replaceExtendedPlaceholders(urlTemplate, node.Parameters, blockHeight, node.TopicId)
 	log.Debug().Str("url", url).Msg("Inference endpoint")
 	return requestEndpoint(url)
@@ -143,7 +143,7 @@ func (a *AlloraAdapter) CalcInference(node lib.WorkerConfig, blockHeight int64) 
 func (a *AlloraAdapter) CalcLabeledInference(node lib.WorkerConfig, blockHeight int64) ([]lib.LabeledValue, error) {
 	log := log.With().Str("actorType", "worker").Uint64("topicId", node.TopicId).Logger()
 
-	urlTemplate := node.Parameters["LabeledInferenceEndpoint"]
+	urlTemplate := node.Parameters[lib.ParamLabeledInferenceEndpoint]
 	url := replaceExtendedPlaceholders(urlTemplate, node.Parameters, blockHeight, node.TopicId)
 	log.Debug().Str("url", url).Msg("Labeled inference endpoint")
 
@@ -166,7 +166,7 @@ func (a *AlloraAdapter) CalcLabeledInference(node lib.WorkerConfig, blockHeight 
 func (a *AlloraAdapter) CalcForecast(node lib.WorkerConfig, blockHeight int64) ([]lib.NodeValue, error) {
 	log := log.With().Str("actorType", "worker").Uint64("topicId", node.TopicId).Logger()
 
-	urlTemplate := node.Parameters["ForecastEndpoint"]
+	urlTemplate := node.Parameters[lib.ParamForecastEndpoint]
 	url := replaceExtendedPlaceholders(urlTemplate, node.Parameters, blockHeight, node.TopicId)
 	log.Debug().Str("url", url).Msg("Forecasts endpoint")
 
@@ -188,7 +188,7 @@ func (a *AlloraAdapter) CalcForecast(node lib.WorkerConfig, blockHeight int64) (
 func (a *AlloraAdapter) GroundTruth(node lib.ReputerConfig, blockHeight int64) (lib.Truth, error) {
 	log := log.With().Str("actorType", "reputer").Uint64("topicId", node.TopicId).Logger()
 
-	urlTemplate := node.GroundTruthParameters["GroundTruthEndpoint"]
+	urlTemplate := node.GroundTruthParameters[lib.ParamGroundTruthEndpoint]
 	url := replaceExtendedPlaceholders(urlTemplate, node.GroundTruthParameters, blockHeight, node.TopicId)
 	log.Debug().Str("url", url).Msg("Ground truth endpoint")
 	groundTruth, err := requestEndpoint(url)
@@ -213,7 +213,7 @@ func (a *AlloraAdapter) GroundTruth(node lib.ReputerConfig, blockHeight int64) (
 func (a *AlloraAdapter) LabeledGroundTruth(node lib.ReputerConfig, blockHeight int64) ([]lib.Truth, error) {
 	log := log.With().Str("actorType", "reputer").Uint64("topicId", node.TopicId).Logger()
 
-	urlTemplate := node.GroundTruthParameters["LabeledGroundTruthEndpoint"]
+	urlTemplate := node.GroundTruthParameters[lib.ParamLabeledGroundTruthEndpoint]
 	url := replaceExtendedPlaceholders(urlTemplate, node.GroundTruthParameters, blockHeight, node.TopicId)
 	log.Debug().Str("url", url).Msg("Labeled ground truth endpoint")
 	groundTruth, err := requestEndpoint(url)

@@ -96,7 +96,7 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 // it fetches the labeled ground truth, otherwise the scalar one (returned as a
 // single-element slice).
 func (suite *UseCaseSuite) getSourceTruth(reputer lib.ReputerConfig, nonce lib.BlockHeight, walletAddress string) ([]lib.Truth, error) {
-	if _, ok := reputer.GroundTruthParameters["LabeledGroundTruthEndpoint"]; ok {
+	if _, ok := reputer.GroundTruthParameters[lib.ParamLabeledGroundTruthEndpoint]; ok {
 		sourceTruth, err := reputer.GroundTruthEntrypoint.LabeledGroundTruth(reputer, nonce)
 		if err != nil {
 			return nil, errorsmod.Wrapf(err, "error getting labeled source truth from reputer, topicId: %d, blockHeight: %d", reputer.TopicId, nonce)
