@@ -47,12 +47,21 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 	}
 	networkInferenceBundle.Nonce = nonce
 
-	sourceTruth, err := suite.getSourceTruth(reputer, nonce, wallet.Address)
+	topicInfo, err := queryTopicInfo(ctx, suite, reputer)
+	if err != nil {
+		return errorsmod.Wrapf(err, "error getting topic info, topic: %d, blockHeight: %d", reputer.TopicId, nonce)
+	}
+	multiLabel, err := resolveMultiLabel(topicInfo.OutputArity)
+	if err != nil {
+		return errorsmod.Wrapf(err, "error resolving topic arity, topic: %d", reputer.TopicId)
+	}
+
+	sourceTruth, err := suite.getSourceTruth(reputer, multiLabel, nonce, wallet.Address)
 	if err != nil {
 		return err
 	}
 
-	lossBundle, err := suite.ComputeLossBundle(sourceTruth, networkInferenceBundle, reputer)
+	lossBundle, err := suite.ComputeLossBundle(sourceTruth, networkInferenceBundle, reputer, multiLabel)
 	if err != nil {
 		return errorsmod.Wrapf(err, "error computing loss bundle, topic: %d, blockHeight: %d", reputer.TopicId, nonce)
 	}
@@ -91,12 +100,24 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 }
 
 // getSourceTruth fetches the reputer's source of truth from the configured
-// entrypoint. It dispatches on whether the reputer is configured for multi-label
-// (vector) ground truth via the LabeledGroundTruthEndpoint parameter: when present
-// it fetches the labeled ground truth, otherwise the scalar one (returned as a
-// single-element slice).
-func (suite *UseCaseSuite) getSourceTruth(reputer lib.ReputerConfig, nonce lib.BlockHeight, walletAddress string) ([]lib.Truth, error) {
-	if _, ok := reputer.GroundTruthParameters[lib.ParamLabeledGroundTruthEndpoint]; ok {
+// entrypoint. It dispatches on the topic's on-chain output arity (multiLabel): a
+// multi-label topic fetches the labeled ground truth, a single-label topic the
+// scalar one (returned as a single-element slice). If the endpoint required for
+// the topic's arity is missing it errors; if a contradicting endpoint is also
+// present it warns and ignores it.
+func (suite *UseCaseSuite) getSourceTruth(reputer lib.ReputerConfig, multiLabel bool, nonce lib.BlockHeight, walletAddress string) ([]lib.Truth, error) {
+	log := log.With().Uint64("topicId", reputer.TopicId).Str("actorType", "reputer").Logger()
+	_, hasLabeled := reputer.GroundTruthParameters[lib.ParamLabeledGroundTruthEndpoint]
+	_, hasScalar := reputer.GroundTruthParameters[lib.ParamGroundTruthEndpoint]
+
+	if multiLabel {
+		if !hasLabeled {
+			return nil, errorsmod.Wrapf(emissionstypes.ErrInvalidValue,
+				"topic %d is multi-label (MULTI) but no %s is configured", reputer.TopicId, lib.ParamLabeledGroundTruthEndpoint)
+		}
+		if hasScalar {
+			log.Warn().Msgf("topic is multi-label but %s is also configured; ignoring it", lib.ParamGroundTruthEndpoint)
+		}
 		sourceTruth, err := reputer.GroundTruthEntrypoint.LabeledGroundTruth(reputer, nonce)
 		if err != nil {
 			return nil, errorsmod.Wrapf(err, "error getting labeled source truth from reputer, topicId: %d, blockHeight: %d", reputer.TopicId, nonce)
@@ -105,6 +126,13 @@ func (suite *UseCaseSuite) getSourceTruth(reputer lib.ReputerConfig, nonce lib.B
 		return sourceTruth, nil
 	}
 
+	if !hasScalar {
+		return nil, errorsmod.Wrapf(emissionstypes.ErrInvalidValue,
+			"topic %d is single-label (SINGLE) but no %s is configured", reputer.TopicId, lib.ParamGroundTruthEndpoint)
+	}
+	if hasLabeled {
+		log.Warn().Msgf("topic is single-label but %s is also configured; ignoring it", lib.ParamLabeledGroundTruthEndpoint)
+	}
 	truth, err := reputer.GroundTruthEntrypoint.GroundTruth(reputer, nonce)
 	if err != nil {
 		return nil, errorsmod.Wrapf(err, "error getting source truth from reputer, topicId: %d, blockHeight: %d", reputer.TopicId, nonce)
@@ -153,7 +181,7 @@ func buildLabeledPredictions(values []*emissionstypes.LabeledValue, sourceTruth 
 	return predictions, nil
 }
 
-func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissionstypes.NetworkInferenceBundle, reputer lib.ReputerConfig) (emissionstypes.InputValueBundle, error) {
+func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissionstypes.NetworkInferenceBundle, reputer lib.ReputerConfig, multiLabel bool) (emissionstypes.InputValueBundle, error) {
 	if vb == nil {
 		return emissionstypes.InputValueBundle{}, errors.New("nil ValueBundle")
 	}
@@ -205,23 +233,24 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 	}
 
 	computeLoss := func(values []*emissionstypes.LabeledValue, description string) (alloraMath.Dec, error) {
-		lenValue := len(values)
-		if lenValue == 0 {
+		if len(values) == 0 {
 			return alloraMath.Dec{}, errors.New("no values provided to compute loss")
 		}
 
 		var lossStr string
 		// serviceEndpoint is the loss service used for this value vector; it also
-		// determines which endpoint the never-negative check is made against.
+		// determines which endpoint the never-negative check is made against. The
+		// scalar-vs-labeled choice is driven by the topic's on-chain arity, not the
+		// runtime vector length: a multi-label topic can legitimately produce a
+		// length-1 vector at a block, which must still use the labeled loss service.
 		var serviceEndpoint string
-		switch {
-		case lenValue > 1:
+		if multiLabel {
 			// Multi-label: requires the labeled loss service.
 			if reputer.LossFunctionParameters.LabeledLossFunctionService == "" {
 				return alloraMath.Dec{}, errorsmod.Wrapf(
 					emissionstypes.ErrInvalidValue,
-					"multi-label values (%d) for %s require a LabeledLossFunctionService, but none is configured",
-					lenValue, description)
+					"multi-label topic requires a LabeledLossFunctionService for %s, but none is configured",
+					description)
 			}
 			// Carry labels through to the loss service and verify the predicted
 			// labels match the ground-truth labels exactly. This makes the loss a
@@ -232,28 +261,38 @@ func (suite *UseCaseSuite) ComputeLossBundle(sourceTruth []lib.Truth, vb *emissi
 				return alloraMath.Dec{}, errorsmod.Wrapf(err, "error aligning labeled values for %s", description)
 			}
 			serviceEndpoint = reputer.LossFunctionParameters.LabeledLossFunctionService
-			lossStr, err = reputer.LossFunctionEntrypoint.LabeledLossFunction(
+			ls, err := reputer.LossFunctionEntrypoint.LabeledLossFunction(
 				reputer, sourceTruth, labeledPredictions, lossMethodOptions)
 			if err != nil {
 				return alloraMath.Dec{}, errorsmod.Wrapf(err, "error computing labeled loss for %s", description)
 			}
-		case lenValue == 1:
+			lossStr = ls
+		} else {
+			// Single-label (scalar): requires the scalar loss service and exactly
+			// one value/truth.
+			if reputer.LossFunctionParameters.LossFunctionService == "" {
+				return alloraMath.Dec{}, errorsmod.Wrapf(
+					emissionstypes.ErrInvalidValue,
+					"single-label topic requires a LossFunctionService for %s, but none is configured",
+					description)
+			}
 			if len(sourceTruth) == 0 {
 				return alloraMath.Dec{}, errorsmod.Wrapf(
 					emissionstypes.ErrInvalidValue,
 					"single-label value for %s but no source truth provided", description)
 			}
+			if len(values) != 1 {
+				return alloraMath.Dec{}, errorsmod.Wrapf(
+					emissionstypes.ErrInvalidValue,
+					"single-label topic expects exactly one value for %s, got %d", description, len(values))
+			}
 			serviceEndpoint = reputer.LossFunctionParameters.LossFunctionService
-			lossStr, err = reputer.LossFunctionEntrypoint.LossFunction(
+			ls, err := reputer.LossFunctionEntrypoint.LossFunction(
 				reputer, sourceTruth[0], values[0].Value.String(), lossMethodOptions)
 			if err != nil {
 				return alloraMath.Dec{}, errorsmod.Wrapf(err, "error computing loss for %s", description)
 			}
-		default:
-			// lenValue == 0 — already guarded by the lenValue check above, but
-			// keep the switch total.
-			return alloraMath.Dec{}, errorsmod.Wrapf(
-				emissionstypes.ErrInvalidValue, "no values to compute loss for %s", description)
+			lossStr = ls
 		}
 
 		loss, err := alloraMath.NewDecFromString(lossStr)

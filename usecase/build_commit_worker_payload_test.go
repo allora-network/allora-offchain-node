@@ -355,6 +355,7 @@ func TestGetWorkerResponseDispatch(t *testing.T) {
 
 	tests := []struct {
 		name          string
+		multiLabel    bool
 		parameters    map[string]string
 		withForecast  bool
 		mockSetup     func(*MockAlloraAdapter)
@@ -363,8 +364,9 @@ func TestGetWorkerResponseDispatch(t *testing.T) {
 		assertResult  func(*testing.T, lib.WorkerResponse)
 	}{
 		{
-			name:       "scalar inference dispatch - no LabeledInferenceEndpoint",
-			parameters: map[string]string{"InferenceEndpoint": "http://x/inference"},
+			name:       "scalar topic dispatches to CalcInference",
+			multiLabel: false,
+			parameters: map[string]string{lib.ParamInferenceEndpoint: "http://x/inference"},
 			mockSetup: func(m *MockAlloraAdapter) {
 				m.On("CalcInference", mock.AnythingOfType("lib.WorkerConfig"), blockHeight).Return("0.5", nil).Once()
 			},
@@ -374,8 +376,9 @@ func TestGetWorkerResponseDispatch(t *testing.T) {
 			},
 		},
 		{
-			name:       "multi-label inference dispatch - LabeledInferenceEndpoint present",
-			parameters: map[string]string{"LabeledInferenceEndpoint": "http://x/labeled-inference"},
+			name:       "multi-label topic dispatches to CalcLabeledInference",
+			multiLabel: true,
+			parameters: map[string]string{lib.ParamLabeledInferenceEndpoint: "http://x/labeled-inference"},
 			mockSetup: func(m *MockAlloraAdapter) {
 				m.On("CalcLabeledInference", mock.AnythingOfType("lib.WorkerConfig"), blockHeight).
 					Return([]lib.LabeledValue{{Label: "UP", Value: "0.3"}, {Label: "DOWN", Value: "0.7"}}, nil).Once()
@@ -391,7 +394,8 @@ func TestGetWorkerResponseDispatch(t *testing.T) {
 		},
 		{
 			name:         "multi-label inference plus forecast",
-			parameters:   map[string]string{"LabeledInferenceEndpoint": "http://x/labeled-inference"},
+			multiLabel:   true,
+			parameters:   map[string]string{lib.ParamLabeledInferenceEndpoint: "http://x/labeled-inference"},
 			withForecast: true,
 			mockSetup: func(m *MockAlloraAdapter) {
 				m.On("CalcLabeledInference", mock.AnythingOfType("lib.WorkerConfig"), blockHeight).
@@ -406,8 +410,61 @@ func TestGetWorkerResponseDispatch(t *testing.T) {
 			},
 		},
 		{
+			// Arity wins over a contradicting endpoint: a scalar topic with a
+			// labeled endpoint also configured must still call CalcInference.
+			name:       "scalar topic ignores stray LabeledInferenceEndpoint",
+			multiLabel: false,
+			parameters: map[string]string{
+				lib.ParamInferenceEndpoint:        "http://x/inference",
+				lib.ParamLabeledInferenceEndpoint: "http://x/labeled-inference",
+			},
+			mockSetup: func(m *MockAlloraAdapter) {
+				m.On("CalcInference", mock.AnythingOfType("lib.WorkerConfig"), blockHeight).Return("0.5", nil).Once()
+			},
+			assertResult: func(t *testing.T, r lib.WorkerResponse) {
+				assert.Equal(t, "0.5", r.InfererValue)
+				assert.Empty(t, r.InfererValues)
+			},
+		},
+		{
+			// Symmetric: a multi-label topic with a stray scalar endpoint must
+			// still call CalcLabeledInference.
+			name:       "multi-label topic ignores stray InferenceEndpoint",
+			multiLabel: true,
+			parameters: map[string]string{
+				lib.ParamInferenceEndpoint:        "http://x/inference",
+				lib.ParamLabeledInferenceEndpoint: "http://x/labeled-inference",
+			},
+			mockSetup: func(m *MockAlloraAdapter) {
+				m.On("CalcLabeledInference", mock.AnythingOfType("lib.WorkerConfig"), blockHeight).
+					Return([]lib.LabeledValue{{Label: "UP", Value: "0.3"}}, nil).Once()
+			},
+			assertResult: func(t *testing.T, r lib.WorkerResponse) {
+				require.Len(t, r.InfererValues, 1)
+			},
+		},
+		{
+			// Missing the arity-required endpoint is an error, and no inference
+			// call is made (the mock would fail the test if it were).
+			name:          "multi-label topic without LabeledInferenceEndpoint errors",
+			multiLabel:    true,
+			parameters:    map[string]string{lib.ParamInferenceEndpoint: "http://x/inference"},
+			mockSetup:     func(m *MockAlloraAdapter) {},
+			expectError:   true,
+			errorContains: "no LabeledInferenceEndpoint is configured",
+		},
+		{
+			name:          "scalar topic without InferenceEndpoint errors",
+			multiLabel:    false,
+			parameters:    map[string]string{lib.ParamLabeledInferenceEndpoint: "http://x/labeled-inference"},
+			mockSetup:     func(m *MockAlloraAdapter) {},
+			expectError:   true,
+			errorContains: "no InferenceEndpoint is configured",
+		},
+		{
 			name:       "scalar inference error propagates",
-			parameters: map[string]string{},
+			multiLabel: false,
+			parameters: map[string]string{lib.ParamInferenceEndpoint: "http://x/inference"},
 			mockSetup: func(m *MockAlloraAdapter) {
 				m.On("CalcInference", mock.AnythingOfType("lib.WorkerConfig"), blockHeight).
 					Return("", errors.New("inference endpoint down")).Once()
@@ -417,7 +474,8 @@ func TestGetWorkerResponseDispatch(t *testing.T) {
 		},
 		{
 			name:       "labeled inference error propagates",
-			parameters: map[string]string{"LabeledInferenceEndpoint": "http://x/labeled-inference"},
+			multiLabel: true,
+			parameters: map[string]string{lib.ParamLabeledInferenceEndpoint: "http://x/labeled-inference"},
 			mockSetup: func(m *MockAlloraAdapter) {
 				m.On("CalcLabeledInference", mock.AnythingOfType("lib.WorkerConfig"), blockHeight).
 					Return([]lib.LabeledValue(nil), errors.New("labeled endpoint down")).Once()
@@ -443,7 +501,7 @@ func TestGetWorkerResponseDispatch(t *testing.T) {
 
 			suite := &UseCaseSuite{Metrics: &metrics.Metrics{}}
 
-			resp, err := suite.getWorkerResponse(worker, blockHeight, address)
+			resp, err := suite.getWorkerResponse(worker, tt.multiLabel, blockHeight, address)
 			if tt.expectError {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorContains)

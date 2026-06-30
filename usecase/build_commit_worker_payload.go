@@ -34,7 +34,16 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 		return errors.New("Worker has no valid Inference or Forecast entrypoints")
 	}
 
-	workerResponse, err := suite.getWorkerResponse(worker, nonce.BlockHeight, wallet.Address)
+	topicInfo, err := queryTopicInfo(ctx, suite, worker)
+	if err != nil {
+		return errorsmod.Wrapf(err, "Error getting topic info, topicId: %d, blockHeight: %d", worker.TopicId, nonce.BlockHeight)
+	}
+	multiLabel, err := resolveMultiLabel(topicInfo.OutputArity)
+	if err != nil {
+		return errorsmod.Wrapf(err, "Error resolving topic arity, topicId: %d", worker.TopicId)
+	}
+
+	workerResponse, err := suite.getWorkerResponse(worker, multiLabel, nonce.BlockHeight, wallet.Address)
 	if err != nil {
 		return err
 	}
@@ -79,16 +88,28 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 }
 
 // getWorkerResponse gathers the worker's inference and forecast payloads from the
-// configured entrypoints. The inference path dispatches on whether the worker is
-// configured for multi-label (vector) inference via the LabeledInferenceEndpoint
-// parameter: when present it fetches a labeled inference, otherwise a scalar one.
-func (suite *UseCaseSuite) getWorkerResponse(worker lib.WorkerConfig, blockHeight int64, walletAddress string) (lib.WorkerResponse, error) {
+// configured entrypoints. The inference path dispatches on the topic's on-chain
+// output arity (multiLabel): a multi-label topic fetches a labeled inference, a
+// single-label topic fetches a scalar one. If the endpoint required for the
+// topic's arity is missing it errors; if a contradicting endpoint is also present
+// it warns and ignores it.
+func (suite *UseCaseSuite) getWorkerResponse(worker lib.WorkerConfig, multiLabel bool, blockHeight int64, walletAddress string) (lib.WorkerResponse, error) {
+	log := log.With().Uint64("topicId", worker.TopicId).Str("actorType", "worker").Logger()
 	workerResponse := lib.WorkerResponse{ //nolint:exhaustruct
 		WorkerConfig: worker,
 	}
 
 	if worker.InferenceEntrypoint != nil {
-		if _, ok := worker.Parameters[lib.ParamLabeledInferenceEndpoint]; ok {
+		_, hasLabeled := worker.Parameters[lib.ParamLabeledInferenceEndpoint]
+		_, hasScalar := worker.Parameters[lib.ParamInferenceEndpoint]
+		if multiLabel {
+			if !hasLabeled {
+				return lib.WorkerResponse{}, errorsmod.Wrapf(emissionstypes.ErrInvalidValue, //nolint:exhaustruct
+					"topic %d is multi-label (MULTI) but no %s is configured", worker.TopicId, lib.ParamLabeledInferenceEndpoint)
+			}
+			if hasScalar {
+				log.Warn().Msgf("topic is multi-label but %s is also configured; ignoring it", lib.ParamInferenceEndpoint)
+			}
 			labeledInference, err := worker.InferenceEntrypoint.CalcLabeledInference(worker, blockHeight)
 			if err != nil {
 				return lib.WorkerResponse{}, errorsmod.Wrapf(err, "Error computing labeled inference for worker, topicId: %d, blockHeight: %d", worker.TopicId, blockHeight) //nolint:exhaustruct
@@ -96,6 +117,13 @@ func (suite *UseCaseSuite) getWorkerResponse(worker lib.WorkerConfig, blockHeigh
 			workerResponse.InfererValues = labeledInference
 			suite.Metrics.IncrementMetricsCounter(metrics.LabeledInferenceRequestCount, walletAddress, worker.TopicId)
 		} else {
+			if !hasScalar {
+				return lib.WorkerResponse{}, errorsmod.Wrapf(emissionstypes.ErrInvalidValue, //nolint:exhaustruct
+					"topic %d is single-label (SINGLE) but no %s is configured", worker.TopicId, lib.ParamInferenceEndpoint)
+			}
+			if hasLabeled {
+				log.Warn().Msgf("topic is single-label but %s is also configured; ignoring it", lib.ParamLabeledInferenceEndpoint)
+			}
 			inference, err := worker.InferenceEntrypoint.CalcInference(worker, blockHeight)
 			if err != nil {
 				return lib.WorkerResponse{}, errorsmod.Wrapf(err, "Error computing inference for worker, topicId: %d, blockHeight: %d", worker.TopicId, blockHeight) //nolint:exhaustruct
@@ -125,15 +153,14 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 
 	inferenceForecastsBundle := emissionstypes.InputInferenceForecastBundle{} //nolint:exhaustruct
 
-	if workerResponse.InfererValue != "" || len(workerResponse.InfererValues) > 0 {
-		// legacy - remove at some point
-		var infererValue alloraMath.BoundedExp40Dec
-		if workerResponse.InfererValue != "" {
-			infererValue, err = alloraMath.NewBoundedExp40DecFromString(workerResponse.InfererValue)
-			if err != nil {
-				return emissionstypes.InputInferenceForecastBundle{}, errorsmod.Wrapf(err, "error converting infererValue to Dec") //nolint:exhaustruct
-			}
-		}
+	// Populate exactly one of Value / Values, keyed on whether the worker produced
+	// a multi-label (Values) or scalar (Value) inference. The chain treats Values
+	// as authoritative for multi-label topics; setting a spurious zero Value on a
+	// labeled submission would be recorded as a scalar inference by any consumer
+	// reading Value (e.g. a not-yet-upgraded validator), so the two are kept
+	// mutually exclusive here.
+	switch {
+	case len(workerResponse.InfererValues) > 0:
 		infererValues := make([]*emissionstypes.InputLabeledValue, len(workerResponse.InfererValues))
 		for i := range workerResponse.InfererValues {
 			value, err := alloraMath.NewBoundedExp40DecFromString(workerResponse.InfererValues[i].Value)
@@ -145,14 +172,23 @@ func (suite *UseCaseSuite) BuildWorkerPayload(workerResponse lib.WorkerResponse,
 				Value: value,
 			}
 		}
-		builtInference := &emissionstypes.InputInference{ //nolint:exhaustruct
+		inferenceForecastsBundle.Inference = &emissionstypes.InputInference{ //nolint:exhaustruct
 			TopicId:     workerResponse.TopicId,
 			Inferer:     wallet.Address,
-			Value:       infererValue,
 			Values:      infererValues,
 			BlockHeight: nonce,
 		}
-		inferenceForecastsBundle.Inference = builtInference
+	case workerResponse.InfererValue != "":
+		infererValue, err := alloraMath.NewBoundedExp40DecFromString(workerResponse.InfererValue)
+		if err != nil {
+			return emissionstypes.InputInferenceForecastBundle{}, errorsmod.Wrapf(err, "error converting infererValue to Dec") //nolint:exhaustruct
+		}
+		inferenceForecastsBundle.Inference = &emissionstypes.InputInference{ //nolint:exhaustruct
+			TopicId:     workerResponse.TopicId,
+			Inferer:     wallet.Address,
+			Value:       infererValue,
+			BlockHeight: nonce,
+		}
 	}
 
 	if len(workerResponse.ForecasterValues) > 0 {

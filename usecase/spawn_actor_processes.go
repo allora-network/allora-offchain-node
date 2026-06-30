@@ -353,6 +353,23 @@ func (suite *UseCaseSuite) startReputer(ctx context.Context, reputer lib.Reputer
 	}
 }
 
+// resolveMultiLabel maps a topic's on-chain output arity to whether its payloads
+// are multi-label (vector). Dispatch across the worker inference, reputer ground
+// truth and reputer loss paths keys off this single source of truth (the chain's
+// authoritative TopicOutputArity) rather than local config presence or runtime
+// vector length. An unspecified or invalid arity is an error so the node fails
+// loudly instead of guessing.
+func resolveMultiLabel(arity emissionstypes.TopicOutputArity) (bool, error) {
+	switch arity {
+	case emissionstypes.TopicOutputArity_TOPIC_OUTPUT_ARITY_SINGLE:
+		return false, nil
+	case emissionstypes.TopicOutputArity_TOPIC_OUTPUT_ARITY_MULTI:
+		return true, nil
+	default:
+		return false, fmt.Errorf("topic has unspecified or invalid output arity (%s)", arity)
+	}
+}
+
 // Queries the topic info for a given actor type and wallet params from suite
 // Wrapper over NodeConfig.GetTopicInfo() with generic config type
 func queryTopicInfo[T lib.TopicActor](
