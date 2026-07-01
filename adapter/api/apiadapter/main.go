@@ -98,6 +98,18 @@ func parseJSONToNodeValues(jsonStr string) ([]lib.NodeValue, error) {
 	return nodeValues, nil
 }
 
+// decodeLabeledValueString normalizes a labeled value's raw JSON to its string
+// form. The model provider may encode the value either as a JSON string ("0.3")
+// or as a JSON number (0.3); both are returned as a trimmed string.
+func decodeLabeledValueString(raw json.RawMessage) string {
+	value := strings.TrimSpace(string(raw))
+	var asString string
+	if err := json.Unmarshal(raw, &asString); err == nil {
+		value = strings.TrimSpace(asString)
+	}
+	return value
+}
+
 // parseJSONToLabeledValues parses the incoming JSON string into a slice of LabeledValue.
 // The expected format is a JSON array of {"label": ..., "value": ...} objects, which
 // preserves the ordering of the labels as returned by the model provider. The value is
@@ -137,13 +149,7 @@ func parseJSONToLabeledValues(jsonStr string) ([]lib.LabeledValue, error) {
 		}
 		seenLabels[label] = struct{}{}
 
-		// If the value was encoded as a JSON string, unquote it; otherwise (e.g. a
-		// JSON number) keep the raw textual representation.
-		value := strings.TrimSpace(string(raw.Value))
-		var asString string
-		if err := json.Unmarshal(raw.Value, &asString); err == nil {
-			value = strings.TrimSpace(asString)
-		}
+		value := decodeLabeledValueString(raw.Value)
 		if value == "" {
 			return nil, fmt.Errorf("labeled value for label %q has an empty value", label)
 		}
