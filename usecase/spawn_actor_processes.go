@@ -81,7 +81,7 @@ func (suite *UseCaseSuite) Start() error {
 }
 
 // Attempts to build and commit a worker payload for a given nonce
-func (suite *UseCaseSuite) processWorkerPayload(ctx context.Context, worker lib.WorkerConfig, nonce emissionstypes.Nonce, timeoutHeight int64) error {
+func (suite *UseCaseSuite) processWorkerPayload(ctx context.Context, worker lib.WorkerConfig, nonce emissionstypes.Nonce, timeoutHeight int64, multiLabel bool) error {
 	walletConfig, err := suite.ConnectionManager.GetWalletConfig()
 	if err != nil {
 		return errorsmod.Wrapf(err, "Error getting wallet config")
@@ -113,7 +113,7 @@ func (suite *UseCaseSuite) processWorkerPayload(ctx context.Context, worker lib.
 	// Build and commit payload with transaction timeout
 	err = WithTimeout(ctx, time.Duration(walletConfig.TimeoutRPCSecondsTx)*time.Second,
 		func(ctx context.Context) error {
-			return suite.BuildCommitWorkerPayload(ctx, worker, nonce, uint64(timeoutHeight))
+			return suite.BuildCommitWorkerPayload(ctx, worker, nonce, uint64(timeoutHeight), multiLabel)
 		})
 
 	if err != nil {
@@ -126,7 +126,7 @@ func (suite *UseCaseSuite) processWorkerPayload(ctx context.Context, worker lib.
 	return nil
 }
 
-func (suite *UseCaseSuite) processReputerPayload(ctx context.Context, reputer lib.ReputerConfig, nonce emissionstypes.Nonce, timeoutHeight int64) error {
+func (suite *UseCaseSuite) processReputerPayload(ctx context.Context, reputer lib.ReputerConfig, nonce emissionstypes.Nonce, timeoutHeight int64, multiLabel bool) error {
 	log := log.With().Uint64("topicId", reputer.TopicId).Str("actorType", "reputer").Logger()
 	log.Info().Msg("Processing reputer payload")
 	walletConfig, err := suite.ConnectionManager.GetWalletConfig()
@@ -164,7 +164,7 @@ func (suite *UseCaseSuite) processReputerPayload(ctx context.Context, reputer li
 	// Build and commit payload with transaction timeout
 	err = WithTimeout(ctx, time.Duration(walletConfig.TimeoutRPCSecondsTx)*time.Second,
 		func(ctx context.Context) error {
-			return suite.BuildCommitReputerPayload(ctx, reputer, nonce.BlockHeight, uint64(timeoutHeight))
+			return suite.BuildCommitReputerPayload(ctx, reputer, nonce.BlockHeight, uint64(timeoutHeight), multiLabel)
 		})
 
 	if err != nil {
@@ -235,6 +235,13 @@ func (suite *UseCaseSuite) startWorker(ctx context.Context, worker lib.WorkerCon
 		log.Error().Err(err).Msg("Failed to get topic info for worker")
 		return
 	}
+	// OutputArity is immutable, so resolve multiLabel once here from the topic
+	// fetched at startup and reuse it every epoch (no per-submission query).
+	multiLabel, err := resolveMultiLabel(topicInfo.OutputArity)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to resolve topic arity for worker")
+		return
+	}
 
 	// Check if worker is isWhitelisted
 	isWhitelisted, err := lib.RunWithNodeRetry(
@@ -263,7 +270,7 @@ func (suite *UseCaseSuite) startWorker(ctx context.Context, worker lib.WorkerCon
 			return
 		}
 
-		if err := suite.processWorkerPayload(ctx, worker, nonce, height+topicInfo.EpochLength); err != nil {
+		if err := suite.processWorkerPayload(ctx, worker, nonce, height+topicInfo.EpochLength, multiLabel); err != nil {
 			log.Error().Err(err).Msg("Error processing payload - could not complete transaction")
 		}
 	}); err != nil {
@@ -316,6 +323,13 @@ func (suite *UseCaseSuite) startReputer(ctx context.Context, reputer lib.Reputer
 		log.Error().Err(err).Msg("Failed to get topic info for reputer")
 		return
 	}
+	// OutputArity is immutable, so resolve multiLabel once here from the topic
+	// fetched at startup and reuse it every epoch (no per-submission query).
+	multiLabel, err := resolveMultiLabel(topicInfo.OutputArity)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to resolve topic arity for reputer")
+		return
+	}
 
 	// Check if reputer is isWhitelisted
 	isWhitelisted, err := lib.RunWithNodeRetry(
@@ -345,7 +359,7 @@ func (suite *UseCaseSuite) startReputer(ctx context.Context, reputer lib.Reputer
 			return
 		}
 
-		if err := suite.processReputerPayload(ctx, reputer, nonce, height+topicInfo.EpochLength); err != nil {
+		if err := suite.processReputerPayload(ctx, reputer, nonce, height+topicInfo.EpochLength, multiLabel); err != nil {
 			log.Error().Err(err).Msg("Error processing payload - could not complete transaction")
 		}
 	}); err != nil {

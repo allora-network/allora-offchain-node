@@ -21,7 +21,10 @@ import (
 // Get the reputer's values at the block from the chain
 // Compute loss bundle with the reputer provided Loss function and ground truth
 // sign and commit to chain
-func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, reputer lib.ReputerConfig, nonce lib.BlockHeight, timeoutHeight uint64) error {
+// multiLabel is resolved once at startup from the topic's immutable on-chain
+// OutputArity (see startReputer) and threaded in, rather than re-queried per
+// submission.
+func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, reputer lib.ReputerConfig, nonce lib.BlockHeight, timeoutHeight uint64, multiLabel bool) error {
 	log := log.With().Uint64("topicId", reputer.TopicId).Str("actorType", "reputer").Logger()
 	log.Info().Msg("Building reputer payload")
 	wallet, err := suite.ConnectionManager.GetWallet()
@@ -46,15 +49,6 @@ func (suite *UseCaseSuite) BuildCommitReputerPayload(ctx context.Context, repute
 		return errorsmod.Wrapf(err, "error getting reputer values, topic: %d, blockHeight: %d", reputer.TopicId, nonce)
 	}
 	networkInferenceBundle.Nonce = nonce
-
-	topicInfo, err := queryTopicInfo(ctx, suite, reputer)
-	if err != nil {
-		return errorsmod.Wrapf(err, "error getting topic info, topic: %d, blockHeight: %d", reputer.TopicId, nonce)
-	}
-	multiLabel, err := resolveMultiLabel(topicInfo.OutputArity)
-	if err != nil {
-		return errorsmod.Wrapf(err, "error resolving topic arity, topic: %d", reputer.TopicId)
-	}
 
 	sourceTruth, err := suite.getSourceTruth(reputer, multiLabel, nonce, wallet.Address)
 	if err != nil {

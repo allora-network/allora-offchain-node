@@ -17,7 +17,10 @@ import (
 	emissionstypes "github.com/allora-network/allora-chain/x/emissions/types"
 )
 
-func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker lib.WorkerConfig, nonce emissionstypes.Nonce, timeoutHeight uint64) error {
+// multiLabel is resolved once at startup from the topic's immutable on-chain
+// OutputArity (see startWorker) and threaded in, rather than re-queried per
+// submission.
+func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker lib.WorkerConfig, nonce emissionstypes.Nonce, timeoutHeight uint64, multiLabel bool) error {
 	log := log.With().Uint64("topicId", worker.TopicId).Str("actorType", "worker").Logger()
 	log.Info().Msg("Building worker payload")
 
@@ -32,15 +35,6 @@ func (suite *UseCaseSuite) BuildCommitWorkerPayload(ctx context.Context, worker 
 
 	if worker.InferenceEntrypoint == nil && worker.ForecastEntrypoint == nil {
 		return errors.New("Worker has no valid Inference or Forecast entrypoints")
-	}
-
-	topicInfo, err := queryTopicInfo(ctx, suite, worker)
-	if err != nil {
-		return errorsmod.Wrapf(err, "Error getting topic info, topicId: %d, blockHeight: %d", worker.TopicId, nonce.BlockHeight)
-	}
-	multiLabel, err := resolveMultiLabel(topicInfo.OutputArity)
-	if err != nil {
-		return errorsmod.Wrapf(err, "Error resolving topic arity, topicId: %d", worker.TopicId)
 	}
 
 	workerResponse, err := suite.getWorkerResponse(worker, multiLabel, nonce.BlockHeight, wallet.Address)
