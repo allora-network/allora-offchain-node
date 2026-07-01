@@ -194,13 +194,22 @@ func (connectionManager *ConnectionManager) GetCurrentTxNode() (*NodeConfig, err
 	return &connectionManager.txNodes[connectionManager.txIdx], nil
 }
 
-// internal function, switches to a node assuming a lock has been acquired
+// internal function, switches to a node assuming a lock has been acquired.
+// When the configured list has only one node, "switching" cannot rotate to a
+// different endpoint — but we still want to force a fresh dial so that a stale
+// connection (e.g. half-closed by an upstream CDN/LB) is replaced. The
+// single-node short-circuit is delegated to forceReconnectLocked.
 func (connectionManager *ConnectionManager) switchToNodeLocked(mode, index int, nodes []NodeConfig) (*NodeConfig, error) {
 	if len(nodes) == 0 || index < 0 || index >= len(nodes) {
 		return nil, fmt.Errorf("invalid node index, not switching")
 	}
 	if len(nodes) == 1 {
-		return &nodes[0], nil
+		// Only one endpoint configured: rotating index is a no-op. Force the
+		// underlying connection to be re-dialed so the next call hits a fresh
+		// gRPC stream / RPC HTTP transport instead of the (likely dead) one
+		// we just failed on. This is the only recovery path available when no
+		// failover endpoint exists.
+		return connectionManager.forceReconnectLocked(mode, 0, nodes)
 	}
 	var oldIndex int
 	if mode == GRPC_MODE {
@@ -220,6 +229,91 @@ func (connectionManager *ConnectionManager) switchToNodeLocked(mode, index int, 
 		Msg("Switch to next node")
 
 	return &nodes[index], nil
+}
+
+// forceReconnectLocked rebuilds the underlying chain client for the node at
+// `index` and writes the new NodeConfig back into the slice in place. The
+// caller MUST hold the appropriate write lock (queryMu for GRPC_MODE, txMu
+// for RPC_MODE) before calling this.
+//
+// Why this exists: the existing monitorGRPCConnection goroutine in
+// lib/grpcclient only forces a re-dial when the grpc.ClientConn observes a
+// TransientFailure or Shutdown state. When a CDN/LB upstream half-closes an
+// HTTP/2 stream, the client side often stays stuck in Ready until the next
+// RPC fails — so the monitor never reacts and every subsequent call returns
+// the same Unavailable error forever. Calling forceReconnectLocked from the
+// error-classification path breaks that loop.
+//
+// Behaviour:
+//   - On success, the old chain client (gRPC or HTTP) is closed (best-effort)
+//     and replaced with a freshly initialized one bound to the same endpoint.
+//   - On failure, the old NodeConfig is left intact and the original error
+//     is returned. Callers should treat that as "still broken, try again
+//     later" — not a fatal condition.
+func (connectionManager *ConnectionManager) forceReconnectLocked(mode, index int, nodes []NodeConfig) (*NodeConfig, error) {
+	if len(nodes) == 0 || index < 0 || index >= len(nodes) {
+		return nil, fmt.Errorf("invalid node index, not reconnecting")
+	}
+	endpoint := nodes[index].ServerAddress
+	walletCfg := connectionManager.walletConfig
+	if walletCfg == nil {
+		return nil, fmt.Errorf("wallet config not initialized, cannot reconnect")
+	}
+
+	// Construct a minimal UserConfig view for the factory. We only need the
+	// wallet portion populated; GenerateNodeConfig does not read worker/reputer.
+	factoryConfig := &UserConfig{ // nolint: exhaustruct
+		Wallet: *walletCfg,
+	}
+
+	log.Warn().Str("endpoint", endpoint).Int("mode", mode).Msg("Forcing reconnect to chain endpoint")
+	newNode, err := factoryConfig.GenerateNodeConfig(context.Background(), connectionManager.wallet, mode, endpoint)
+	if err != nil {
+		log.Error().Err(err).Str("endpoint", endpoint).Msg("Force reconnect failed, retaining previous (likely-stale) connection")
+		return &nodes[index], err
+	}
+	newNode.ConnectionManager = connectionManager
+
+	// Best-effort close of the old underlying client. The new connection has
+	// already been created, so in-flight calls on the old one need to bleed
+	// out (or fail fast) rather than block forever on a dead stream.
+	closeOld(&nodes[index], mode)
+
+	// Replace in place so any caller that has cached &nodes[index] sees the
+	// new chain client on the next dereference.
+	nodes[index] = *newNode
+	metrics.GetMetrics().IncrementMetricsCounterWithLabels(metrics.GRPCReconnectionCount, endpoint)
+	log.Info().Str("endpoint", endpoint).Int("mode", mode).Msg("Force reconnect complete")
+	return &nodes[index], nil
+}
+
+// closeOld closes the chain client embedded in a NodeConfig in best-effort
+// fashion. Errors are logged at debug since we may be calling this on an
+// already-broken connection where Close itself errors out.
+func closeOld(n *NodeConfig, mode int) {
+	if n == nil {
+		return
+	}
+	if mode == GRPC_MODE && n.Chain.GRPCClient != nil {
+		// Stop the per-connection monitor goroutine first, otherwise it will
+		// keep ticking against the closed conn until parent ctx is cancelled
+		// (i.e. process exit) and quietly leak.
+		if n.Chain.GRPCMonitorCancel != nil {
+			n.Chain.GRPCMonitorCancel()
+			n.Chain.GRPCMonitorCancel = nil
+		}
+		if err := n.Chain.GRPCClient.Close(); err != nil {
+			log.Debug().Err(err).Str("endpoint", n.ServerAddress).Msg("Closing old gRPC client returned error (likely already broken)")
+		}
+		n.Chain.GRPCClient = nil
+	}
+	if mode == RPC_MODE && n.Chain.RPCClient != nil {
+		// AlloraRPCClient wraps *cometrpc.HTTP, which uses pooled net/http
+		// transports under the hood. The cleanest way to release pooled
+		// connections is to drop the reference and let Go GC the transport
+		// after pending requests drain. No explicit Close exists.
+		n.Chain.RPCClient = nil
+	}
 }
 
 // SwitchToNextNode switches to the next node in the list.

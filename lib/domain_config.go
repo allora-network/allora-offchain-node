@@ -2,6 +2,7 @@ package lib
 
 import (
 	"allora_offchain_node/lib/rpcclient"
+	"context"
 	"errors"
 	"fmt"
 
@@ -79,6 +80,7 @@ type WalletConfig struct {
 type ChainConfig struct {
 	RPCClient            *rpcclient.AlloraRPCClient // A custom wrapper around the cometrpc.HTTP client
 	GRPCClient           *grpc.ClientConn           // Basic type to be used to init module-based clients
+	GRPCMonitorCancel    context.CancelFunc         // Stops the per-conn monitor goroutine; non-nil only for GRPC_MODE nodes
 	EmissionsQueryClient emissions.QueryServiceClient
 	BankQueryClient      bank.QueryClient
 	AuthQueryClient      auth.QueryClient

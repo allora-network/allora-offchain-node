@@ -76,11 +76,12 @@ func (c *UserConfig) GenerateNodeConfig(ctx context.Context, wallet *Wallet, mod
 
 	// Get GRPC allora client
 	if mode == GRPC_MODE {
-		grpcConn, err := grpcclient.InitializeGRPCClient(ctx, endpoint, c.Wallet.GrpcInsecure)
+		grpcConn, cancelMonitor, err := grpcclient.InitializeGRPCClient(ctx, endpoint, c.Wallet.GrpcInsecure)
 		if err != nil {
 			return nil, errorsmod.Wrap(err, "failed to initialize gRPC client")
 		}
 		Node.Chain.GRPCClient = grpcConn
+		Node.Chain.GRPCMonitorCancel = cancelMonitor
 		// Create query client
 		Node.Chain.EmissionsQueryClient = emissionstypes.NewQueryServiceClient(grpcConn)
 

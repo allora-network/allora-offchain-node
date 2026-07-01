@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -249,7 +250,7 @@ func TestParseHTTPStatus(t *testing.T) {
 			name:         "With extra text",
 			input:        "Error occurred - Status: 500 Internal Server Error - more details",
 			expectedCode: 500,
-			expectedMsg:  "Internal Server Error",
+			expectedMsg:  "Internal Server Error - more details",
 			expectError:  false,
 		},
 		{
@@ -270,6 +271,28 @@ func TestParseHTTPStatus(t *testing.T) {
 			name:         "No message",
 			input:        "Status: 200",
 			expectedCode: 200,
+			expectedMsg:  "",
+			expectError:  false,
+		},
+		// --- gRPC transport phrasing (real production strings from Cloudflare-fronted gRPC) ---
+		{
+			name:         "gRPC 502 Bad Gateway from upstream",
+			input:        `rpc error: code = Unavailable desc = unexpected HTTP status code received from server: 502 (Bad Gateway); transport: received unexpected content-type "text/html"`,
+			expectedCode: 502,
+			expectedMsg:  "Bad Gateway",
+			expectError:  false,
+		},
+		{
+			name:         "gRPC 503 Service Unavailable in parens",
+			input:        `rpc error: code = Unavailable desc = unexpected HTTP status code received from server: 503 (Service Unavailable)`,
+			expectedCode: 503,
+			expectedMsg:  "Service Unavailable",
+			expectError:  false,
+		},
+		{
+			name:         "gRPC status without reason",
+			input:        `rpc error: code = Unavailable desc = unexpected HTTP status code received from server: 504`,
+			expectedCode: 504,
 			expectedMsg:  "",
 			expectError:  false,
 		},
@@ -311,6 +334,61 @@ func TestParseHTTPStatus(t *testing.T) {
 				assert.Equal(t, tt.expectedCode, code, "status code mismatch")
 				assert.Equal(t, tt.expectedMsg, msg, "status message mismatch")
 			}
+		})
+	}
+}
+
+func TestIsGRPCTransportError(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "connection reset by peer",
+			err:      fmt.Errorf(`rpc error: code = Unavailable desc = error reading from server: read tcp 10.2.3.27:51484->104.26.0.124:443: read: connection reset by peer`),
+			expected: true,
+		},
+		{
+			name:     "read connection timed out",
+			err:      fmt.Errorf(`rpc error: code = Unavailable desc = error reading from server: read: connection timed out`),
+			expected: true,
+		},
+		{
+			name:     "unexpected EOF",
+			err:      fmt.Errorf(`rpc error: code = Unavailable desc = unexpected EOF`),
+			expected: true,
+		},
+		{
+			name:     "Unavailable + error reading from server",
+			err:      fmt.Errorf(`rpc error: code = Unavailable desc = error reading from server: stream terminated`),
+			expected: true,
+		},
+		{
+			name:     "Unavailable alone is NOT a transport error (likely parseable HTTP status)",
+			err:      fmt.Errorf(`rpc error: code = Unavailable desc = unexpected HTTP status code received from server: 502 (Bad Gateway)`),
+			expected: false,
+		},
+		{
+			name:     "unrelated error",
+			err:      fmt.Errorf(`account sequence mismatch, expected 5, got 4`),
+			expected: false,
+		},
+		{
+			name:     "context deadline exceeded is not a transport error",
+			err:      fmt.Errorf(`context deadline exceeded`),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, isGRPCTransportError(tt.err))
 		})
 	}
 }
