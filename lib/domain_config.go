@@ -93,6 +93,18 @@ type TopicActor interface {
 	GetTopicId() emissions.TopicId
 }
 
+// Parameter keys for WorkerConfig.Parameters and ReputerConfig.GroundTruthParameters.
+// Defined here (rather than as string literals duplicated across the adapter and
+// usecase layers) so that endpoint dispatch and endpoint lookup cannot silently
+// desync if a key is renamed or mistyped.
+const (
+	ParamInferenceEndpoint          = "InferenceEndpoint"
+	ParamLabeledInferenceEndpoint   = "LabeledInferenceEndpoint"
+	ParamForecastEndpoint           = "ForecastEndpoint"
+	ParamGroundTruthEndpoint        = "GroundTruthEndpoint"
+	ParamLabeledGroundTruthEndpoint = "LabeledGroundTruthEndpoint"
+)
+
 type WorkerConfig struct {
 	TopicId                 emissions.TopicId
 	InferenceEntrypointName string

@@ -88,7 +88,7 @@ func (suite *UseCaseSuite) getWorkerResponse(worker lib.WorkerConfig, blockHeigh
 	}
 
 	if worker.InferenceEntrypoint != nil {
-		if _, ok := worker.Parameters["LabeledInferenceEndpoint"]; ok {
+		if _, ok := worker.Parameters[lib.ParamLabeledInferenceEndpoint]; ok {
 			labeledInference, err := worker.InferenceEntrypoint.CalcLabeledInference(worker, blockHeight)
 			if err != nil {
 				return lib.WorkerResponse{}, errorsmod.Wrapf(err, "Error computing labeled inference for worker, topicId: %d, blockHeight: %d", worker.TopicId, blockHeight) //nolint:exhaustruct
