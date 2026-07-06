@@ -26,21 +26,34 @@ func TestComputeLossBundle(t *testing.T) {
 		"method": "sqe",
 	}
 
-	// Single-label reputer config: LabeledLossFunctionService is empty, so
-	// computeLoss takes the scalar LossFunction branch.
+	// Single-label (SINGLE arity) reputer config: scalar LossFunctionService set,
+	// never-negative cached. computeLoss takes the scalar LossFunction branch.
 	singleLabelConfig := lib.ReputerConfig{
 		LossFunctionParameters: lib.LossFunctionParameters{
-			LossMethodOptions: reputerOptions,
-			IsNeverNegative:   &[]bool{false}[0],
+			LossMethodOptions:   reputerOptions,
+			IsNeverNegative:     &[]bool{false}[0],
+			LossFunctionService: "scalar-loss-svc",
 		},
 	}
 
-	// Multi-label reputer config: LabeledLossFunctionService is set, so
-	// computeLoss takes the LabeledLossFunction branch.
+	// Multi-label (MULTI arity) reputer config: LabeledLossFunctionService set,
+	// never-negative cached. computeLoss takes the LabeledLossFunction branch.
 	multiLabelConfig := lib.ReputerConfig{
 		LossFunctionParameters: lib.LossFunctionParameters{
 			LossMethodOptions:          reputerOptions,
 			IsNeverNegative:            &[]bool{false}[0],
+			LabeledLossFunctionService: "labeled-loss-svc",
+		},
+	}
+
+	// Both services configured, never-negative cached. Used to prove that arity
+	// (not config presence) decides the branch: a single-label topic with this
+	// config must still use the scalar LossFunctionService.
+	bothServicesConfig := lib.ReputerConfig{
+		LossFunctionParameters: lib.LossFunctionParameters{
+			LossMethodOptions:          reputerOptions,
+			IsNeverNegative:            &[]bool{false}[0],
+			LossFunctionService:        "scalar-loss-svc",
 			LabeledLossFunctionService: "labeled-loss-svc",
 		},
 	}
@@ -91,6 +104,7 @@ func TestComputeLossBundle(t *testing.T) {
 
 	tests := []struct {
 		name          string
+		multiLabel    bool
 		sourceTruth   []lib.Truth
 		valueBundle   *emissionstypes.NetworkInferenceBundle
 		reputerConfig lib.ReputerConfig
@@ -134,7 +148,8 @@ func TestComputeLossBundle(t *testing.T) {
 			},
 		},
 		{
-			name: "multi label - happy path - labeled loss over 3 classes",
+			name:       "multi label - happy path - labeled loss over 3 classes",
+			multiLabel: true,
 			sourceTruth: []lib.Truth{
 				{Label: "label_0", Value: "1.0"},
 				{Label: "label_1", Value: "0.0"},
@@ -199,7 +214,8 @@ func TestComputeLossBundle(t *testing.T) {
 			},
 		},
 		{
-			name: "multi label - one-out and one-in fields with forecaster regroup",
+			name:       "multi label - one-out and one-in fields with forecaster regroup",
+			multiLabel: true,
 			sourceTruth: []lib.Truth{
 				{Label: "label_0", Value: "1.0"},
 				{Label: "label_1", Value: "0.0"},
@@ -297,9 +313,10 @@ func TestComputeLossBundle(t *testing.T) {
 			},
 		},
 		{
-			name: "multi label values but no LabeledLossFunctionService configured",
-			// A multi-element vector with a single-label config (no labeled service)
-			// is now an explicit error rather than silently truncating to label 0.
+			name:       "multi label values but no LabeledLossFunctionService configured",
+			multiLabel: true,
+			// A multi-label topic whose config lacks a labeled loss service is an
+			// explicit error rather than silently falling back to scalar loss.
 			sourceTruth: []lib.Truth{
 				{Label: "label_0", Value: "1.0"},
 				{Label: "label_1", Value: "0.0"},
@@ -313,7 +330,7 @@ func TestComputeLossBundle(t *testing.T) {
 			reputerConfig: singleLabelConfig, // LabeledLossFunctionService == ""
 			mockSetup:     func(m *MockAlloraAdapter) {},
 			expectError:   true,
-			errorContains: "require a LabeledLossFunctionService",
+			errorContains: "requires a LabeledLossFunctionService",
 		},
 		{
 			name:        "error in LossFunction",
@@ -329,7 +346,8 @@ func TestComputeLossBundle(t *testing.T) {
 			errorContains: "error computing loss for combined value",
 		},
 		{
-			name: "error in LabeledLossFunction",
+			name:       "error in LabeledLossFunction",
+			multiLabel: true,
 			sourceTruth: []lib.Truth{
 				{Label: "label_0", Value: "1.0"},
 				{Label: "label_1", Value: "0.0"},
@@ -376,9 +394,10 @@ func TestComputeLossBundle(t *testing.T) {
 			errorContains: "empty ValueBundle",
 		},
 		{
-			name: "multi label values (3 classes) but no LabeledLossFunctionService configured",
-			// 3-element vector with a single-label config. Previously this silently
-			// truncated to the first label; now it must error.
+			name:       "multi label values (3 classes) but no LabeledLossFunctionService configured",
+			multiLabel: true,
+			// 3-class multi-label topic whose config lacks a labeled loss service
+			// must error rather than fall back to scalar loss.
 			sourceTruth: []lib.Truth{
 				{Label: "label_0", Value: "1.0"},
 				{Label: "label_1", Value: "0.0"},
@@ -394,18 +413,19 @@ func TestComputeLossBundle(t *testing.T) {
 			reputerConfig: singleLabelConfig, // LabeledLossFunctionService == ""
 			mockSetup:     func(m *MockAlloraAdapter) {},
 			expectError:   true,
-			errorContains: "require a LabeledLossFunctionService",
+			errorContains: "requires a LabeledLossFunctionService",
 		},
 		{
-			name: "single label value with LabeledLossFunctionService configured - uses scalar loss",
-			// A one-element vector takes the len==1 branch, which always calls
-			// LossFunction. LabeledLossFunctionService being set does not change this.
+			name: "single-label topic with a stray LabeledLossFunctionService - uses scalar loss",
+			// A SINGLE-arity topic always uses the scalar LossFunction, even when a
+			// LabeledLossFunctionService is also configured (the stray endpoint is
+			// ignored). multiLabel defaults to false.
 			sourceTruth: []lib.Truth{{Label: "y", Value: "10.0"}},
 			valueBundle: &emissionstypes.NetworkInferenceBundle{ //nolint:exhaustruct
 				CombinedValue: labeled([2]string{"y", "9.5"}),
 				NaiveValue:    labeled([2]string{"y", "9.0"}),
 			},
-			reputerConfig: multiLabelConfig,
+			reputerConfig: bothServicesConfig,
 			mockSetup: func(m *MockAlloraAdapter) {
 				truth := lib.Truth{Label: "y", Value: "10.0"}
 				m.On("LossFunction", mock.AnythingOfType("lib.ReputerConfig"), truth, "9.5", reputerOptions).Return("0.25", nil)
@@ -462,8 +482,9 @@ func TestComputeLossBundle(t *testing.T) {
 			},
 		},
 		{
-			name: "multi label - never-negative resolved against labeled service",
-			// Multi-label values must query the LabeledLossFunctionService, not the
+			name:       "multi label - never-negative resolved against labeled service",
+			multiLabel: true,
+			// Multi-label topics must query the LabeledLossFunctionService, not the
 			// scalar one, for the never-negative check.
 			sourceTruth: []lib.Truth{
 				{Label: "label_0", Value: "1.0"},
@@ -546,7 +567,7 @@ func TestComputeLossBundle(t *testing.T) {
 			suite := &UseCaseSuite{
 				ConnectionManager: mockConnectionManager,
 			}
-			result, err := suite.ComputeLossBundle(tt.sourceTruth, tt.valueBundle, tt.reputerConfig)
+			result, err := suite.ComputeLossBundle(tt.sourceTruth, tt.valueBundle, tt.reputerConfig, tt.multiLabel)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -578,6 +599,7 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 
 	tests := []struct {
 		name          string
+		multiLabel    bool
 		parameters    map[string]string
 		mockSetup     func(*MockAlloraAdapter)
 		expectError   bool
@@ -585,8 +607,9 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 		assertResult  func(*testing.T, []lib.Truth)
 	}{
 		{
-			name:       "scalar ground truth dispatch - no LabeledGroundTruthEndpoint",
-			parameters: map[string]string{"GroundTruthEndpoint": "http://x/gt"},
+			name:       "scalar topic dispatches to GroundTruth",
+			multiLabel: false,
+			parameters: map[string]string{lib.ParamGroundTruthEndpoint: "http://x/gt"},
 			mockSetup: func(m *MockAlloraAdapter) {
 				m.On("GroundTruth", mock.AnythingOfType("lib.ReputerConfig"), nonce).
 					Return(lib.Truth{Value: "0.5"}, nil).Once()
@@ -599,8 +622,9 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 			},
 		},
 		{
-			name:       "multi-label ground truth dispatch - LabeledGroundTruthEndpoint present",
-			parameters: map[string]string{"LabeledGroundTruthEndpoint": "http://x/labeled-gt"},
+			name:       "multi-label topic dispatches to LabeledGroundTruth",
+			multiLabel: true,
+			parameters: map[string]string{lib.ParamLabeledGroundTruthEndpoint: "http://x/labeled-gt"},
 			mockSetup: func(m *MockAlloraAdapter) {
 				m.On("LabeledGroundTruth", mock.AnythingOfType("lib.ReputerConfig"), nonce).
 					Return([]lib.Truth{{Label: "UP", Value: "1.0"}, {Label: "DOWN", Value: "0.0"}}, nil).Once()
@@ -615,8 +639,57 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 			},
 		},
 		{
+			// Arity wins over a contradicting endpoint.
+			name:       "scalar topic ignores stray LabeledGroundTruthEndpoint",
+			multiLabel: false,
+			parameters: map[string]string{
+				lib.ParamGroundTruthEndpoint:        "http://x/gt",
+				lib.ParamLabeledGroundTruthEndpoint: "http://x/labeled-gt",
+			},
+			mockSetup: func(m *MockAlloraAdapter) {
+				m.On("GroundTruth", mock.AnythingOfType("lib.ReputerConfig"), int64(nonce)).
+					Return(lib.Truth{Value: "0.5"}, nil).Once()
+			},
+			assertResult: func(t *testing.T, truths []lib.Truth) {
+				require.Len(t, truths, 1)
+				assert.Equal(t, "0.5", truths[0].Value)
+			},
+		},
+		{
+			name:       "multi-label topic ignores stray GroundTruthEndpoint",
+			multiLabel: true,
+			parameters: map[string]string{
+				lib.ParamGroundTruthEndpoint:        "http://x/gt",
+				lib.ParamLabeledGroundTruthEndpoint: "http://x/labeled-gt",
+			},
+			mockSetup: func(m *MockAlloraAdapter) {
+				m.On("LabeledGroundTruth", mock.AnythingOfType("lib.ReputerConfig"), int64(nonce)).
+					Return([]lib.Truth{{Label: "UP", Value: "1.0"}}, nil).Once()
+			},
+			assertResult: func(t *testing.T, truths []lib.Truth) {
+				require.Len(t, truths, 1)
+			},
+		},
+		{
+			name:          "multi-label topic without LabeledGroundTruthEndpoint errors",
+			multiLabel:    true,
+			parameters:    map[string]string{lib.ParamGroundTruthEndpoint: "http://x/gt"},
+			mockSetup:     func(m *MockAlloraAdapter) {},
+			expectError:   true,
+			errorContains: "no LabeledGroundTruthEndpoint is configured",
+		},
+		{
+			name:          "scalar topic without GroundTruthEndpoint errors",
+			multiLabel:    false,
+			parameters:    map[string]string{lib.ParamLabeledGroundTruthEndpoint: "http://x/labeled-gt"},
+			mockSetup:     func(m *MockAlloraAdapter) {},
+			expectError:   true,
+			errorContains: "no GroundTruthEndpoint is configured",
+		},
+		{
 			name:       "scalar ground truth error propagates",
-			parameters: map[string]string{},
+			multiLabel: false,
+			parameters: map[string]string{lib.ParamGroundTruthEndpoint: "http://x/gt"},
 			mockSetup: func(m *MockAlloraAdapter) {
 				m.On("GroundTruth", mock.AnythingOfType("lib.ReputerConfig"), nonce).
 					Return(lib.Truth{}, errors.New("gt endpoint down")).Once()
@@ -626,7 +699,8 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 		},
 		{
 			name:       "labeled ground truth error propagates",
-			parameters: map[string]string{"LabeledGroundTruthEndpoint": "http://x/labeled-gt"},
+			multiLabel: true,
+			parameters: map[string]string{lib.ParamLabeledGroundTruthEndpoint: "http://x/labeled-gt"},
 			mockSetup: func(m *MockAlloraAdapter) {
 				m.On("LabeledGroundTruth", mock.AnythingOfType("lib.ReputerConfig"), nonce).
 					Return([]lib.Truth(nil), errors.New("labeled gt endpoint down")).Once()
@@ -649,7 +723,7 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 
 			suite := &UseCaseSuite{Metrics: &metrics.Metrics{}}
 
-			truths, err := suite.getSourceTruth(reputer, nonce, address)
+			truths, err := suite.getSourceTruth(reputer, tt.multiLabel, nonce, address)
 			if tt.expectError {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorContains)
