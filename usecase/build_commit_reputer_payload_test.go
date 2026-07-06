@@ -70,7 +70,7 @@ func TestComputeLossBundle(t *testing.T) {
 			dec, err := alloraMath.NewDecFromString(p[1])
 			require.NoError(t, err)
 			out = append(out, &emissionstypes.LabeledValue{
-				LabelId:   uint32(i + 1),
+				LabelId:   uint32(i + 1), //nolint:gosec // loop index is small and non-negative
 				LabelName: p[0],
 				Value:     dec,
 			})
@@ -124,6 +124,7 @@ func TestComputeLossBundle(t *testing.T) {
 				m.On("LossFunction", mock.AnythingOfType("lib.ReputerConfig"), truth, "9.8", reputerOptions).Return("0.04", nil)
 			},
 			assertResult: func(t *testing.T, result emissionstypes.InputValueBundle) {
+				t.Helper()
 				assert.Equal(t, "0.25", result.CombinedValue.String())
 				assert.Equal(t, "1.00", result.NaiveValue.String())
 				require.Len(t, result.InfererValues, 1)
@@ -187,6 +188,7 @@ func TestComputeLossBundle(t *testing.T) {
 					lv("0.5", "0.4", "0.1"), reputerOptions).Return("0.50", nil)
 			},
 			assertResult: func(t *testing.T, result emissionstypes.InputValueBundle) {
+				t.Helper()
 				// Each field collapses its multi-label vector to one scalar loss.
 				assert.Equal(t, "0.30", result.CombinedValue.String())
 				assert.Equal(t, "0.40", result.NaiveValue.String())
@@ -254,6 +256,7 @@ func TestComputeLossBundle(t *testing.T) {
 				labeledLoss(lv("0.44", "0.56"), "0.84") // OOIF fc_b/inf_b
 			},
 			assertResult: func(t *testing.T, result emissionstypes.InputValueBundle) {
+				t.Helper()
 				// One-out inferer values: flat, scalar loss per withheld inferer.
 				require.Len(t, result.OneOutInfererValues, 2)
 				assert.Equal(t, "inf_a", result.OneOutInfererValues[0].Worker)
@@ -409,6 +412,7 @@ func TestComputeLossBundle(t *testing.T) {
 				m.On("LossFunction", mock.AnythingOfType("lib.ReputerConfig"), truth, "9.0", reputerOptions).Return("1.00", nil)
 			},
 			assertResult: func(t *testing.T, result emissionstypes.InputValueBundle) {
+				t.Helper()
 				assert.Equal(t, "0.25", result.CombinedValue.String())
 				assert.Equal(t, "1.00", result.NaiveValue.String())
 			},
@@ -429,6 +433,7 @@ func TestComputeLossBundle(t *testing.T) {
 				m.On("LossFunction", mock.AnythingOfType("lib.ReputerConfig"), truth, "9.0", reputerOptions).Return("1.00", nil)
 			},
 			assertResult: func(t *testing.T, result emissionstypes.InputValueBundle) {
+				t.Helper()
 				assert.Equal(t, "0.25", result.CombinedValue.String())
 				assert.Equal(t, "1.00", result.NaiveValue.String())
 			},
@@ -451,6 +456,7 @@ func TestComputeLossBundle(t *testing.T) {
 				m.On("IsLossFunctionNeverNegative", mock.AnythingOfType("lib.ReputerConfig"), reputerOptions, "scalar-loss-svc").Return(false, nil).Once()
 			},
 			assertResult: func(t *testing.T, result emissionstypes.InputValueBundle) {
+				t.Helper()
 				assert.Equal(t, "0.25", result.CombinedValue.String())
 				assert.Equal(t, "1.00", result.NaiveValue.String())
 			},
@@ -474,6 +480,7 @@ func TestComputeLossBundle(t *testing.T) {
 				m.On("IsLossFunctionNeverNegative", mock.AnythingOfType("lib.ReputerConfig"), reputerOptions, "labeled-loss-svc").Return(false, nil).Once()
 			},
 			assertResult: func(t *testing.T, result emissionstypes.InputValueBundle) {
+				t.Helper()
 				assert.Equal(t, "0.30", result.CombinedValue.String())
 				assert.Equal(t, "0.40", result.NaiveValue.String())
 			},
@@ -493,6 +500,7 @@ func TestComputeLossBundle(t *testing.T) {
 				m.On("IsLossFunctionNeverNegative", mock.AnythingOfType("lib.ReputerConfig"), reputerOptions, "scalar-loss-svc").Return(true, nil)
 			},
 			assertResult: func(t *testing.T, result emissionstypes.InputValueBundle) {
+				t.Helper()
 				// When the loss function is never negative, the loss is Log10-transformed
 				// before being stored. Mirror the production transform to stay robust to
 				// the exact decimal formatting.
@@ -580,10 +588,11 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 			name:       "scalar ground truth dispatch - no LabeledGroundTruthEndpoint",
 			parameters: map[string]string{"GroundTruthEndpoint": "http://x/gt"},
 			mockSetup: func(m *MockAlloraAdapter) {
-				m.On("GroundTruth", mock.AnythingOfType("lib.ReputerConfig"), int64(nonce)).
+				m.On("GroundTruth", mock.AnythingOfType("lib.ReputerConfig"), nonce).
 					Return(lib.Truth{Value: "0.5"}, nil).Once()
 			},
 			assertResult: func(t *testing.T, truths []lib.Truth) {
+				t.Helper()
 				// Scalar truth is wrapped into a single-element slice.
 				require.Len(t, truths, 1)
 				assert.Equal(t, "0.5", truths[0].Value)
@@ -593,10 +602,11 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 			name:       "multi-label ground truth dispatch - LabeledGroundTruthEndpoint present",
 			parameters: map[string]string{"LabeledGroundTruthEndpoint": "http://x/labeled-gt"},
 			mockSetup: func(m *MockAlloraAdapter) {
-				m.On("LabeledGroundTruth", mock.AnythingOfType("lib.ReputerConfig"), int64(nonce)).
+				m.On("LabeledGroundTruth", mock.AnythingOfType("lib.ReputerConfig"), nonce).
 					Return([]lib.Truth{{Label: "UP", Value: "1.0"}, {Label: "DOWN", Value: "0.0"}}, nil).Once()
 			},
 			assertResult: func(t *testing.T, truths []lib.Truth) {
+				t.Helper()
 				require.Len(t, truths, 2)
 				assert.Equal(t, "UP", truths[0].Label)
 				assert.Equal(t, "1.0", truths[0].Value)
@@ -608,7 +618,7 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 			name:       "scalar ground truth error propagates",
 			parameters: map[string]string{},
 			mockSetup: func(m *MockAlloraAdapter) {
-				m.On("GroundTruth", mock.AnythingOfType("lib.ReputerConfig"), int64(nonce)).
+				m.On("GroundTruth", mock.AnythingOfType("lib.ReputerConfig"), nonce).
 					Return(lib.Truth{}, errors.New("gt endpoint down")).Once()
 			},
 			expectError:   true,
@@ -618,7 +628,7 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 			name:       "labeled ground truth error propagates",
 			parameters: map[string]string{"LabeledGroundTruthEndpoint": "http://x/labeled-gt"},
 			mockSetup: func(m *MockAlloraAdapter) {
-				m.On("LabeledGroundTruth", mock.AnythingOfType("lib.ReputerConfig"), int64(nonce)).
+				m.On("LabeledGroundTruth", mock.AnythingOfType("lib.ReputerConfig"), nonce).
 					Return([]lib.Truth(nil), errors.New("labeled gt endpoint down")).Once()
 			},
 			expectError:   true,
