@@ -98,11 +98,36 @@ func parseJSONToNodeValues(jsonStr string) ([]lib.NodeValue, error) {
 	return nodeValues, nil
 }
 
+// decodeLabeledValueString normalizes a labeled value's raw JSON to its string
+// form. The model provider may encode the value either as a JSON string ("0.3")
+// or as a JSON number (0.3); both are returned as a trimmed string.
+func decodeLabeledValueString(raw json.RawMessage) string {
+	value := strings.TrimSpace(string(raw))
+	var asString string
+	if err := json.Unmarshal(raw, &asString); err == nil {
+		value = strings.TrimSpace(asString)
+	}
+	return value
+}
+
 // parseJSONToLabeledValues parses the incoming JSON string into a slice of LabeledValue.
 // The expected format is a JSON array of {"label": ..., "value": ...} objects, which
 // preserves the ordering of the labels as returned by the model provider. The value is
 // accepted either as a JSON string ("0.3") or as a JSON number (0.3); both are
 // normalized to the string representation stored in LabeledValue.
+//
+// It performs light, topic-agnostic validation so malformed model output fails fast
+// with a clear local error instead of surfacing later as a rejected on-chain
+// transaction (wasted gas / late failure): labels are trimmed and must be non-empty,
+// values must be non-empty, and labels must be unique within the response.
+//
+// Validation that depends on per-topic or governance configuration is intentionally
+// left to the chain, which is authoritative and which this node cannot replicate
+// without the topic's params: full label canonicalization (Unicode NFC normalization,
+// case-folding, allowed-character and byte-length limits), the topic label whitelist,
+// the SINGLE-arity "y" rule, the per-topic MaxLabelsPerSubmission cap, and assignment
+// of on-chain LabelIds. The duplicate check here is exact match on the trimmed label,
+// so it is best-effort relative to the chain's post-canonicalization dedupe.
 func parseJSONToLabeledValues(jsonStr string) ([]lib.LabeledValue, error) {
 	var rawValues []struct {
 		Label string          `json:"label"`
@@ -113,16 +138,24 @@ func parseJSONToLabeledValues(jsonStr string) ([]lib.LabeledValue, error) {
 	}
 
 	labeledValues := make([]lib.LabeledValue, 0, len(rawValues))
-	for _, raw := range rawValues {
-		// If the value was encoded as a JSON string, unquote it; otherwise (e.g. a
-		// JSON number) keep the raw textual representation.
-		value := strings.TrimSpace(string(raw.Value))
-		var asString string
-		if err := json.Unmarshal(raw.Value, &asString); err == nil {
-			value = asString
+	seenLabels := make(map[string]struct{}, len(rawValues))
+	for i, raw := range rawValues {
+		label := strings.TrimSpace(raw.Label)
+		if label == "" {
+			return nil, fmt.Errorf("labeled value at index %d has an empty label", i)
 		}
+		if _, dup := seenLabels[label]; dup {
+			return nil, fmt.Errorf("duplicate label %q in labeled values", label)
+		}
+		seenLabels[label] = struct{}{}
+
+		value := decodeLabeledValueString(raw.Value)
+		if value == "" {
+			return nil, fmt.Errorf("labeled value for label %q has an empty value", label)
+		}
+
 		labeledValues = append(labeledValues, lib.LabeledValue{
-			Label: raw.Label,
+			Label: label,
 			Value: value,
 		})
 	}
@@ -206,7 +239,7 @@ func (a *AlloraAdapter) GroundTruth(node lib.ReputerConfig, blockHeight int64) (
 		}
 	}
 	log.Info().Str("url", url).Str("groundTruth", groundTruthDec.String()).Msg("Ground truth")
-	return lib.Truth{Value: groundTruthDec.String()}, nil
+	return lib.Truth{Value: groundTruthDec.String()}, nil //nolint:exhaustruct
 }
 
 // Expects a multi-label ground truth as a json array of {"label": ..., "value": ...} objects

@@ -18,6 +18,7 @@ func (suite *UseCaseSuite) SetupTest() {
 	// Any setup needed for each test
 }
 
+//nolint:exhaustruct
 func TestComputeWorkerBundle(t *testing.T) {
 	workerOptions := map[string]string{
 		"InferenceEndpoint": "http://source:8000/inference/{Token}",
@@ -229,6 +230,7 @@ func TestBuildWorkerPayloadScalarAndMultiLabel(t *testing.T) {
 				},
 			},
 			assertResult: func(t *testing.T, b emissionstypes.InputInferenceForecastBundle) {
+				t.Helper()
 				require.NotNil(t, b.Inference)
 				assert.Equal(t, uint64(1), b.Inference.TopicId)
 				assert.Equal(t, int64(1), b.Inference.BlockHeight)
@@ -254,6 +256,7 @@ func TestBuildWorkerPayloadScalarAndMultiLabel(t *testing.T) {
 				},
 			},
 			assertResult: func(t *testing.T, b emissionstypes.InputInferenceForecastBundle) {
+				t.Helper()
 				require.NotNil(t, b.Inference)
 				assert.Equal(t, address, b.Inference.Inferer)
 				require.Len(t, b.Inference.Values, 3)
@@ -277,6 +280,7 @@ func TestBuildWorkerPayloadScalarAndMultiLabel(t *testing.T) {
 				},
 			},
 			assertResult: func(t *testing.T, b emissionstypes.InputInferenceForecastBundle) {
+				t.Helper()
 				assert.Nil(t, b.Inference)
 				require.NotNil(t, b.Forecast)
 				require.Len(t, b.Forecast.ForecastElements, 2)
@@ -290,6 +294,7 @@ func TestBuildWorkerPayloadScalarAndMultiLabel(t *testing.T) {
 				WorkerConfig: workerConfig(),
 			},
 			assertResult: func(t *testing.T, b emissionstypes.InputInferenceForecastBundle) {
+				t.Helper()
 				assert.Nil(t, b.Inference)
 				assert.Nil(t, b.Forecast)
 			},
@@ -371,6 +376,7 @@ func TestGetWorkerResponseDispatch(t *testing.T) {
 				m.On("CalcInference", mock.AnythingOfType("lib.WorkerConfig"), blockHeight).Return("0.5", nil).Once()
 			},
 			assertResult: func(t *testing.T, r lib.WorkerResponse) {
+				t.Helper()
 				assert.Equal(t, "0.5", r.InfererValue)
 				assert.Empty(t, r.InfererValues)
 			},
@@ -384,6 +390,7 @@ func TestGetWorkerResponseDispatch(t *testing.T) {
 					Return([]lib.LabeledValue{{Label: "UP", Value: "0.3"}, {Label: "DOWN", Value: "0.7"}}, nil).Once()
 			},
 			assertResult: func(t *testing.T, r lib.WorkerResponse) {
+				t.Helper()
 				assert.Empty(t, r.InfererValue)
 				require.Len(t, r.InfererValues, 2)
 				assert.Equal(t, "UP", r.InfererValues[0].Label)
@@ -404,6 +411,7 @@ func TestGetWorkerResponseDispatch(t *testing.T) {
 					Return([]lib.NodeValue{{Worker: "w2", Value: "0.4"}}, nil).Once()
 			},
 			assertResult: func(t *testing.T, r lib.WorkerResponse) {
+				t.Helper()
 				require.Len(t, r.InfererValues, 1)
 				require.Len(t, r.ForecasterValues, 1)
 				assert.Equal(t, "w2", r.ForecasterValues[0].Worker)

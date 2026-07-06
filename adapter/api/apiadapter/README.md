@@ -103,6 +103,8 @@ The multi-label inference and ground truth endpoints must return a JSON array of
 ```
 The `value` may be encoded either as a JSON string (`"0.3"`) or as a JSON number (`0.3`). The array ordering is preserved.
 
+The node applies light, topic-agnostic validation to this response and fails fast (with a clear local error) rather than letting bad output reach the chain as a rejected transaction: labels and values are trimmed and must be non-empty, and labels must be unique within the response. Validation that depends on per-topic or governance configuration is left to the chain, which is authoritative: full label canonicalization (Unicode normalization, case-folding, allowed-character and byte-length limits), the topic label whitelist, the single-label `"y"` rule, and the per-topic maximum number of labels per submission. Configure your model's label set to match the topic's on-chain whitelist.
+
 The labeled loss service's `/calculate` endpoint receives `y_true` and `y_pred` as arrays of `{"label", "value"}` objects, alongside `options`. Carrying the labels lets the service join each prediction to its ground truth by label rather than by array position. The offchain node also validates, before calling the service, that the predicted labels match the ground-truth labels exactly (same set, no missing/extra/duplicate labels) and fails loudly on a mismatch instead of computing a loss against misaligned classes. Example payload:
 ```
 {
