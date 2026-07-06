@@ -647,10 +647,11 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 				lib.ParamLabeledGroundTruthEndpoint: "http://x/labeled-gt",
 			},
 			mockSetup: func(m *MockAlloraAdapter) {
-				m.On("GroundTruth", mock.AnythingOfType("lib.ReputerConfig"), int64(nonce)).
+				m.On("GroundTruth", mock.AnythingOfType("lib.ReputerConfig"), nonce).
 					Return(lib.Truth{Value: "0.5"}, nil).Once()
 			},
 			assertResult: func(t *testing.T, truths []lib.Truth) {
+				t.Helper()
 				require.Len(t, truths, 1)
 				assert.Equal(t, "0.5", truths[0].Value)
 			},
@@ -663,10 +664,11 @@ func TestGetSourceTruthDispatch(t *testing.T) {
 				lib.ParamLabeledGroundTruthEndpoint: "http://x/labeled-gt",
 			},
 			mockSetup: func(m *MockAlloraAdapter) {
-				m.On("LabeledGroundTruth", mock.AnythingOfType("lib.ReputerConfig"), int64(nonce)).
+				m.On("LabeledGroundTruth", mock.AnythingOfType("lib.ReputerConfig"), nonce).
 					Return([]lib.Truth{{Label: "UP", Value: "1.0"}}, nil).Once()
 			},
 			assertResult: func(t *testing.T, truths []lib.Truth) {
+				t.Helper()
 				require.Len(t, truths, 1)
 			},
 		},

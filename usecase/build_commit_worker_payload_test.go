@@ -430,6 +430,7 @@ func TestGetWorkerResponseDispatch(t *testing.T) {
 				m.On("CalcInference", mock.AnythingOfType("lib.WorkerConfig"), blockHeight).Return("0.5", nil).Once()
 			},
 			assertResult: func(t *testing.T, r lib.WorkerResponse) {
+				t.Helper()
 				assert.Equal(t, "0.5", r.InfererValue)
 				assert.Empty(t, r.InfererValues)
 			},
@@ -448,6 +449,7 @@ func TestGetWorkerResponseDispatch(t *testing.T) {
 					Return([]lib.LabeledValue{{Label: "UP", Value: "0.3"}}, nil).Once()
 			},
 			assertResult: func(t *testing.T, r lib.WorkerResponse) {
+				t.Helper()
 				require.Len(t, r.InfererValues, 1)
 			},
 		},
