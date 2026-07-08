@@ -31,6 +31,7 @@
         "inferenceEntrypointName": "apiAdapter",
         "parameters": {
           "InferenceEndpoint": "http://source:8000/inference/{Token}",
+          "LabeledInferenceEndpoint": "http://source:8000/labeled-inference/{Token}",
           "Token": "ETH"
         }
       }
@@ -43,10 +44,12 @@
         "minStake": 100000000,
         "groundTruthParameters": {
           "GroundTruthEndpoint": "http://localhost:8888/gt/{Token}/{BlockHeight}",
+          "LabeledGroundTruthEndpoint": "http://localhost:8888/lgt/{Token}/{BlockHeight}",
           "Token": "ETHUSD"
         },
         "lossFunctionParameters": {
           "LossFunctionService": "http://localhost:5000",
+          "LabeledLossFunctionService": "http://localhost:5000/labeled",
           "LossMethodOptions": {
             "loss_method": "sqe"
           }
