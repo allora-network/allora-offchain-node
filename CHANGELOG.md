@@ -53,6 +53,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## Unreleased
+
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+### Security
+
+
+## v0.14.0
+
+### Added
+
+* [#154](https://github.com/allora-network/allora-offchain-node/pull/154) Classification (multi-label) support for worker and reputer flows (ENGN-6516). Adds labeled inference/ground-truth endpoints (`LabeledInferenceEndpoint`, `LabeledGroundTruthEndpoint`) and a labeled loss service (`LabeledLossFunctionService`), plus the `allora_worker_labeled_inference_request_count` metric.
+
+### Changed
+
+* [#154](https://github.com/allora-network/allora-offchain-node/pull/154) **Breaking:** upgrade to the v10 chain emissions API (`allora-chain` pinned to a v0.16.1 prerelease via a `replace` directive). The reputer path now consumes v10 `NetworkInferenceBundle`s; v9 chains are no longer supported.
+* [#154](https://github.com/allora-network/allora-offchain-node/pull/154) Scalar vs multi-label dispatch (inference, ground truth, loss) is driven by the topic's on-chain output arity (`TopicOutputArity`), failing fast when the endpoint required for the topic's arity is missing.
+
+### Fixed
+
+### Removed
+
+### Security
+
 ## v0.13.2
 
 ### Added
