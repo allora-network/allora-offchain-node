@@ -23,16 +23,16 @@ func (node *NodeConfig) GetLatestOpenWorkerNonceByTopicId(ctx context.Context, t
 				TopicId: topicId,
 			})
 		},
-		query.PageRequest{}, // nolint: exhaustruct
+		query.PageRequest{}, //nolint:exhaustruct
 		"get open worker nonce",
 		node,
 	)
 	if err != nil {
-		return &emissionstypes.Nonce{}, err // nolint: exhaustruct
+		return &emissionstypes.Nonce{}, err //nolint:exhaustruct
 	}
 
 	if len(resp.Nonces.Nonces) == 0 {
-		return &emissionstypes.Nonce{}, nil // nolint: exhaustruct
+		return &emissionstypes.Nonce{}, nil //nolint:exhaustruct
 	}
 	// Per `AddWorkerNonce()` in `allora-chain/x/emissions/keeper.go`, the latest nonce is first
 	return resp.Nonces.Nonces[0], nil
@@ -53,16 +53,16 @@ func (node *NodeConfig) GetOldestReputerNonceByTopicId(ctx context.Context, topi
 				TopicId: topicId,
 			})
 		},
-		query.PageRequest{}, // nolint: exhaustruct
+		query.PageRequest{}, //nolint:exhaustruct
 		"get open reputer nonce",
 		node,
 	)
 	if err != nil {
-		return &emissionstypes.Nonce{}, err // nolint: exhaustruct
+		return &emissionstypes.Nonce{}, err //nolint:exhaustruct
 	}
 
 	if len(resp.Nonces.Nonces) == 0 {
-		return &emissionstypes.Nonce{}, nil // nolint: exhaustruct
+		return &emissionstypes.Nonce{}, nil //nolint:exhaustruct
 	}
 	// Per `AddWorkerNonce()` in `allora-chain/x/emissions/keeper.go`, the oldest nonce is last
 	return resp.Nonces.Nonces[len(resp.Nonces.Nonces)-1].ReputerNonce, nil

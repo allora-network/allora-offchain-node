@@ -1,7 +1,6 @@
 package apiadapter
 
 import (
-	"allora_offchain_node/lib"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -9,6 +8,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"allora_offchain_node/lib"
 
 	alloraMath "github.com/allora-network/allora-chain/math"
 	"github.com/rs/zerolog/log"
@@ -46,7 +47,7 @@ func replaceExtendedPlaceholders(urlTemplate string, params map[string]string, b
 
 func requestEndpoint(url string) (string, error) {
 	// make request to url
-	resp, err := http.Get(url) // nolint: gosec
+	resp, err := http.Get(url) //nolint:gosec
 	if err != nil {
 		return "", fmt.Errorf("failed to make request to %s: %w", url, err)
 	}
@@ -97,21 +98,108 @@ func parseJSONToNodeValues(jsonStr string) ([]lib.NodeValue, error) {
 	return nodeValues, nil
 }
 
+// decodeLabeledValueString normalizes a labeled value's raw JSON to its string
+// form. The model provider may encode the value either as a JSON string ("0.3")
+// or as a JSON number (0.3); both are returned as a trimmed string.
+func decodeLabeledValueString(raw json.RawMessage) string {
+	value := strings.TrimSpace(string(raw))
+	var asString string
+	if err := json.Unmarshal(raw, &asString); err == nil {
+		value = strings.TrimSpace(asString)
+	}
+	return value
+}
+
+// parseJSONToLabeledValues parses the incoming JSON string into a slice of LabeledValue.
+// The expected format is a JSON array of {"label": ..., "value": ...} objects, which
+// preserves the ordering of the labels as returned by the model provider. The value is
+// accepted either as a JSON string ("0.3") or as a JSON number (0.3); both are
+// normalized to the string representation stored in LabeledValue.
+//
+// It performs light, topic-agnostic validation so malformed model output fails fast
+// with a clear local error instead of surfacing later as a rejected on-chain
+// transaction (wasted gas / late failure): labels are trimmed and must be non-empty,
+// values must be non-empty, and labels must be unique within the response.
+//
+// Validation that depends on per-topic or governance configuration is intentionally
+// left to the chain, which is authoritative and which this node cannot replicate
+// without the topic's params: full label canonicalization (Unicode NFC normalization,
+// case-folding, allowed-character and byte-length limits), the topic label whitelist,
+// the SINGLE-arity "y" rule, the per-topic MaxLabelsPerSubmission cap, and assignment
+// of on-chain LabelIds. The duplicate check here is exact match on the trimmed label,
+// so it is best-effort relative to the chain's post-canonicalization dedupe.
+func parseJSONToLabeledValues(jsonStr string) ([]lib.LabeledValue, error) {
+	var rawValues []struct {
+		Label string          `json:"label"`
+		Value json.RawMessage `json:"value"`
+	}
+	if err := json.Unmarshal([]byte(jsonStr), &rawValues); err != nil {
+		return nil, err
+	}
+
+	labeledValues := make([]lib.LabeledValue, 0, len(rawValues))
+	seenLabels := make(map[string]struct{}, len(rawValues))
+	for i, raw := range rawValues {
+		label := strings.TrimSpace(raw.Label)
+		if label == "" {
+			return nil, fmt.Errorf("labeled value at index %d has an empty label", i)
+		}
+		if _, dup := seenLabels[label]; dup {
+			return nil, fmt.Errorf("duplicate label %q in labeled values", label)
+		}
+		seenLabels[label] = struct{}{}
+
+		value := decodeLabeledValueString(raw.Value)
+		if value == "" {
+			return nil, fmt.Errorf("labeled value for label %q has an empty value", label)
+		}
+
+		labeledValues = append(labeledValues, lib.LabeledValue{
+			Label: label,
+			Value: value,
+		})
+	}
+	return labeledValues, nil
+}
+
 // Expects an inference as a string scalar value
 func (a *AlloraAdapter) CalcInference(node lib.WorkerConfig, blockHeight int64) (string, error) {
 	log := log.With().Str("actorType", "worker").Uint64("topicId", node.TopicId).Logger()
 
-	urlTemplate := node.Parameters["InferenceEndpoint"]
+	urlTemplate := node.Parameters[lib.ParamInferenceEndpoint]
 	url := replaceExtendedPlaceholders(urlTemplate, node.Parameters, blockHeight, node.TopicId)
 	log.Debug().Str("url", url).Msg("Inference endpoint")
 	return requestEndpoint(url)
+}
+
+// Expects a multi-label inference as a json array of LabeledValue
+func (a *AlloraAdapter) CalcLabeledInference(node lib.WorkerConfig, blockHeight int64) ([]lib.LabeledValue, error) {
+	log := log.With().Str("actorType", "worker").Uint64("topicId", node.TopicId).Logger()
+
+	urlTemplate := node.Parameters[lib.ParamLabeledInferenceEndpoint]
+	url := replaceExtendedPlaceholders(urlTemplate, node.Parameters, blockHeight, node.TopicId)
+	log.Debug().Str("url", url).Msg("Labeled inference endpoint")
+
+	inferenceAsJsonString, err := requestEndpoint(url)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get labeled inference")
+		return []lib.LabeledValue{}, err
+	}
+
+	// parse json inference into a slice of LabeledValue
+	labeledValues, err := parseJSONToLabeledValues(inferenceAsJsonString)
+	if err != nil {
+		log.Error().Err(err).Msg("Error transforming labeled inference")
+		return []lib.LabeledValue{}, err
+	}
+	return labeledValues, nil
 }
 
 // Expects forecast as a json array of NodeValue
 func (a *AlloraAdapter) CalcForecast(node lib.WorkerConfig, blockHeight int64) ([]lib.NodeValue, error) {
 	log := log.With().Str("actorType", "worker").Uint64("topicId", node.TopicId).Logger()
 
-	urlTemplate := node.Parameters["ForecastEndpoint"]
+	urlTemplate := node.Parameters[lib.ParamForecastEndpoint]
 	url := replaceExtendedPlaceholders(urlTemplate, node.Parameters, blockHeight, node.TopicId)
 	log.Debug().Str("url", url).Msg("Forecasts endpoint")
 
@@ -133,13 +221,13 @@ func (a *AlloraAdapter) CalcForecast(node lib.WorkerConfig, blockHeight int64) (
 func (a *AlloraAdapter) GroundTruth(node lib.ReputerConfig, blockHeight int64) (lib.Truth, error) {
 	log := log.With().Str("actorType", "reputer").Uint64("topicId", node.TopicId).Logger()
 
-	urlTemplate := node.GroundTruthParameters["GroundTruthEndpoint"]
+	urlTemplate := node.GroundTruthParameters[lib.ParamGroundTruthEndpoint]
 	url := replaceExtendedPlaceholders(urlTemplate, node.GroundTruthParameters, blockHeight, node.TopicId)
 	log.Debug().Str("url", url).Msg("Ground truth endpoint")
 	groundTruth, err := requestEndpoint(url)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get ground truth")
-		return "", err
+		return lib.Truth{}, err
 	}
 	// Check conversion to decimal before handing it over
 	groundTruthDec, err := alloraMath.NewDecFromString(groundTruth)
@@ -147,14 +235,53 @@ func (a *AlloraAdapter) GroundTruth(node lib.ReputerConfig, blockHeight int64) (
 		groundTruthDec, err = alloraMath.NewDecFromString(sanitizeDecString(groundTruth))
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to convert ground truth to decimal")
-			return "", err
+			return lib.Truth{}, err
 		}
 	}
 	log.Info().Str("url", url).Str("groundTruth", groundTruthDec.String()).Msg("Ground truth")
-	return groundTruthDec.String(), nil
+	return lib.Truth{Value: groundTruthDec.String()}, nil //nolint:exhaustruct
 }
 
-func (a *AlloraAdapter) LossFunction(node lib.ReputerConfig, groundTruth string, inferenceValue string, options map[string]string) (string, error) {
+// Expects a multi-label ground truth as a json array of {"label": ..., "value": ...} objects
+func (a *AlloraAdapter) LabeledGroundTruth(node lib.ReputerConfig, blockHeight int64) ([]lib.Truth, error) {
+	log := log.With().Str("actorType", "reputer").Uint64("topicId", node.TopicId).Logger()
+
+	urlTemplate := node.GroundTruthParameters[lib.ParamLabeledGroundTruthEndpoint]
+	url := replaceExtendedPlaceholders(urlTemplate, node.GroundTruthParameters, blockHeight, node.TopicId)
+	log.Debug().Str("url", url).Msg("Labeled ground truth endpoint")
+	groundTruth, err := requestEndpoint(url)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get labeled ground truth")
+		return nil, err
+	}
+
+	labeledValues, err := parseJSONToLabeledValues(groundTruth)
+	if err != nil {
+		log.Error().Err(err).Msg("Error transforming labeled ground truth")
+		return nil, err
+	}
+
+	truths := make([]lib.Truth, 0, len(labeledValues))
+	for _, labeledValue := range labeledValues {
+		// Check conversion to decimal before handing it over
+		valueDec, err := alloraMath.NewDecFromString(labeledValue.Value)
+		if err != nil {
+			valueDec, err = alloraMath.NewDecFromString(sanitizeDecString(labeledValue.Value))
+			if err != nil {
+				log.Error().Err(err).Str("label", labeledValue.Label).Msg("Failed to convert labeled ground truth to decimal")
+				return nil, err
+			}
+		}
+		truths = append(truths, lib.Truth{
+			Label: labeledValue.Label,
+			Value: valueDec.String(),
+		})
+	}
+	log.Info().Str("url", url).Int("labels", len(truths)).Msg("Labeled ground truth")
+	return truths, nil
+}
+
+func (a *AlloraAdapter) LossFunction(node lib.ReputerConfig, groundTruth lib.Truth, inferenceValue string, options map[string]string) (string, error) {
 	log := log.With().Str("actorType", "reputer").Uint64("topicId", node.TopicId).Logger()
 
 	url := node.LossFunctionParameters.LossFunctionService
@@ -167,7 +294,7 @@ func (a *AlloraAdapter) LossFunction(node lib.ReputerConfig, groundTruth string,
 
 	// Prepare the request payload
 	payload := map[string]interface{}{
-		"y_true":  groundTruth,
+		"y_true":  groundTruth.Value,
 		"y_pred":  inferenceValue,
 		"options": options,
 	}
@@ -186,7 +313,7 @@ func (a *AlloraAdapter) LossFunction(node lib.ReputerConfig, groundTruth string,
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send the request
-	client := &http.Client{} // nolint: exhaustruct
+	client := &http.Client{} //nolint:exhaustruct
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to send request: %w", err)
@@ -215,9 +342,81 @@ func (a *AlloraAdapter) LossFunction(node lib.ReputerConfig, groundTruth string,
 	return result.Loss, nil
 }
 
-func (a *AlloraAdapter) IsLossFunctionNeverNegative(node lib.ReputerConfig, options map[string]string) (bool, error) {
+func (a *AlloraAdapter) LabeledLossFunction(node lib.ReputerConfig, groundTruth []lib.Truth, inferenceValue []lib.LabeledValue, options map[string]string) (string, error) {
 	log := log.With().Str("actorType", "reputer").Uint64("topicId", node.TopicId).Logger()
-	url := node.LossFunctionParameters.LossFunctionService
+
+	url := node.LossFunctionParameters.LabeledLossFunctionService
+	if url == "" {
+		return "", fmt.Errorf("no labeled loss function endpoint provided")
+	}
+	// Use /calculate endpoint of loss-functions service
+	url = fmt.Sprintf("%s/calculate", url)
+	log.Debug().Str("url", url).Msg("Labeled loss function endpoint")
+
+	// y_true and y_pred carry explicit labels (as [{"label","value"}] arrays) so the
+	// loss service joins predictions to ground truth by label, rather than relying on
+	// the array position of the two vectors, which can differ between sources.
+	trueValues := make([]lib.LabeledValue, len(groundTruth))
+	for i := range groundTruth {
+		trueValues[i] = lib.LabeledValue{Label: groundTruth[i].Label, Value: groundTruth[i].Value}
+	}
+
+	// Prepare the request payload
+	payload := map[string]interface{}{
+		"y_true":  trueValues,
+		"y_pred":  inferenceValue,
+		"options": options,
+	}
+
+	// Convert payload to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	// Create a new POST request
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	client := &http.Client{} //nolint:exhaustruct
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check the response status
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("received non-OK HTTP status %d", resp.StatusCode)
+	}
+
+	// Read and parse the response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var result struct {
+		Loss string `json:"loss"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	log.Debug().Str("url", url).Str("Loss", result.Loss).Msg("Calculated labeled loss value from external endpoint")
+	return result.Loss, nil
+}
+
+// serviceEndpoint is the loss function service to query (the scalar
+// LossFunctionService or the LabeledLossFunctionService); the caller decides
+// which one applies based on whether the values are single- or multi-label.
+func (a *AlloraAdapter) IsLossFunctionNeverNegative(node lib.ReputerConfig, options map[string]string, serviceEndpoint string) (bool, error) {
+	log := log.With().Str("actorType", "reputer").Uint64("topicId", node.TopicId).Logger()
+	url := serviceEndpoint
 	if url == "" {
 		return false, fmt.Errorf("no loss function endpoint provided")
 	}
@@ -244,7 +443,7 @@ func (a *AlloraAdapter) IsLossFunctionNeverNegative(node lib.ReputerConfig, opti
 	req.Header.Set("Content-Type", "application/json")
 
 	// Send the request
-	client := &http.Client{} // nolint: exhaustruct
+	client := &http.Client{} //nolint:exhaustruct
 	resp, err := client.Do(req)
 	if err != nil {
 		return false, fmt.Errorf("failed to send request: %w", err)

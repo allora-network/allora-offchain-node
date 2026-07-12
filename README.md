@@ -2,6 +2,8 @@
 
 Allora off-chain nodes publish inferences, forecasts, and losses informed by a configurable ground truth and applying a configurable loss function to the Allora chain.
 
+> **Chain compatibility:** this node targets the **v10** Allora chain emissions API and requires a chain that has run the v10 upgrade. It is **not** backward-compatible with v9 chains — in particular the reputer path consumes v10-only network-inference bundles, and labeled (multi-label) submissions depend on v10 topic arity. Make sure the chain you point the node at is on v10 (matching the `allora-chain` version pinned in `go.mod`).
+
 ## How to run with docker
 1. Clone the repository
 2. Make sure to remove any .env file so it doesn't clash with the automated environment variables

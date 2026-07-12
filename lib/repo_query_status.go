@@ -15,7 +15,7 @@ func (node *NodeConfig) GetBlockHeight(ctx context.Context, walletConfig *Wallet
 		func(ctx context.Context, req query.PageRequest) (*cmtservice.GetLatestBlockResponse, error) {
 			return node.Chain.CometQueryClient.GetLatestBlock(ctx, &cmtservice.GetLatestBlockRequest{})
 		},
-		query.PageRequest{}, // nolint: exhaustruct
+		query.PageRequest{}, //nolint:exhaustruct
 		"get block height",
 		node,
 	)

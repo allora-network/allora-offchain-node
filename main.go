@@ -18,7 +18,7 @@ import (
 )
 
 func ConvertEntrypointsToInstances(userConfig lib.UserConfig) error {
-	/// Initialize adapters using the factory function
+	// / Initialize adapters using the factory function
 	for i, worker := range userConfig.Worker {
 		if worker.InferenceEntrypointName != "" {
 			adapter, err := NewAlloraAdapter(worker.InferenceEntrypointName)
@@ -64,7 +64,7 @@ func ConvertEntrypointsToInstances(userConfig lib.UserConfig) error {
 }
 
 func readConfig() (lib.UserConfig, error) {
-	finalUserConfig := lib.UserConfig{} // nolint: exhaustruct
+	finalUserConfig := lib.UserConfig{} //nolint:exhaustruct
 	alloraJsonConfig := os.Getenv(lib.ALLORA_OFFCHAIN_NODE_CONFIG_JSON)
 
 	if alloraJsonConfig != "" {

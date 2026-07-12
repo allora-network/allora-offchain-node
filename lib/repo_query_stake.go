@@ -29,7 +29,7 @@ func (node *NodeConfig) GetReputerStakeInTopic(
 				TopicId:        topicId,
 			})
 		},
-		query.PageRequest{}, // nolint: exhaustruct
+		query.PageRequest{}, //nolint:exhaustruct
 		"get reputer stake in topic",
 		node,
 	)

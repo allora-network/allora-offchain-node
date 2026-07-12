@@ -136,7 +136,7 @@ func extractErrorCode(errorMessage string) (uint32, bool) {
 	}
 
 	// parseuint cannot be done on uint32 directly, but it is caught by the checks above
-	return uint32(errorCode), true // nolint:gosec
+	return uint32(errorCode), true //nolint:gosec
 }
 
 // ProcessErrorTx handles the error messages.
@@ -483,7 +483,7 @@ func EstimateRequiredBaseGas(gasWanted, gasUsed, baseGas uint64, excessCorrectio
 	newBaseGas := gasUsed - dataGasEstimate
 
 	// Apply excess corrections
-	newBaseGas += GAS_EXCESS_CORRECTION * uint64(excessCorrectionTimes) // nolint: gosec  // reason: small controlled value
+	newBaseGas += GAS_EXCESS_CORRECTION * uint64(excessCorrectionTimes) //nolint:gosec  // reason: small controlled value
 
 	return newBaseGas
 }

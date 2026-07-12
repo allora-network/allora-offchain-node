@@ -35,7 +35,7 @@ type Metrics struct {
 // InitMetrics initializes the singleton instance with the given counters
 func InitMetrics(counters []MetricsCounter) *Metrics {
 	once.Do(func() {
-		instance = &Metrics{ // nolint:exhaustruct
+		instance = &Metrics{ //nolint:exhaustruct
 			Counters:   counters,
 			CounterMap: make(map[string]*prometheus.CounterVec),
 		}
@@ -63,7 +63,7 @@ func (metrics *Metrics) RegisterMetricsCounters() {
 		}
 
 		counterVec := prometheus.NewCounterVec(
-			prometheus.CounterOpts{ // nolint: exhaustruct
+			prometheus.CounterOpts{ //nolint:exhaustruct
 				Name: counter.Name,
 				Help: counter.Help,
 			},
@@ -101,7 +101,7 @@ func (metrics *Metrics) IncrementMetricsCounter(counterName string, address stri
 func (metrics *Metrics) StartMetricsServer(ctx context.Context, port string) {
 	metrics.serverOnce.Do(func() {
 		http.Handle("/metrics", promhttp.Handler())
-		metrics.server = &http.Server{ // nolint:exhaustruct
+		metrics.server = &http.Server{ //nolint:exhaustruct
 			Addr:              port,
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      30 * time.Second,

@@ -24,7 +24,7 @@ func (node *NodeConfig) CanSubmitWorker(ctx context.Context, topicId emissionsty
 				Address: address,
 			})
 		},
-		query.PageRequest{}, // nolint: exhaustruct
+		query.PageRequest{}, //nolint:exhaustruct
 		"check worker whitelist",
 		node,
 	)
@@ -51,7 +51,7 @@ func (node *NodeConfig) CanSubmitReputer(ctx context.Context, topicId emissionst
 				Address: address,
 			})
 		},
-		query.PageRequest{}, // nolint: exhaustruct
+		query.PageRequest{}, //nolint:exhaustruct
 		"check reputer whitelist",
 		node,
 	)

@@ -1,17 +1,19 @@
 package lib
 
 import (
-	"allora_offchain_node/lib/rpcclient"
 	"errors"
 	"fmt"
 
-	emissions "github.com/allora-network/allora-chain/x/emissions/types"
-	cmtservice "github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
+	"allora_offchain_node/lib/rpcclient"
+
+	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	auth "github.com/cosmos/cosmos-sdk/x/auth/types"
 	bank "github.com/cosmos/cosmos-sdk/x/bank/types"
 	feemarkettypes "github.com/skip-mev/feemarket/x/feemarket/types"
 	"google.golang.org/grpc"
+
+	emissions "github.com/allora-network/allora-chain/x/emissions/types"
 )
 
 const AutoGasPrices = "auto"
@@ -91,6 +93,18 @@ type TopicActor interface {
 	GetTopicId() emissions.TopicId
 }
 
+// Parameter keys for WorkerConfig.Parameters and ReputerConfig.GroundTruthParameters.
+// Defined here (rather than as string literals duplicated across the adapter and
+// usecase layers) so that endpoint dispatch and endpoint lookup cannot silently
+// desync if a key is renamed or mistyped.
+const (
+	ParamInferenceEndpoint          = "InferenceEndpoint"
+	ParamLabeledInferenceEndpoint   = "LabeledInferenceEndpoint"
+	ParamForecastEndpoint           = "ForecastEndpoint"
+	ParamGroundTruthEndpoint        = "GroundTruthEndpoint"
+	ParamLabeledGroundTruthEndpoint = "LabeledGroundTruthEndpoint"
+)
+
 type WorkerConfig struct {
 	TopicId                 emissions.TopicId
 	InferenceEntrypointName string
@@ -126,9 +140,10 @@ func (reputerConfig ReputerConfig) GetTopicId() emissions.TopicId {
 }
 
 type LossFunctionParameters struct {
-	LossFunctionService string
-	LossMethodOptions   map[string]string
-	IsNeverNegative     *bool // Cached result of whether the loss function is never negative
+	LossFunctionService        string
+	LabeledLossFunctionService string
+	LossMethodOptions          map[string]string
+	IsNeverNegative            *bool // Cached result of whether the loss function is never negative
 }
 
 type UserConfig struct {
@@ -146,8 +161,14 @@ type NodeConfig struct {
 
 type WorkerResponse struct {
 	WorkerConfig
-	InfererValue     string      `json:"infererValue,omitempty"`
-	ForecasterValues []NodeValue `json:"forecasterValue,omitempty"`
+	InfererValue     string         `json:"infererValue,omitempty"`
+	InfererValues    []LabeledValue `json:"infererValues,omitempty"`
+	ForecasterValues []NodeValue    `json:"forecasterValue,omitempty"`
+}
+
+type LabeledValue struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
 }
 
 type SignedWorkerResponse struct {
