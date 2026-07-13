@@ -69,8 +69,8 @@ They can be used to pass additional parameters to the loss function service. For
 `InferenceEndpoint` is required if `InferenceEntrypoint` is defined.
 `ForecastEndpoint` is required if `ForecastEntrypoint` is defined.
 
-`InferenceEndpoint`: provides the scalar inference endpoint to hit. It returns a single scalar value as plain text. It supports URL template variables.
-`LabeledInferenceEndpoint`: provides the multi-label (vector) inference endpoint to hit, used for example by classification models. It supports URL template variables. When this parameter is present, the adapter fetches a labeled inference instead of a scalar one (see "Scalar vs multi-label" below).
+`InferenceEndpoint`: provides the scalar inference endpoint to hit. It returns a single scalar value as plain text. It supports URL template variables. It is required for single-label (SINGLE arity) topics.
+`LabeledInferenceEndpoint`: provides the multi-label (vector) inference endpoint to hit, used for example by classification models. It supports URL template variables. It is required for multi-label (MULTI arity) topics. Which of the two inference endpoints is used is decided by the topic's on-chain arity, not by which endpoint is configured (see "Scalar vs multi-label" below).
 `ForecastEndpoint`: provides the forecast endpoint to hit. It supports URL template variables.
 
 If it is not desired to send inferences or forecasts, it can be configured by setting that specific entrypoint to nil. Example, for not sending inferences:
@@ -81,17 +81,25 @@ InferenceEntrypoint: nil
 ### Reputer
 
 The following endpoints are used:
-* `GroundTruthEndpoint`: provides the scalar ground truth endpoint to hit. It returns a single scalar value as plain text. It does support template variables.
-* `LabeledGroundTruthEndpoint`: provides the multi-label (vector) ground truth endpoint to hit. It supports template variables. When this parameter is present, the adapter fetches a labeled ground truth instead of a scalar one (see "Scalar vs multi-label" below).
-* `LossFunctionService`: provides the scalar loss function service to hit on loss calculation and the endpoint to know whether the loss function is never negative. These are appended to create `/calculate` and `/is_never_negative` endpoints respectively. They do not support template variables.
-* `LabeledLossFunctionService`: provides the multi-label loss function service. Like `LossFunctionService`, it is appended with `/calculate` and `/is_never_negative`. It is required when reputing on multi-label values. It does not support template variables.
+* `GroundTruthEndpoint`: provides the scalar ground truth endpoint to hit. It returns a single scalar value as plain text. It does support template variables. It is required for single-label (SINGLE arity) topics.
+* `LabeledGroundTruthEndpoint`: provides the multi-label (vector) ground truth endpoint to hit. It supports template variables. It is required for multi-label (MULTI arity) topics. Which of the two ground truth endpoints is used is decided by the topic's on-chain arity, not by which endpoint is configured (see "Scalar vs multi-label" below).
+* `LossFunctionService`: provides the scalar loss function service to hit on loss calculation and the endpoint to know whether the loss function is never negative. These are appended to create `/calculate` and `/is_never_negative` endpoints respectively. They do not support template variables. It is required for single-label (SINGLE arity) topics.
+* `LabeledLossFunctionService`: provides the multi-label loss function service. Like `LossFunctionService`, it is appended with `/calculate` and `/is_never_negative`. It is required for multi-label (MULTI arity) topics. It does not support template variables.
 
 ### Scalar vs multi-label
 
 The adapter supports both scalar (single-value) and multi-label (vector) payloads, such as classification where the payload is a dictionary of `Label:value` pairs.
 
-* Worker: if `LabeledInferenceEndpoint` is set, the labeled inference path is used; otherwise the scalar `InferenceEndpoint` path is used.
-* Reputer: if `LabeledGroundTruthEndpoint` is set, the labeled ground truth path is used; otherwise the scalar `GroundTruthEndpoint` path is used. When the values being reputed are multi-label, the `LabeledLossFunctionService` is used to compute loss and to check whether the loss function is never negative; for single-label values the scalar `LossFunctionService` is used.
+Which path is taken is driven by the topic's on-chain output arity (`TopicOutputArity`), not by which endpoints happen to be configured nor by the runtime length of a value vector. The arity is queried once at startup (it is immutable per topic) and reused every epoch: a `SINGLE` topic always takes the scalar path, and a `MULTI` topic always takes the labeled path (a `MULTI` topic can legitimately produce a length-1 vector at some block and still uses the labeled path).
+
+* SINGLE (scalar) topic:
+  * Worker: uses `InferenceEndpoint`.
+  * Reputer: uses `GroundTruthEndpoint` and `LossFunctionService`.
+* MULTI (multi-label) topic:
+  * Worker: uses `LabeledInferenceEndpoint`.
+  * Reputer: uses `LabeledGroundTruthEndpoint` and `LabeledLossFunctionService`.
+
+If the endpoint/service required by the topic's arity is not configured, the node fails fast with a clear error instead of silently submitting the wrong shape and having the chain reject the transaction. If the endpoint for the *other* arity is also configured, the node logs a warning and ignores it.
 
 The multi-label inference and ground truth endpoints must return a JSON array of `{"label", "value"}` objects, e.g.:
 ```
@@ -110,7 +118,7 @@ The labeled loss service's `/calculate` endpoint receives `y_true` and `y_pred` 
 {
   "y_true": [{"label": "up", "value": "1.0"}, {"label": "down", "value": "0.0"}],
   "y_pred": [{"label": "up", "value": "0.7"}, {"label": "down", "value": "0.3"}],
-  "options": {"method": "sqe"}
+  "options": {"loss_method": "sqe"}
 }
 ```
 

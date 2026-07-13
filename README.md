@@ -64,6 +64,7 @@ chmod +x start.local
 Some metrics are provided in the node. You can access them on port `:2112/metrics`. Here is the following list of existing metrics:
 
 - `allora_worker_inference_request_count`: The total number of times a worker requests inference from source
+- `allora_worker_labeled_inference_request_count`: The total number of times a worker requests a labeled (multi-label) inference from source
 - `allora_worker_forecast_request_count`: The total number of times a worker requests forecast from source
 - `allora_reputer_truth_request_count`: The total number of times a reputer requests truth from source
 - `allora_worker_chain_submission_count`: The total number of worker commits to the chain
@@ -314,6 +315,43 @@ These below are excerpts of the configuration (with some parts omitted for brevi
         },
         "lossFunctionParameters": {
           "LossFunctionService": "http://localhost:5000",
+          "LossMethodOptions": {
+            "loss_method": "sqe"
+          }
+        }
+      }
+    ]
+}
+```
+
+### Classification (multi-label) worker and reputer
+
+Some topics are multi-label (e.g. classification), where each submission is a vector of `label:value` pairs instead of a single scalar. Whether a topic is scalar or multi-label is determined by its **on-chain output arity** (`SINGLE` vs `MULTI`), which the node reads at startup — not by which endpoints you configure. For a `MULTI` topic you must configure the labeled endpoints (`LabeledInferenceEndpoint`, `LabeledGroundTruthEndpoint`, `LabeledLossFunctionService`); if the endpoint required for the topic's arity is missing the node fails fast, and any endpoint configured for the other arity is ignored with a warning. See [adapter/api/apiadapter/README.md](adapter/api/apiadapter/README.md) for the labeled request/response formats.
+
+```json
+{
+"worker": [
+      {
+        "topicId": 5,
+        "inferenceEntrypointName": "apiAdapter",
+        "parameters": {
+          "LabeledInferenceEndpoint": "http://source:8000/labeled-inference/{Token}",
+          "Token": "ETH"
+        }
+      }
+    ],
+"reputer": [
+      {
+        "topicId": 5,
+        "groundTruthEntrypointName": "apiAdapter",
+        "lossFunctionEntrypointName": "apiAdapter",
+        "minStake": "100000000",
+        "groundTruthParameters": {
+          "LabeledGroundTruthEndpoint": "http://localhost:8888/lgt/{Token}/{BlockHeight}",
+          "Token": "ETHUSD"
+        },
+        "lossFunctionParameters": {
+          "LabeledLossFunctionService": "http://localhost:5000/labeled",
           "LossMethodOptions": {
             "loss_method": "sqe"
           }
