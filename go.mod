@@ -12,7 +12,7 @@ require (
 	cosmossdk.io/errors v1.0.1
 	cosmossdk.io/math v1.4.0
 	cosmossdk.io/x/tx v0.13.7
-	github.com/allora-network/allora-chain v0.16.0
+	github.com/allora-network/allora-chain v0.17.0
 	github.com/cometbft/cometbft v0.38.21
 	github.com/cosmos/cosmos-sdk v0.50.14
 	github.com/cosmos/gogoproto v1.7.0
@@ -24,8 +24,6 @@ require (
 	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8
 	google.golang.org/grpc v1.70.0
 )
-
-replace github.com/allora-network/allora-chain => github.com/allora-network/allora-chain v0.16.1-0.20260602135805-81f3d7a7ea69
 
 require (
 	cosmossdk.io/api v0.7.6 // indirect
