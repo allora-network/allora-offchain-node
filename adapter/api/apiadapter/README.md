@@ -1,6 +1,6 @@
 # Allora Offchain API Adapter
 
-This repository contains the adapter module for the Allora Offchain Node. The adapter is responsible for connecting the offchain node to external systems via hitting an URL, for inferences, forecasts or source of truth.
+This repository contains the adapter module for the Allora Offchain Node. The adapter is responsible for connecting the off-chain node to external systems via hitting an URL, for inferences, forecasts or source of truth.
 
 It is intended to be used by configuration.
 
@@ -52,7 +52,7 @@ Reputer: []lib.ReputerConfig{
 ## Parameters
 
 The parameters section contains additional properties the user wants to use to configure their URLs to hit.
-In the case of the reputer, there are two parameters sections, one for the ground truth and one for the loss function.
+In the case of the reputer, there are two parameter sections, one for the ground truth and one for the loss function.
 In particular, the `LossMethodOptions` are specific to the loss function and passed unconverted to the loss function service.
 They can be used to pass additional parameters to the loss function service. For example, the `delta` parameter is passed to the huber loss function like this (or as per defined in the loss function service of choice): 
 

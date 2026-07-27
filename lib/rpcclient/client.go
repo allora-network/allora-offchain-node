@@ -41,7 +41,7 @@ func (c *AlloraRPCClient) BroadcastTx(ctx context.Context, txBytes []byte, waitF
 	return res, nil
 }
 
-// WaitForTx requests the tx from hash, if not found, waits for next block and
+// WaitForTx requests the tx from hash, if not found, waits for the next block and
 // tries again. Returns an error if ctx is canceled.
 func (c AlloraRPCClient) WaitForTx(ctx context.Context, hash string) (*coretypes.ResultTx, error) {
 	ctx, cancel := context.WithTimeout(ctx, WaitForTxTimeout)

@@ -58,7 +58,7 @@ Subpackages are used to encapsulate functionality that is not directly Allora. E
 
 ## Architecture Decisions
 
-1. Singleton pattern for metrics to ensure single source of truth
+1. Singleton pattern for metrics to ensure a single source of truth
 2. Separation of query and transaction nodes for better reliability
 3. Thread-safe implementations for concurrent operations
 4. Clear separation between configuration and runtime components
